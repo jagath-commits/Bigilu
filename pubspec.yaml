@@ -42,9 +42,10 @@ dependencies:
   http: ^1.6.0
   mime: ^2.0.0
   http_parser: ^4.0.2
-  firebase_core: ^4.4.0
-  firebase_auth: ^6.1.4
   cached_network_image: ^3.3.1
+  firebase_core: ^4.5.0
+  firebase_auth: ^6.1.4
+  app_links: ^6.0.2
 
 
 dev_dependencies:
@@ -82,7 +83,7 @@ flutter:
       - assets/images/tvk.webp
       - assets/images/bigilu_logo21.png
       - assets/images/bigilu_org3.png
-  #   - images/a_dot_ham.jpeg
+      - assets/images/codereadlogo.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

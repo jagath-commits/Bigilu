@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform, File;
 import 'package:bigilu/home.dart';
 import 'package:flutter/cupertino.dart';
@@ -15,26 +16,30 @@ class PageBlock {
   String? imageUrl; // 🔥 ADD THIS
   double? imageWidth;
   Offset? imagePosition; // 🔥 ADD THIS
+  String? previousText;
 
   PageBlock.text(this.text)
     : type = "text",
       image = null,
       imageUrl = null,
-      imageWidth = null;
+      imageWidth = null,
+      previousText = text;
 
   PageBlock.image(this.image)
     : type = "image",
       text = null,
       imageUrl = null,
       imageWidth = 200,
-      imagePosition = const Offset(0, 0);
+      imagePosition = const Offset(0, 0),
+      previousText = null;
 
   PageBlock.networkImage(this.imageUrl)
     : type = "image",
       text = null,
       image = null,
       imageWidth = 200,
-      imagePosition = const Offset(0, 0);
+      imagePosition = const Offset(0, 0),
+      previousText = null;
 }
 
 class PageData {
@@ -69,28 +74,41 @@ class WritePage extends StatefulWidget {
 
 class _WritePageState extends State<WritePage> {
   String? _draftCoverImage;
+  String? _draftId;
+
+  // previously a fixed constant – use a getter so the limit updates
+  // with the screen size/keyboard adjustments.
+  double get _pageHeightLimit => MediaQuery.of(context).size.height * 0.65;
 
   final Map<String, TextEditingController> _controllers = {};
+  final Map<String, FocusNode> _focusNodes = {};
 
-int _getWordLimit(PageData page) {
-  bool hasImage =
-      page.blocks.any((block) => block.type == "image");
+  int _getWordLimit(PageData page) {
+    bool hasImage = page.blocks.any((block) => block.type == "image");
 
-  return hasImage ? 120 : 250;
-}
+    return hasImage ? 120 : 250;
+  }
 
-int _countWords(String text) {
-  if (text.trim().isEmpty) return 0;
-  return text
-      .trim()
-      .split(RegExp(r'\s+'))
-      .where((w) => w.isNotEmpty)
-      .length;
-}
+  int _countWords(String text) {
+    if (text.trim().isEmpty) return 0;
+    return text.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+  }
+
+  int _getMaxLines(double fontSize) {
+    if (fontSize <= 16) return 25;
+    if (fontSize <= 18) return 22;
+    if (fontSize <= 20) return 20;
+    if (fontSize <= 22) return 25;
+    if (fontSize <= 24) return 17;
+    if (fontSize <= 26) return 16;
+    return 15; // font size 28
+  }
 
   @override
   void initState() {
     super.initState();
+
+    _draftId = widget.draftId;
 
     if (widget.draftContent != null) {
       _loadDraftContent(widget.draftContent!);
@@ -102,60 +120,303 @@ int _countWords(String text) {
     }
   }
 
-  void _handleTextChange(
-    String value, int pageIndex, int blockIndex) {
-
-  final page = _pages[pageIndex];
-  final block = page.blocks[blockIndex];
-
-  int wordLimit = _getWordLimit(page);
-  List<String> words =
-      value.trim().split(RegExp(r'\s+'));
-
-  // ✅ If limit not reached → just update normally
-  if (words.length <= wordLimit) {
-    setState(() {
-      block.text = value;
-    });
-    return;
+  @override
+  void dispose() {
+    for (var controller in _controllers.values) {
+      controller.dispose();
+    }
+    for (var focusNode in _focusNodes.values) {
+      focusNode.dispose();
+    }
+    super.dispose();
   }
 
-  // ✅ ONLY split when limit exceeded
-  List<String> currentWords =
-      words.take(wordLimit).toList();
-
-  List<String> remainingWords =
-      words.skip(wordLimit).toList();
-
-  setState(() {
-    block.text = currentWords.join(" ");
-
-    // Update controller text properly
-    String key = "$pageIndex-$blockIndex";
-    _controllers[key]?.text = block.text!;
-    _controllers[key]?.selection = TextSelection.fromPosition(
-      TextPosition(offset: _controllers[key]!.text.length),
+  // optionally assume an image will be added (useful when calculating before inserting)
+  bool _doesTextOverflow(
+    String text,
+    PageData page,
+    double maxWidth, {
+    bool assumeImage = false,
+  }) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(fontSize: page.fontSize, fontFamily: page.fontFamily),
+      ),
+      maxLines: null,
+      textDirection: TextDirection.ltr,
     );
 
-    // Create new page ONLY if remaining exists
-    if (remainingWords.isNotEmpty) {
-      PageData newPage = PageData(
-        fontSize: page.fontSize,
-        fontFamily: page.fontFamily,
-        fontColor: page.fontColor,
-      );
+    painter.layout(maxWidth: maxWidth);
 
-      newPage.blocks[0].text =
-          remainingWords.join(" ");
+    // consider the whole page: any image affects layout
+    bool hasImage = assumeImage || page.blocks.any((b) => b.type == "image");
 
-      _pages.insert(pageIndex + 1, newPage);
+    // enforce line counts: 25 lines per page
+    int actualLines = painter.computeLineMetrics().length;
+    int allowedLines = 25;
+    if (actualLines > allowedLines) return true;
+
+    double allowedHeight = _pageHeightLimit;
+    if (hasImage) {
+      allowedHeight -= 200;
     }
-  });
 
-  Future.delayed(const Duration(milliseconds: 100), () {
-    _pageController.jumpToPage(pageIndex + 1);
-  });
+    return painter.height > allowedHeight;
+  }
+
+  /// Rebalance all content from a given page index onwards
+  /// This collects all text from that page to the end, then redistributes it
+  /// ensuring proper page breaks and adding/removing pages as needed
+  void _rebalancePagesFromIndex(int pageIndex) {
+    if (pageIndex >= _pages.length) return;
+
+    double maxWidth = MediaQuery.of(context).size.width * 0.75;
+
+    // Collect all text blocks and images from this page onwards
+    String allText = "";
+    List<MapEntry<int, int>> imagePositions = []; // (pageIdx, blockIdx) pairs
+
+    for (int p = pageIndex; p < _pages.length; p++) {
+      for (int b = 0; b < _pages[p].blocks.length; b++) {
+        final block = _pages[p].blocks[b];
+        if (block.type == "text" && (block.text ?? "").isNotEmpty) {
+          allText += (block.text ?? "") + "\n";
+        } else if (block.type == "image") {
+          imagePositions.add(MapEntry(p, b));
+        }
+      }
+    }
+
+    allText = allText.trim();
+
+    // Clear all text blocks from this page onwards (keep images for now)
+    for (int p = pageIndex; p < _pages.length; p++) {
+      _pages[p].blocks.removeWhere((b) => b.type == "text");
+    }
+
+    // Redistribute all collected text starting from this page
+    if (allText.isNotEmpty) {
+      _distributeTextToPages(pageIndex, allText);
+    }
+
+    // Update all controllers from this page onwards
+    for (int p = pageIndex; p < _pages.length; p++) {
+      for (int b = 0; b < _pages[p].blocks.length; b++) {
+        if (_pages[p].blocks[b].type == "text") {
+          String key = "$p-$b";
+          if (_controllers.containsKey(key)) {
+            _controllers[key]!.text = _pages[p].blocks[b].text ?? "";
+          } else {
+            _controllers[key] = TextEditingController(
+              text: _pages[p].blocks[b].text ?? "",
+            );
+            _focusNodes[key] = FocusNode();
+          }
+        }
+      }
+    }
+
+    // Remove trailing empty pages
+    while (_pages.length > 1 &&
+        _pages.last.blocks.every(
+          (b) => b.type != "text" || (b.text ?? "").trim().isEmpty,
+        ) &&
+        !_pages.last.blocks.any((b) => b.type == "image")) {
+      _pages.removeLast();
+      if (_currentPage >= _pages.length) {
+        _currentPage = _pages.length - 1;
+      }
+    }
+  }
+
+  /// distribute [text] starting at [startPage] across pages, creating
+  /// new pages as needed.  Guarantees no page ends up overflowing the visible
+  /// area, even when [text] is very large (e.g. from a paste).
+  void _distributeTextToPages(int startPage, String text) {
+    double maxWidth = MediaQuery.of(context).size.width * 0.75;
+    String remaining = text;
+    int pageIdx = startPage;
+
+    while (remaining.isNotEmpty) {
+      // ensure page exists
+      if (pageIdx >= _pages.length) {
+        _pages.add(
+          PageData(
+            fontSize: _pages[0].fontSize,
+            fontFamily: _pages[0].fontFamily,
+            fontColor: _pages[0].fontColor,
+          ),
+        );
+      }
+
+      PageData page = _pages[pageIdx];
+
+      // If this is a new page (not the starting page), clear empty blocks
+      if (pageIdx > startPage) {
+        page.blocks.removeWhere(
+          (b) => b.type == "text" && (b.text ?? "").trim().isEmpty,
+        );
+      }
+
+      // find or create a text block at end
+      PageBlock? lastBlock;
+      for (var b in page.blocks.reversed) {
+        if (b.type == "text") {
+          lastBlock = b;
+          break;
+        }
+      }
+      if (lastBlock == null) {
+        page.blocks.add(PageBlock.text(""));
+        lastBlock = page.blocks.last;
+      }
+
+      String existing = lastBlock.text ?? "";
+      String candidate = existing + remaining;
+
+      if (!_doesTextOverflow(candidate, page, maxWidth)) {
+        // whole remainder fits on this page
+        lastBlock.text = candidate;
+        remaining = "";
+      } else {
+        // need to split; binary search for largest prefix that fits
+        int low = 0, high = remaining.length;
+        while (low < high) {
+          int mid = (low + high + 1) ~/ 2;
+          String prefix = existing + remaining.substring(0, mid);
+          if (_doesTextOverflow(prefix, page, maxWidth)) {
+            high = mid - 1;
+          } else {
+            low = mid;
+          }
+        }
+        // low characters of remaining can fit
+        if (low == 0) {
+          // should not happen (means single char doesn't fit)
+          // to avoid infinite loop, forcibly move one char
+          low = 1;
+        }
+        String fitPart = remaining.substring(0, low);
+        lastBlock.text = existing + fitPart;
+        remaining = remaining.substring(low);
+        pageIdx++;
+      }
+    }
+  }
+
+  void _handleTextChange(String value, int pageIndex, int blockIndex) {
+  final page = _pages[pageIndex];
+  double maxWidth = MediaQuery.of(context).size.width * 0.75;
+
+  _pages[pageIndex].blocks[blockIndex].text = value;
+  _controllers["$pageIndex-$blockIndex"]?.text = value;
+  _pages[pageIndex].blocks[blockIndex].previousText = value;
+
+  int oldPageCount = _pages.length;
+
+  if (_doesTextOverflow(value, page, maxWidth)) {
+    _rebalancePagesFromIndex(pageIndex);
+
+    /// 🔥 if a new page was created
+    if (_pages.length > oldPageCount) {
+      int newPageIndex = pageIndex + 1;
+
+      setState(() {
+        _currentPage = newPageIndex;
+      });
+
+      /// 🔥 jump to the new page
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _pageController.jumpToPage(newPageIndex);
+      });
+
+      /// 🔥 move cursor to first text field
+      Future.delayed(const Duration(milliseconds: 100), () {
+        String key = "$newPageIndex-0";
+
+        if (!_controllers.containsKey(key)) {
+          _controllers[key] = TextEditingController(
+            text: _pages[newPageIndex].blocks.first.text ?? "",
+          );
+        }
+
+        if (!_focusNodes.containsKey(key)) {
+          _focusNodes[key] = FocusNode();
+        }
+
+        FocusScope.of(context).requestFocus(_focusNodes[key]);
+      });
+    }
+  } else {
+    _pullContentUpIfSpace(pageIndex);
+  }
+
+  /// remove empty pages
+  while (_pages.length > 1 &&
+      _pages.last.blocks.every(
+        (b) => b.type != "text" || (b.text ?? "").trim().isEmpty,
+      ) &&
+      !_pages.last.blocks.any((b) => b.type == "image")) {
+    _pages.removeLast();
+    if (_currentPage >= _pages.length) {
+      _currentPage = _pages.length - 1;
+    }
+  }
 }
+
+  /// Pull content from next page if current page has space
+  void _pullContentUpIfSpace(int pageIndex) {
+    if (pageIndex >= _pages.length - 1) return; // No next page
+
+    double maxWidth = MediaQuery.of(context).size.width * 0.75;
+    var currentPage = _pages[pageIndex];
+    var nextPage = _pages[pageIndex + 1];
+
+    // Calculate current page usage
+    String currentText = "";
+    for (var b in currentPage.blocks) {
+      if (b.type == "text") currentText += (b.text ?? "") + "\n";
+    }
+    currentText = currentText.trim();
+
+    // If current page has space, try to pull one block from next page
+    if (!_doesTextOverflow(currentText, currentPage, maxWidth)) {
+      var nextTextBlocks = nextPage.blocks
+          .where((b) => b.type == "text" && (b.text ?? "").trim().isNotEmpty)
+          .toList();
+
+      if (nextTextBlocks.isNotEmpty) {
+        // Check if next page will still have content
+        bool canMove =
+            nextTextBlocks.length > 1 ||
+            nextPage.blocks.any((b) => b.type == "image");
+
+        if (canMove) {
+          // Try to move first block to current page
+          var blockToMove = nextTextBlocks.first;
+          String testText = currentText + "\n" + (blockToMove.text ?? "");
+
+          if (!_doesTextOverflow(testText, currentPage, maxWidth)) {
+            // It fits! Move the block
+            currentPage.blocks.add(PageBlock.text(blockToMove.text ?? ""));
+            nextPage.blocks.remove(blockToMove);
+
+            // Update controller
+            int newBlockIndex = currentPage.blocks.length - 1;
+            String newKey = "$pageIndex-$newBlockIndex";
+            _controllers[newKey] = TextEditingController(
+              text: blockToMove.text ?? "",
+            );
+            _focusNodes[newKey] = FocusNode();
+
+            // Recursively try to pull more if still has space
+            _pullContentUpIfSpace(pageIndex);
+          }
+        }
+      }
+    }
+  }
 
   Future<void> _postDraft() async {
     try {
@@ -187,7 +448,7 @@ int _countWords(String text) {
       final currentUserId = prefs.getString("user_id");
 
       // ✅ ALWAYS assign
-      String url = "http://192.168.29.182:3000/api/posts/createPost";
+      String url = "https://bigiluu.com/api/posts/createPost";
 
       Map<String, dynamic> body = {
         "user_id": currentUserId,
@@ -199,7 +460,7 @@ int _countWords(String text) {
       if (widget.draftId != null) {
         await http.delete(
           Uri.parse(
-            "http://192.168.29.182:3000/api/draft/deleteDraft/${widget.draftId}",
+            "https://bigiluu.com/api/draft/deleteDraft/${widget.draftId}",
           ),
         );
       }
@@ -232,7 +493,7 @@ int _countWords(String text) {
 
       for (var page in decoded) {
         PageData pageData = PageData(
-          fontSize: (page['fontSize'] ?? 18).toDouble(),
+          fontSize: (page['fontSize'] ?? 20).toDouble(),
           fontFamily: page['fontFamily'] ?? "Roboto",
           fontColor: page['fontColor'] ?? Colors.black.value,
         );
@@ -248,11 +509,11 @@ int _countWords(String text) {
             final imageName = block['image'];
             final width = (block['imageWidth'] ?? 200).toDouble();
             final posX = (block['imagePosX'] ?? 0).toDouble();
-  final posY = (block['imagePosY'] ?? 0).toDouble();
+            final posY = (block['imagePosY'] ?? 0).toDouble();
 
             if (imageName != null && imageName.toString().trim().isNotEmpty) {
               final imageUrl =
-                  "http://192.168.29.182:3000/Uploads/draft_covers/$imageName";
+                  "https://bigiluu.com/uploads/draft_covers/$imageName";
 
               final imgBlock = PageBlock.networkImage(imageUrl);
               imgBlock.imageWidth = width;
@@ -276,14 +537,14 @@ int _countWords(String text) {
   final ImagePicker _imagePicker = ImagePicker();
 
   List<PageData> _pages = [
-    PageData(fontSize: 18, fontFamily: "Roboto", fontColor: Colors.black.value),
+    PageData(fontSize: 22, fontFamily: "Roboto", fontColor: Colors.black.value),
   ];
 
   Future<void> saveDraft() async {
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getString("user_id");
 
-    final uri = Uri.parse("http://192.168.29.182:3000/api/draft/saveDraft");
+    final uri = Uri.parse("https://bigiluu.com/api/draft/saveDraft");
 
     var request = http.MultipartRequest("POST", uri);
 
@@ -315,13 +576,13 @@ int _countWords(String text) {
         }
 
         blocksJson.add({
-  "type": block.type,
-  "text": block.text,
-  "image": imageName,
-  "imageWidth": block.imageWidth,
-  "imagePosX": block.imagePosition?.dx,
-  "imagePosY": block.imagePosition?.dy,
-});
+          "type": block.type,
+          "text": block.text,
+          "image": imageName,
+          "imageWidth": block.imageWidth,
+          "imagePosX": block.imagePosition?.dx,
+          "imagePosY": block.imagePosition?.dy,
+        });
       }
 
       pagesJson.add({
@@ -334,9 +595,19 @@ int _countWords(String text) {
 
     request.fields["content"] = jsonEncode(pagesJson);
 
-    var response = await request.send();
+    var streamedResponse = await request.send();
+    var response = await http.Response.fromStream(streamedResponse);
 
+    print("STATUS: ${response.statusCode}");
+    print("BODY: ${response.body}");
     if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+
+      // 🔥 VERY IMPORTANT
+      if (data["draft_id"] != null) {
+        _draftId = data["draft_id"]; // STORE IT
+      }
+
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Draft Saved")));
@@ -346,24 +617,73 @@ int _countWords(String text) {
   Future<void> _pickImageForPage(int index) async {
     final XFile? image = await _imagePicker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 80, 
+      imageQuality: 80,
     );
 
     if (image != null) {
       setState(() {
-        _pages[index].blocks.add(PageBlock.image(File(image.path)));
+        // before inserting, make sure current page can fit the image
+        double maxWidth = MediaQuery.of(context).size.width * 0.75;
+        // combine all existing text in the page
+        String combinedText = _pages[index].blocks
+            .where((b) => b.type == "text")
+            .map((b) => b.text ?? "")
+            .join("\n");
 
+        bool willOverflow = _doesTextOverflow(
+          combinedText,
+          _pages[index],
+          maxWidth,
+          assumeImage: true,
+        );
+        int targetPage = index;
+        if (willOverflow) {
+          targetPage = index + 1;
+          if (targetPage >= _pages.length) {
+            _pages.add(
+              PageData(
+                fontSize: _pages[index].fontSize,
+                fontFamily: _pages[index].fontFamily,
+                fontColor: _pages[index].fontColor,
+              ),
+            );
+          }
+        }
+
+        _pages[targetPage].blocks.add(PageBlock.image(File(image.path)));
         // Add new text block after image
-        _pages[index].blocks.add(PageBlock.text(""));
+        _pages[targetPage].blocks.add(PageBlock.text(""));
+
+        if (willOverflow) {
+          // navigate to new page
+          Future.microtask(() {
+            _pageController.animateToPage(
+              targetPage,
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOut,
+            );
+          });
+        }
       });
     }
   }
 
   void _removeImageBlock(int pageIndex, int blockIndex) {
     setState(() {
-      _pages[pageIndex].blocks.removeAt(blockIndex);
+      final blocks = _pages[pageIndex].blocks;
 
-      // Optional: remove empty text block above/below if needed
+      // simply remove the image – do NOT delete the following text
+      blocks.removeAt(blockIndex);
+
+      // if removing left two adjacent text blocks, merge them
+      for (int i = 0; i < blocks.length - 1; i++) {
+        if (blocks[i].type == "text" && blocks[i + 1].type == "text") {
+          blocks[i].text =
+              (blocks[i].text ?? "") + '\n' + (blocks[i + 1].text ?? "");
+          blocks.removeAt(i + 1);
+          break;
+        }
+      }
     });
   }
 
@@ -384,10 +704,24 @@ int _countWords(String text) {
       }
 
       _pageController.jumpToPage(_currentPage);
+
+      // Update controllers for pages after the deleted one
+      for (int p = _currentPage; p < _pages.length; p++) {
+        for (int b = 0; b < _pages[p].blocks.length; b++) {
+          if (_pages[p].blocks[b].type == "text") {
+            String oldKey = "${p + 1}-$b";
+            String newKey = "$p-$b";
+            if (_controllers.containsKey(oldKey)) {
+              _controllers[newKey] = _controllers.remove(oldKey)!;
+              _focusNodes[newKey] = _focusNodes.remove(oldKey)!;
+            }
+          }
+        }
+      }
     });
   }
 
-  double _fontSize = 18;
+  double _fontSize = 22;
   Color _fontColor = Colors.black;
   String _fontFamily = "Roboto";
   final PageController _pageController = PageController();
@@ -417,7 +751,7 @@ int _countWords(String text) {
     setState(() {
       _pages.add(
         PageData(
-          fontSize: 18,
+          fontSize: 22,
           fontFamily: "Roboto",
           fontColor: Colors.black.value,
         ),
@@ -433,8 +767,9 @@ int _countWords(String text) {
     // ignore: deprecated_member_use
     return WillPopScope(
       onWillPop: () async {
-        await saveDraft(); // 🔥 Auto save when back pressed
-        return true; // allow page to close
+        await saveDraft();
+        Navigator.pop(context, true);
+        return false;
       },
       child: Scaffold(
         resizeToAvoidBottomInset: true,
@@ -448,52 +783,55 @@ int _countWords(String text) {
             statusBarBrightness: Brightness.light,
           ),
           title: Row(
-  children: [
-    Image.asset(
-      "assets/images/bigilu_logo21.png",
-      height: 50,
-      fit: BoxFit.contain,
-    ),
+            children: [
+              Image.asset(
+                "assets/images/bigilu_logo21.png",
+                height: 50,
+                fit: BoxFit.contain,
+              ),
 
-    const Spacer(), // pushes buttons to right
+              const Spacer(), // pushes buttons to right
 
-    TextButton(
-      onPressed: () {
-        saveDraft();
-      },
-      child: const Text(
-        "Save Draft",
-        style: TextStyle(fontSize: 16, color: Color(0xFF800000)),
-      ),
-    ),
+              TextButton(
+                onPressed: () async {
+                  await saveDraft();
 
-    const SizedBox(width: 8),
-
-    TextButton(
-      onPressed: () {
-        final route = Platform.isIOS
-            ? CupertinoPageRoute(
-                builder: (_) => CoverEditorPage(
-                  pages: _pages,
-                  draftId: widget.draftId,
+                  // Go back and tell profile to refresh
+                  Navigator.pop(context, true);
+                },
+                child: const Text(
+                  "Save Draft",
+                  style: TextStyle(fontSize: 16, color: Color(0xFF800000)),
                 ),
-              )
-            : MaterialPageRoute(
-                builder: (_) => CoverEditorPage(
-                  pages: _pages,
-                  draftId: widget.draftId,
-                ),
-              );
+              ),
 
-        Navigator.push(context, route);
-      },
-      child: const Text(
-        "Next",
-        style: TextStyle(fontSize: 16, color: Color(0xFF800000)),
-      ),
-    ),
-  ],
-),
+              const SizedBox(width: 8),
+
+              TextButton(
+                onPressed: () {
+                  final route = Platform.isIOS
+                      ? CupertinoPageRoute(
+                          builder: (_) => CoverEditorPage(
+                            pages: _pages,
+                            draftId: widget.draftId,
+                          ),
+                        )
+                      : MaterialPageRoute(
+                          builder: (_) => CoverEditorPage(
+                            pages: _pages,
+                            draftId: widget.draftId,
+                          ),
+                        );
+
+                  Navigator.push(context, route);
+                },
+                child: const Text(
+                  "Next",
+                  style: TextStyle(fontSize: 16, color: Color(0xFF800000)),
+                ),
+              ),
+            ],
+          ),
         ),
         body: Column(
           children: [
@@ -527,171 +865,105 @@ int _countWords(String text) {
                               ),
                             ],
                           ),
-                          child: ListView.builder(
-                            itemCount: _pages[index].blocks.length,
-                            itemBuilder: (context, blockIndex) {
-                              final block = _pages[index].blocks[blockIndex];
-                              if (block.type == "text") {
+                          child: SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.65,
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: List.generate(
+                                  _pages[index].blocks.length,
+                                  (blockIndex) {
+                                    final block =
+                                        _pages[index].blocks[blockIndex];
+                                    if (block.type == "text") {
+                                      String key = "$index-$blockIndex";
 
-  String key = "$index-$blockIndex";
+                                      if (!_controllers.containsKey(key)) {
+                                        _controllers[key] =
+                                            TextEditingController(
+                                              text: block.text ?? "",
+                                            );
+                                      }
 
-  if (!_controllers.containsKey(key)) {
-    _controllers[key] =
-        TextEditingController(text: block.text ?? "");
-  }
+                                      if (!_focusNodes.containsKey(key)) {
+                                        _focusNodes[key] = FocusNode();
+                                      }
 
-  return TextField(
-    controller: _controllers[key],
-    onChanged: (value) {
-      _handleTextChange(value, index, blockIndex);
-    },
-    maxLines: null,
-    style: TextStyle(
-      fontSize: _pages[index].fontSize,
-      fontFamily: _pages[index].fontFamily,
-      color: Color(_pages[index].fontColor),
-    ),
-    decoration: const InputDecoration(
-      hintText: "Write your heart...",
-      border: InputBorder.none,
-    ),
-  );
-}
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 6,
+                                        ),
+                                        child: TextField(
+                                          controller: _controllers[key],
+                                          focusNode: _focusNodes[key],
+                                          onChanged: (value) {
+                                            _handleTextChange(
+                                              value,
+                                              index,
+                                              blockIndex,
+                                            );
+                                          },
+                                          maxLines: null,
+                                          style: TextStyle(
+                                            fontSize: _pages[index].fontSize,
+                                            fontFamily:
+                                                _pages[index].fontFamily,
+                                            color: Color(
+                                              _pages[index].fontColor,
+                                            ),
+                                          ),
+                                          decoration: InputDecoration(
+                                            hintText: blockIndex == 0
+                                                ? "Write your heart..."
+                                                : null,
+                                            border: InputBorder.none,
+                                          ),
+                                        ),
+                                      );
+                                    }
 
-if (block.type == "image") {
-
-  // ===============================
-  // LOCAL IMAGE
-  // ===============================
-  if (block.image != null) {
-    return Column(
-      children: [
-        SizedBox(
-  height: 350,
-  child: LayoutBuilder(
-    builder: (context, constraints) {
-      return Stack(
-        children: [
-          Positioned(
-            left: (block.imagePosition?.dx ?? 0.5) *
-                constraints.maxWidth,
-            top: (block.imagePosition?.dy ?? 0.0) *
-                constraints.maxHeight,
-            child: GestureDetector(
-              onPanUpdate: (details) {
-                setState(() {
-                  double newX =
-                      (block.imagePosition?.dx ?? 0.5) +
-                      (details.delta.dx /
-                          constraints.maxWidth);
-
-                  double newY =
-                      (block.imagePosition?.dy ?? 0.0) +
-                      (details.delta.dy /
-                          constraints.maxHeight);
-
-                  block.imagePosition = Offset(
-                    newX.clamp(0.0, 1.0),
-                    newY.clamp(0.0, 1.0),
-                  );
-                });
-              },
-              child: Image.file(
-                block.image!,
-                width: block.imageWidth ?? 200,
-              ),
-            ),
-          ),
-
-          // Delete Button
-          Positioned(
-            top: 0,
-            right: 0,
-            child: GestureDetector(
-              onTap: () =>
-                  _removeImageBlock(index, blockIndex),
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: const BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
-    },
-  ),
-),
-
-        // Width Slider
-        Slider(
-          min: 100,
-          max: 300,
-          value: block.imageWidth ?? 200,
-          onChanged: (value) {
-            setState(() {
-              block.imageWidth = value;
-            });
-          },
-        ),
-      ],
-    );
-  }
-
-  // ===============================
-  // NETWORK IMAGE
-  // ===============================
-  if (block.imageUrl != null &&
-      block.imageUrl!.isNotEmpty) {
-
-    return Column(
-      children: [
-        SizedBox(
-  height: 350,
-  child: LayoutBuilder(
-    builder: (context, constraints) {
-      return Stack(
-        children: [
-          Positioned(
-            left: (block.imagePosition?.dx ?? 0.5) *
-                constraints.maxWidth,
-            top: (block.imagePosition?.dy ?? 0.0) *
-                constraints.maxHeight,
-            child: Image.network(
-              block.imageUrl!,
-              width: block.imageWidth ?? 200,
-            ),
-          ),
-        ],
-      );
-    },
-  ),
-),
-
-        // Width Slider
-        Slider(
-          min: 100,
-          max: 300,
-          value: block.imageWidth ?? 200,
-          onChanged: (value) {
-            setState(() {
-              block.imageWidth = value;
-            });
-          },
-        ),
-      ],
-    );
-  }
-}
-                              return const SizedBox();
-                            },
+                                    if (block.type == "image") {
+                                      Widget imageWidget;
+                                      if (block.image != null) {
+                                        imageWidget = Image.file(
+                                          block.image!,
+                                          width: 200,
+                                          height: 200,
+                                          fit: BoxFit.contain,
+                                        );
+                                      } else if (block.imageUrl != null &&
+                                          block.imageUrl!.isNotEmpty) {
+                                        imageWidget = Image.network(
+                                          block.imageUrl!,
+                                          width: 200,
+                                          height: 200,
+                                          fit: BoxFit.contain,
+                                        );
+                                      } else {
+                                        return const SizedBox();
+                                      }
+                                      return Stack(
+                                        alignment: Alignment.topRight,
+                                        children: [
+                                          Center(child: imageWidget),
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.delete,
+                                              color: Colors.red,
+                                            ),
+                                            onPressed: () => _removeImageBlock(
+                                              index,
+                                              blockIndex,
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    }
+                                    return const SizedBox();
+                                  },
+                                ),
+                              ),
+                            ),
                           ),
                         );
                       },
@@ -772,34 +1044,14 @@ if (block.type == "image") {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  PopupMenuButton<double>(
-                    icon: const Icon(Icons.text_fields),
-                    onSelected: (value) {
-                      setState(() {
-                        _fontSize = value;
-                        _pages[_currentPage].fontSize =
-                            value; // Update current page
-                      });
-                    },
-                    itemBuilder: (context) => [16, 18, 20, 22, 24, 28]
-                        .map(
-                          (s) => PopupMenuItem(
-                            value: s.toDouble(),
-                            child: Text("Size: $s"),
-                          ),
-                        )
-                        .toList(),
-                  ),
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.font_download),
                     onSelected: (value) {
                       setState(() {
                         _fontFamily = value;
-                        _pages[_currentPage].fontFamily =
-                            value; // Update current page
+                        _pages[_currentPage].fontFamily = value;
                       });
                     },
-
                     itemBuilder: (context) => _fontFamilies
                         .map(
                           (font) => PopupMenuItem(
@@ -817,8 +1069,7 @@ if (block.type == "image") {
                     onSelected: (value) {
                       setState(() {
                         _fontColor = value;
-                        _pages[_currentPage].fontColor =
-                            value.value; // Update current page
+                        _pages[_currentPage].fontColor = value.value;
                       });
                     },
                     itemBuilder: (context) => _fontColors
@@ -832,10 +1083,6 @@ if (block.type == "image") {
                           ),
                         )
                         .toList(),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.image),
-                    onPressed: () => _pickImageForPage(_currentPage),
                   ),
                 ],
               ),
@@ -866,7 +1113,7 @@ class _CoverEditorPageState extends State<CoverEditorPage> {
   double _fontSize = 28;
   Color _fontColor = Colors.white;
   String _fontFamily = "Roboto";
-  
+
   Offset _textPosition = const Offset(0.5, 0.4);
 
   final List<String> _fontFamilies = [
@@ -904,37 +1151,34 @@ class _CoverEditorPageState extends State<CoverEditorPage> {
 
     return Scaffold(
       appBar: AppBar(
-  title: const Text("Design Cover"),
-  actions: [
-    TextButton(
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => PostPage(
-              pages: widget.pages,
-              draftId: widget.draftId,
-              coverImage: _coverImage,
-              title: _titleController.text,
-              titleFontSize: _fontSize,
-              titleColor: _fontColor,
-              titleFontFamily: _fontFamily,
-              titlePosition: _textPosition,
+        title: const Text("Design Cover"),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PostPage(
+                    pages: widget.pages,
+                    draftId: widget.draftId,
+                    coverImage: _coverImage,
+                    title: _titleController.text,
+                    titleFontSize: _fontSize,
+                    titleColor: _fontColor,
+                    titleFontFamily: _fontFamily,
+                    titlePosition: _textPosition,
+                  ),
+                ),
+              );
+            },
+            child: const Text(
+              "Next",
+              style: TextStyle(fontSize: 16, color: Color(0xFF800000)),
             ),
           ),
-        );
-      },
-      child: const Text(
-        "Next",
-        style: TextStyle(
-          fontSize: 16,
-          color: Color(0xFF800000),
-        ),
+          const SizedBox(width: 10),
+        ],
       ),
-    ),
-    const SizedBox(width: 10),
-  ],
-),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -966,51 +1210,37 @@ class _CoverEditorPageState extends State<CoverEditorPage> {
 
                     // DRAGGABLE TITLE
                     LayoutBuilder(
-  builder: (context, constraints) {
-    final maxWidth = constraints.maxWidth;
-    final maxHeight = constraints.maxHeight;
-
-    return Positioned(
-      left: _textPosition.dx * maxWidth,
-      top: _textPosition.dy * maxHeight,
-      child: GestureDetector(
-        onPanUpdate: (details) {
-          setState(() {
-            double newX =
-                _textPosition.dx +
-                (details.delta.dx / maxWidth);
-
-            double newY =
-                _textPosition.dy +
-                (details.delta.dy / maxHeight);
-
-            // Clamp safely between 0 and 1
-            newX = newX.clamp(0.0, 1.0);
-            newY = newY.clamp(0.0, 1.0);
-
-            _textPosition = Offset(newX, newY);
-          });
-        },
-        child: Text(
-          _titleController.text,
-          style: TextStyle(
-            fontSize: _fontSize,
-            color: _fontColor,
-            fontFamily: _fontFamily,
-            fontWeight: FontWeight.bold,
-            shadows: const [
-              Shadow(
-                blurRadius: 8,
-                color: Colors.black,
-                offset: Offset(2, 2),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  },
-),
+                      builder: (context, constraints) {
+                        return Stack(
+                          children: [
+                            Positioned(
+                              top: 30,
+                              left: 0,
+                              right: 0,
+                              child: Center(
+                                child: Text(
+                                  _titleController.text,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: _fontSize,
+                                    color: _fontColor,
+                                    fontFamily: _fontFamily,
+                                    fontWeight: FontWeight.bold,
+                                    shadows: const [
+                                      Shadow(
+                                        blurRadius: 8,
+                                        color: Colors.black,
+                                        offset: Offset(2, 2),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -1142,7 +1372,7 @@ class _PostPageState extends State<PostPage> {
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getString("user_id");
 
-    final uri = Uri.parse("http://192.168.29.182:3000/api/posts/createPost");
+    final uri = Uri.parse("https://bigiluu.com/api/posts/createPost");
 
     var request = http.MultipartRequest("POST", uri);
 
@@ -1150,14 +1380,15 @@ class _PostPageState extends State<PostPage> {
     String? coverImageName;
 
     if (widget.coverImage != null) {
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          "cover_images",
-          widget.coverImage!.path,
-        ),
-      );
+      File? finalCover = _pickedImage ?? widget.coverImage;
 
-      coverImageName = widget.coverImage!.path.split('/').last;
+      if (finalCover != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath("cover_images", finalCover.path),
+        );
+
+        coverImageName = finalCover.path.split('/').last;
+      }
     }
     request.fields["caption"] = _captionController.text;
     String tagText = _hashtagController.text.trim();
@@ -1215,13 +1446,13 @@ class _PostPageState extends State<PostPage> {
         }
 
         blocksJson.add({
-  "type": block.type,
-  "text": block.text,
-  "image": imageServerPath,
-  "imageWidth": block.imageWidth,
-  "imagePosX": block.imagePosition?.dx,
-  "imagePosY": block.imagePosition?.dy,
-});
+          "type": block.type,
+          "text": block.text,
+          "image": imageServerPath,
+          "imageWidth": block.imageWidth,
+          "imagePosX": block.imagePosition?.dx,
+          "imagePosY": block.imagePosition?.dy,
+        });
       }
 
       pagesJson.add({
@@ -1246,35 +1477,30 @@ class _PostPageState extends State<PostPage> {
     request.fields["content"] = jsonEncode(fullContent);
     request.fields["title"] = widget.title ?? "";
 
-    if (_pickedImage != null) {
-      request.files.add(
-        await http.MultipartFile.fromPath("cover_images", _pickedImage!.path),
-      );
-    }
+    request.fields["titleFontSize"] = widget.titleFontSize?.toString() ?? "28";
 
-    request.fields["titleFontSize"] =
-    widget.titleFontSize?.toString() ?? "28";
+    request.fields["titleColor"] =
+        widget.titleColor?.value.toString() ?? Colors.white.value.toString();
 
-request.fields["titleColor"] =
-    widget.titleColor?.value.toString() ?? Colors.white.value.toString();
+    request.fields["titleFontFamily"] = widget.titleFontFamily ?? "Roboto";
 
-request.fields["titleFontFamily"] =
-    widget.titleFontFamily ?? "Roboto";
+    request.fields["titlePositionX"] =
+        widget.titlePosition?.dx.toString() ?? "0.5";
 
-request.fields["titlePositionX"] =
-    widget.titlePosition?.dx.toString() ?? "0.5";
+    request.fields["titlePositionY"] =
+        widget.titlePosition?.dy.toString() ?? "0.4";
 
-request.fields["titlePositionY"] =
-    widget.titlePosition?.dy.toString() ?? "0.4";
+    var streamedResponse = await request.send();
+    var response = await http.Response.fromStream(streamedResponse);
 
-
-    var response = await request.send();
+    print("STATUS: ${response.statusCode}");
+    print("BODY: ${response.body}");
 
     if (response.statusCode == 200) {
       if (widget.draftId != null) {
         await http.delete(
           Uri.parse(
-            "http://192.168.29.182:3000/api/draft/deleteDraft/${widget.draftId}",
+            "https://bigiluu.com/api/draft/deleteDraft/${widget.draftId}",
           ),
         );
       }
@@ -1284,10 +1510,10 @@ request.fields["titlePositionY"] =
       );
 
       final route = Platform.isIOS
-    ? CupertinoPageRoute(builder: (_) => const HomePage())
-    : MaterialPageRoute(builder: (_) => const HomePage());
+          ? CupertinoPageRoute(builder: (_) => const HomePage())
+          : MaterialPageRoute(builder: (_) => const HomePage());
 
-Navigator.pushAndRemoveUntil(context, route, (route) => false);
+      Navigator.pushAndRemoveUntil(context, route, (route) => false);
     } else {
       print("Post Failed");
     }
@@ -1339,28 +1565,35 @@ Navigator.pushAndRemoveUntil(context, route, (route) => false);
 
                             if (widget.title != null)
                               LayoutBuilder(
-  builder: (context, constraints) {
-    final posX =
-        (widget.titlePosition?.dx ?? 0.5) * constraints.maxWidth;
-
-    final posY =
-        (widget.titlePosition?.dy ?? 0.4) * constraints.maxHeight;
-
-    return Positioned(
-      left: posX,
-      top: posY,
-      child: Text(
-        widget.title ?? "",
-        style: TextStyle(
-          fontSize: widget.titleFontSize ?? 28,
-          color: widget.titleColor ?? Colors.white,
-          fontFamily: widget.titleFontFamily ?? "Roboto",
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  },
-),
+                                builder: (context, constraints) {
+                                  return Stack(
+                                    children: [
+                                      Positioned(
+                                        top: 30,
+                                        left: 0,
+                                        right: 0,
+                                        child: Center(
+                                          child: Text(
+                                            widget.title ?? "",
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              fontSize:
+                                                  widget.titleFontSize ?? 28,
+                                              color:
+                                                  widget.titleColor ??
+                                                  Colors.white,
+                                              fontFamily:
+                                                  widget.titleFontFamily ??
+                                                  "Roboto",
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
                           ],
                         ),
                       ),
@@ -1396,57 +1629,29 @@ Navigator.pushAndRemoveUntil(context, route, (route) => false);
                           );
                         }
 
-                   // LOCAL IMAGE
-if (block.type == "image" && block.image != null) {
-  return SizedBox(
-  height: 350,
-  child: LayoutBuilder(
-    builder: (context, constraints) {
-      return Stack(
-        children: [
-          Positioned(
-            left: (block.imagePosition?.dx ?? 0.5) *
-                constraints.maxWidth,
-            top: (block.imagePosition?.dy ?? 0.0) *
-                constraints.maxHeight,
-            child: Image.file(
-              block.image!,
-              width: block.imageWidth ?? 200,
-            ),
-          ),
-        ],
-      );
-    },
-  ),
-);
-}
-
-// NETWORK IMAGE (if you support imageUrl)
-if (block.type == "image" &&
-    block.imageUrl != null &&
-    block.imageUrl!.isNotEmpty) {
-  return SizedBox(
-  height: 350,
-  child: LayoutBuilder(
-    builder: (context, constraints) {
-      return Stack(
-        children: [
-          Positioned(
-            left: (block.imagePosition?.dx ?? 0.5) *
-                constraints.maxWidth,
-            top: (block.imagePosition?.dy ?? 0.0) *
-                constraints.maxHeight,
-            child: Image.network(
-              block.imageUrl!,
-              width: block.imageWidth ?? 200,
-            ),
-          ),
-        ],
-      );
-    },
-  ),
-);
-}
+                        // IMAGE
+                        if (block.type == "image") {
+                          Widget imageWidget;
+                          if (block.image != null) {
+                            imageWidget = Image.file(
+                              block.image!,
+                              width: 200,
+                              height: 200,
+                              fit: BoxFit.contain,
+                            );
+                          } else if (block.imageUrl != null &&
+                              block.imageUrl!.isNotEmpty) {
+                            imageWidget = Image.network(
+                              block.imageUrl!,
+                              width: 200,
+                              height: 200,
+                              fit: BoxFit.contain,
+                            );
+                          } else {
+                            return const SizedBox();
+                          }
+                          return Center(child: imageWidget);
+                        }
                         return const SizedBox();
                       },
                     ),

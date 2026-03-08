@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 
 
 
@@ -84,7 +85,7 @@ Future<void> verifyOtp() async {
 
     // ✅ 3. Call your backend to get JWT
     final res = await http.post(
-      Uri.parse("http://192.168.29.182:3000/api/login-firebase"),
+      Uri.parse("https://bigiluu.com/api/login-firebase"),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
         "idToken": idToken,
@@ -136,6 +137,7 @@ Future<void> verifyOtp() async {
 Widget build(BuildContext context) {
   final screenHeight = MediaQuery.of(context).size.height;
   final screenWidth = MediaQuery.of(context).size.width;
+  double boxSize = screenWidth < 350 ? 40 : screenWidth * 0.11;
 
   return Scaffold(
     resizeToAvoidBottomInset: true,
@@ -161,16 +163,16 @@ Widget build(BuildContext context) {
             builder: (context, constraints) {
               return SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
+                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight,
-                  ),
-                  child: IntrinsicHeight(
+  constraints: BoxConstraints(
+    minHeight: constraints.maxHeight,
+  ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
 
-                        const Spacer(),
+                        SizedBox(height: screenHeight * 0.08),
 
                         const Text(
                           "Enter OTP",
@@ -195,12 +197,14 @@ Widget build(BuildContext context) {
                         SizedBox(height: screenHeight * 0.04),
 
                         // OTP Boxes
-                        Row(
+                       AutofillGroup(
+                        child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: List.generate(6, (index) {
                             return Container(
-                              height: screenWidth * 0.12,
-                              width: screenWidth * 0.12,
+
+                          height: boxSize,
+                          width: boxSize,
                               margin: const EdgeInsets.symmetric(horizontal: 5),
                               decoration: BoxDecoration(
                                 color: Colors.white.withOpacity(0.9),
@@ -214,30 +218,53 @@ Widget build(BuildContext context) {
                                 ],
                               ),
                               child: TextField(
-                                controller: controllers[index],
-                                focusNode: focusNodes[index],
-                                keyboardType: TextInputType.number,
-                                maxLength: 1,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: screenWidth * 0.06,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                decoration: const InputDecoration(
-                                  counterText: '',
-                                  border: InputBorder.none,
-                                ),
-                                onChanged: (value) {
-                                  if (value.isNotEmpty && index < 5) {
-                                    focusNodes[index + 1].requestFocus();
-                                  } else if (value.isEmpty && index > 0) {
-                                    focusNodes[index - 1].requestFocus();
-                                  }
-                                },
-                              ),
+  controller: controllers[index],
+  focusNode: focusNodes[index],
+  keyboardType: TextInputType.number,
+  textAlign: TextAlign.center,
+  autofillHints: const [AutofillHints.oneTimeCode],
+  decoration: const InputDecoration(
+    counterText: '',
+    border: InputBorder.none,
+  ),
+  onChanged: (value) {
+
+    // 🔥 Handle paste (full OTP)
+    if (value.length > 1) {
+      final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+
+      for (int i = 0; i < digits.length && i < 6; i++) {
+        controllers[i].text = digits[i];
+      }
+
+      if (digits.length == 6) {
+        FocusScope.of(context).unfocus();
+        verifyOtp();
+      }
+      return;
+    }
+
+    // ✅ Handle typing
+    if (value.isNotEmpty) {
+      controllers[index].text = value[value.length - 1];
+
+      if (index < 5) {
+        focusNodes[index + 1].requestFocus();
+      } else {
+        FocusScope.of(context).unfocus();
+      }
+    }
+
+    // ✅ Handle backspace
+    if (value.isEmpty && index > 0) {
+      focusNodes[index - 1].requestFocus();
+    }
+  },
+),
                             );
                           }),
                         ),
+                       ),
 
                         SizedBox(height: screenHeight * 0.03),
 
@@ -327,11 +354,47 @@ Widget build(BuildContext context) {
                           ),
                         ),
 
-                        const Spacer(),
+                         SizedBox(height: screenHeight * 0.02),
+
+Column(
+  children: [
+
+    /// Proud product text
+    const Text(
+      "Proud Product by",
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 1,
+      ),
+    ),
+
+    const SizedBox(height: 6),
+
+    /// Bright logo
+    ColorFiltered(
+      colorFilter: const ColorFilter.matrix([
+        1.5, 0, 0, 0, 0,
+        0, 1.5, 0, 0, 0,
+        0, 0, 1.5, 0, 0,
+        0, 0, 0, 1, 0,
+      ]),
+      child: Image.asset(
+        "assets/images/codereadlogo.png",
+        height: screenHeight < 700 ? 120 : screenHeight * 0.18,
+        width: screenWidth * 0.5,
+        fit: BoxFit.contain,
+      ),
+    ),
+  ],
+),
+
+                          SizedBox(height: screenHeight * 0.05),
                       ],
                     ),
                   ),
-                ),
+         
               );
             },
           ),

@@ -37,7 +37,7 @@ class _HashtagPageState extends State<HashtagPage> {
   Future<void> fetchHashtags() async {
     try {
       final response = await http.get(
-        Uri.parse("http://192.168.29.182:3000/api/posts/hashtags"),
+        Uri.parse("http://bigiluu.com/api/posts/hashtags"),
       );
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -222,7 +222,7 @@ class _HashtagPostsPageState extends State<HashtagPostsPage> {
     try {
       final cleanTag = widget.tag.replaceAll("#", "");
       final response = await http.get(
-        Uri.parse("http://192.168.29.182:3000/api/posts/hashtags/$cleanTag/posts"),
+        Uri.parse("https://bigiluu.com/api/posts/hashtags/$cleanTag/posts"),
       );
 
       if (response.statusCode == 200) {
@@ -250,7 +250,7 @@ class _HashtagPostsPageState extends State<HashtagPostsPage> {
     String? userId = await getUserId();
     if (userId == null) return;
 
-    final url = Uri.parse("http://192.168.29.182:3000/api/posts/savePost");
+    final url = Uri.parse("https://bigiluu.com/api/posts/savePost");
 
     try {
       final response = await http.post(
@@ -299,9 +299,9 @@ class _HashtagPostsPageState extends State<HashtagPostsPage> {
                         children: [
                           PostContainer(
                             post: post,
-                            isLiked: likedPosts.contains(postId),
+                            
                             isSaved: savedPosts.contains(postId),
-                            onLike: () => toggleLike(postId),
+                            
                             onSave: () => toggleSave(postId),
                           ),
 
@@ -381,7 +381,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
     try {
       final response = await http.get(
         Uri.parse(
-          "http://192.168.29.182:3000/api/posts/singlePost/${widget.postId}",
+          "https://bigiluu.com/api/posts/singlePost/${widget.postId}",
         ),
       );
 
@@ -474,7 +474,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                                     vertical: 10,
                                   ),
                                   child: Image.network(
-                                    "http://192.168.29.182:3000/${block['image']}",
+                                    "https://bigiluu.com/${block['image']}",
                                     fit: BoxFit.contain,
                                     loadingBuilder:
                                         (context, child, progress) {

@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
+import 'package:bigilu/PrivacyPage.dart';
+import 'package:bigilu/TermsPage.dart';
 import 'package:bigilu/hashtag.dart';
 import 'package:bigilu/profile1.dart';
 import 'package:bigilu/write.dart';
@@ -11,13 +14,15 @@ import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final String? deepLinkPostId;
+
+  const HomePage({super.key, this.deepLinkPostId});
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Set<String> likedPosts = {};
   Set<String> savedPosts = {};
   List posts = [];
@@ -31,25 +36,142 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      fetchPosts(); // move API call here instead of direct initState
+    WidgetsBinding.instance.addObserver(this);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await fetchPosts();
+
+      if (widget.deepLinkPostId != null) {
+        openPostFromDeepLink(widget.deepLinkPostId!);
+      }
     });
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Refresh posts when app comes to foreground
+      fetchPosts();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  Future<void> openPostFromDeepLink(String postId) async {
+    try {
+      final response = await http
+          .get(Uri.parse("https://bigiluu.com/api/posts/getPost/$postId"))
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              print("⚠️ openPostFromDeepLink timeout");
+              throw TimeoutException("Deep link request timed out");
+            },
+          );
+
+      if (response.statusCode == 200) {
+        final jsonData = jsonDecode(response.body);
+        final post = jsonData["data"];
+
+        final pages = extractPages(post['content']);
+
+        if (!mounted) return;
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => FullScreenPostViewer(
+              pages: pages,
+              username: post['username'] ?? "",
+              profileImage: post['profile_image'] ?? "",
+              postId: post['post_id'], // ✅ ADD
+            ),
+          ),
+        );
+      }
+    } on TimeoutException catch (e) {
+      print("⚠️ Deep link timeout: $e");
+    } catch (e) {
+      print("Deep link open error: $e");
+    }
+  }
+
+  List<dynamic> extractPages(dynamic content) {
+    try {
+      dynamic decoded;
+
+      if (content is String) {
+        decoded = jsonDecode(content);
+      } else {
+        decoded = content;
+      }
+
+      if (decoded is Map && decoded.containsKey("pages")) {
+        return decoded["pages"] ?? [];
+      }
+
+      if (decoded is List) {
+        return decoded;
+      }
+
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
   Future<void> fetchPosts() async {
-    final url = Uri.parse("http://192.168.29.182:3000/api/posts/getAllPosts");
+    final url = Uri.parse("https://bigiluu.com/api/posts/getAllPosts");
 
     try {
-      final response = await http.get(url);
+      print("🔄 Fetching posts from: $url");
+
+      final response = await http
+          .get(url)
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              print("❌ Timeout: Server took too long to respond");
+              throw TimeoutException("Request timed out after 10 seconds");
+            },
+          );
+
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
         setState(() {
           posts = jsonData["data"];
           isLoading = false;
         });
+
+        // Debug: Print readers count for each post
+        print("✅ DEBUG: Fetched ${posts.length} posts");
+        for (int i = 0; i < posts.length; i++) {
+          print(
+            "📊 Post ${i + 1}: ID=${posts[i]['post_id']} | Readers=${posts[i]['readers_count'] ?? 0}",
+          );
+        }
+      } else {
+        // Handle non-200 status codes
+        print("❌ Error: API returned status ${response.statusCode}");
+        print("❌ Response: ${response.body}");
+        setState(() {
+          isLoading = false;
+        });
       }
+    } on TimeoutException catch (e) {
+      print("❌ Timeout Error: $e");
+      setState(() {
+        isLoading = false;
+      });
     } catch (e) {
-      print("Error: $e");
+      print("❌ Error: $e");
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 
@@ -65,14 +187,22 @@ class _HomePageState extends State<HomePage> {
     String? userId = await getUserId();
     if (userId == null) return;
 
-    final url = Uri.parse("http://192.168.29.182:3000/api/posts/savePost");
+    final url = Uri.parse("https://bigiluu.com/api/posts/savePost");
 
     try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'user_id': userId, 'post_id': postId}),
-      );
+      final response = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'user_id': userId, 'post_id': postId}),
+          )
+          .timeout(
+            const Duration(seconds: 8),
+            onTimeout: () {
+              print("⚠️ toggleSave timeout");
+              throw TimeoutException("Save request timed out");
+            },
+          );
 
       if (response.statusCode == 200) {
         setState(() {
@@ -83,6 +213,8 @@ class _HomePageState extends State<HomePage> {
       } else {
         print("Failed to save post: ${response.body}");
       }
+    } on TimeoutException {
+      print("⚠️ Timeout saving post");
     } catch (e) {
       print("Error saving post: $e");
     }
@@ -100,15 +232,44 @@ class _HomePageState extends State<HomePage> {
       child: Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          automaticallyImplyLeading: false,
-          systemOverlayStyle: const SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent,
-            statusBarIconBrightness: Brightness.dark,
-          ),
-          title: Image.asset("assets/images/bigilu_logo21.png", height: 50),
+  backgroundColor: Colors.white,
+  elevation: 0,
+  automaticallyImplyLeading: false,
+  systemOverlayStyle: const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.dark,
+  ),
+  title: Image.asset("assets/images/bigilu_logo21.png", height: 50),
+
+  actions: [
+    PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert, color: Colors.black),
+      onSelected: (value) {
+        if (value == "terms") {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const TermsPage()),
+          );
+        } else if (value == "privacy") {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const PrivacyPage()),
+          );
+        }
+      },
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: "terms",
+          child: Text("Terms & Conditions"),
         ),
+        const PopupMenuItem(
+          value: "privacy",
+          child: Text("Privacy Policy"),
+        ),
+      ],
+    ),
+  ],
+),
         body: isLoading
             ? const Center(child: CircularProgressIndicator())
             : ListView.builder(
@@ -131,9 +292,7 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       PostContainer(
                         post: post,
-                        isLiked: likedPosts.contains(postId),
                         isSaved: savedPosts.contains(postId),
-                        onLike: () => toggleLike(postId),
                         onSave: () => toggleSave(postId),
                       ),
 
@@ -172,7 +331,10 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
 
-                      Container(height: 0.5, color: Colors.grey.shade300),
+                      Container(
+                        height: 0.5,
+                        color: const Color.fromARGB(255, 0, 0, 0),
+                      ),
                     ],
                   );
                 },
@@ -238,18 +400,16 @@ class _HomePageState extends State<HomePage> {
 
 class PostContainer extends StatelessWidget {
   final Map post;
-  final bool isLiked;
   final bool isSaved;
-  final VoidCallback onLike;
   final VoidCallback onSave;
   final VoidCallback? onTap;
 
   const PostContainer({
     super.key,
     required this.post,
-    required this.isLiked,
+
     required this.isSaved,
-    required this.onLike,
+
     required this.onSave,
     this.onTap,
   });
@@ -259,13 +419,43 @@ class PostContainer extends StatelessWidget {
       return "";
     }
 
-    if (path.startsWith("http")) return path;
+    // ✅ If already a complete URL (http or https), return as-is but ensure HTTPS
+    if (path.startsWith("http://") || path.startsWith("https://")) {
+      String normalizedPath = path.replaceFirst("http://", "https://");
+      // Extract the path part after the domain
+      int domainEnd = normalizedPath.indexOf('/', 8); // After https://
+      if (domainEnd != -1) {
+        String domain = normalizedPath.substring(0, domainEnd);
+        String pathPart = normalizedPath.substring(domainEnd);
+        // Normalize the path part
+        pathPart = pathPart
+            .replaceAll("\\", "/")
+            .replaceAll(RegExp(r'^/+'), "");
+        pathPart = pathPart.replaceAll("Uploads", "uploads");
+        pathPart = pathPart.replaceAll("Profile_images", "profile_images");
+        pathPart = pathPart.replaceAll("Cover_images", "cover_images");
+        pathPart = pathPart.replaceAll("Page_images", "page_images");
+        return domain + "/" + pathPart;
+      }
+      return normalizedPath;
+    }
 
+    // ✅ Clean up path
+    path = path.replaceAll("\\", "/").replaceAll(RegExp(r'^/+'), "");
+
+    // ✅ Normalize folder names to lowercase for consistency
+    path = path.replaceAll("Uploads", "uploads");
+    path = path.replaceAll("Profile_images", "profile_images");
+    path = path.replaceAll("Cover_images", "cover_images");
+    path = path.replaceAll("Page_images", "page_images");
+
+    // ✅ If only filename, prepend folder
     if (!path.contains("/")) {
       path = "uploads/cover_images/$path";
     }
 
-    return "http://192.168.29.182:3000/$path";
+    // ✅ Return complete HTTPS URL
+    return "https://bigiluu.com/$path";
   }
 
   List<dynamic> list_pages() {
@@ -306,7 +496,9 @@ class PostContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pageList = list_pages();
-    if (pageList.isEmpty) return const SizedBox();
+    //if (pageList.isEmpty) return const SizedBox();
+
+    print("COVER IMAGE URL: ${fullUrl(post['cover_img'])}");
 
     final screen = MediaQuery.of(context).size;
 
@@ -319,26 +511,35 @@ class PostContainer extends StatelessWidget {
         : Map<String, dynamic>.from(rawStyle);
 
     return GestureDetector(
-      onTap:
-          onTap ??
-          () {
-            final pages = list_pages();
-            if (pages.isEmpty) return;
+      onTap: () async {
+        try {} catch (e) {
+          print("Reader count error: $e");
+        }
 
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => FullScreenPostViewer(
-                  pages: pages,
-                  username: post['username'] ?? "",
-                  profileImage: post['profile_image'] ?? "",
-                ),
-              ),
-            );
-          },
+        final response = await http.get(
+          Uri.parse(
+            "https://bigiluu.com/api/posts/singlePost/${post['post_id']}",
+          ),
+        );
+
+        final jsonData = jsonDecode(response.body);
+        final pages = jsonData['content'] ?? [];
+
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => FullScreenPostViewer(
+              pages: pages,
+              username: post['username'] ?? "",
+              profileImage: post['profile_image'] ?? "",
+              postId: post['post_id'],
+            ),
+          ),
+        );
+      },
       child: Container(
         constraints: const BoxConstraints(), // remove forced height
-        margin: const EdgeInsets.symmetric(vertical: 4),
+        margin: const EdgeInsets.symmetric(horizontal: 12),
         color: Colors.white,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -354,6 +555,7 @@ class PostContainer extends StatelessWidget {
                     child: ClipOval(
                       child: Image.network(
                         fullUrl(post['profile_image'] ?? ''),
+                        headers: const {"User-Agent": "Flutter"},
                         width: 44,
                         height: 44,
                         fit: BoxFit.cover,
@@ -387,7 +589,7 @@ class PostContainer extends StatelessWidget {
               ),
             ),
 
-            Divider(thickness: 0.6, color: Colors.grey.shade300),
+            //Divider(thickness: 0.6, color: Colors.grey.shade300),
 
             /// COVER
             SizedBox(
@@ -400,13 +602,18 @@ class PostContainer extends StatelessWidget {
                       Positioned.fill(
                         child: Image.network(
                           fullUrl(post['cover_img']),
+                          headers: const {"User-Agent": "Flutter"},
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            color: Colors.grey.shade300,
-                            child: const Center(
-                              child: Icon(Icons.broken_image, size: 40),
-                            ),
-                          ),
+                          loadingBuilder: (context, child, progress) {
+                            if (progress == null) return child;
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            print("IMAGE LOAD ERROR: $error");
+                            return const Icon(Icons.broken_image);
+                          },
                         ),
                       ),
 
@@ -449,16 +656,31 @@ class PostContainer extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      IconButton(
-                        icon: Icon(
-                          isLiked ? Icons.favorite : Icons.favorite_border,
-                          color: isLiked ? Colors.red : Colors.black,
-                        ),
-                        onPressed: onLike,
+                      const Icon(
+                        Icons.visibility,
+                        size: 18,
+                        color: Colors.grey,
                       ),
+                      const SizedBox(width: 6),
+                      Text(
+                        "${post['readers_count'] ?? 0}",
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  Row(
+                    children: [
                       IconButton(
                         icon: const Icon(Icons.share),
-                        onPressed: () => Share.share("Check out my profile!"),
+                        onPressed: () {
+                          final postUrl =
+                              "https://bigiluu.com/post/${post['post_id']}";
+                          Share.share(postUrl);
+                        },
                       ),
                     ],
                   ),
@@ -473,7 +695,7 @@ class PostContainer extends StatelessWidget {
               ),
             ),
 
-            Divider(height: 1),
+            // Divider(height: 1),
           ],
         ),
       ),
@@ -487,12 +709,14 @@ class FullScreenPostViewer extends StatefulWidget {
   final List pages;
   final String username;
   final String profileImage;
+  final String postId; // ✅ ADD THIS
 
   const FullScreenPostViewer({
     super.key,
     required this.pages,
     required this.username,
     required this.profileImage,
+    required this.postId, // ✅ ADD
   });
   @override
   State<FullScreenPostViewer> createState() => _FullScreenPostViewerState();
@@ -506,25 +730,103 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
   void initState() {
     super.initState();
     _controller = PageController();
+
+    loadLastPage();
+    incrementReaderAndVerify();
+  }
+
+  Future<void> incrementReaderAndVerify() async {
+    try {
+      // First, increment the reader count
+      print("📊 DEBUG: Incrementing reader for post: ${widget.postId}");
+
+      final incrementResponse = await http
+          .post(
+            Uri.parse(
+              "https://bigiluu.com/api/posts/incrementReader/${widget.postId}",
+            ),
+          )
+          .timeout(
+            const Duration(seconds: 8),
+            onTimeout: () {
+              print("⚠️ incrementReader timeout");
+              throw TimeoutException("Increment request timed out");
+            },
+          );
+
+      print(
+        "📊 DEBUG: Increment response status: ${incrementResponse.statusCode}",
+      );
+      print("📊 DEBUG: Increment response body: ${incrementResponse.body}");
+
+      // Then, verify by fetching the updated post data
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      final verifyResponse = await http
+          .get(
+            Uri.parse("https://bigiluu.com/api/posts/getPost/${widget.postId}"),
+          )
+          .timeout(
+            const Duration(seconds: 8),
+            onTimeout: () {
+              print("⚠️ getPost timeout");
+              throw TimeoutException("Verify request timed out");
+            },
+          );
+
+      if (verifyResponse.statusCode == 200) {
+        final jsonData = jsonDecode(verifyResponse.body);
+        final updatedPost = jsonData["data"];
+        print(
+          "✅ Verified - Current readers_count in DB: ${updatedPost['readers_count'] ?? 0}",
+        );
+      }
+    } on TimeoutException catch (e) {
+      print("⚠️ Timeout in reader count: $e");
+    } catch (e) {
+      print("❌ Reader count error: $e");
+    }
   }
 
   String fullImageUrl(String? path) {
     if (path == null || path.isEmpty) return "";
 
-    // If backend already sends full URL
-    if (path.startsWith("http")) return path;
-
-    // Remove leading slash if any
-    if (path.startsWith("/")) {
-      path = path.substring(1);
+    // ✅ If already a complete URL, ensure HTTPS
+    if (path.startsWith("http://") || path.startsWith("https://")) {
+      String normalizedPath = path.replaceFirst("http://", "https://");
+      // Extract the path part after the domain
+      int domainEnd = normalizedPath.indexOf('/', 8); // After https://
+      if (domainEnd != -1) {
+        String domain = normalizedPath.substring(0, domainEnd);
+        String pathPart = normalizedPath.substring(domainEnd);
+        // Normalize the path part
+        pathPart = pathPart
+            .replaceAll("\\", "/")
+            .replaceAll(RegExp(r'^/+'), "");
+        pathPart = pathPart.replaceAll("Uploads", "uploads");
+        pathPart = pathPart.replaceAll("Profile_images", "profile_images");
+        pathPart = pathPart.replaceAll("Cover_images", "cover_images");
+        pathPart = pathPart.replaceAll("Page_images", "page_images");
+        return domain + "/" + pathPart;
+      }
+      return normalizedPath;
     }
 
-    // If only filename stored → add correct folder
+    // ✅ Clean up path
+    path = path.replaceAll("\\", "/").replaceAll(RegExp(r'^/+'), "");
+
+    // ✅ Normalize folder names to lowercase for consistency
+    path = path.replaceAll("Uploads", "uploads");
+    path = path.replaceAll("Profile_images", "profile_images");
+    path = path.replaceAll("Cover_images", "cover_images");
+    path = path.replaceAll("Page_images", "page_images");
+
+    // ✅ If only filename stored → add correct folder
     if (!path.contains("/")) {
       path = "uploads/page_images/$path";
     }
 
-    return "http://192.168.29.182:3000/$path";
+    return "https://bigiluu.com/$path";
   }
 
   Color parseColor(dynamic value) {
@@ -540,6 +842,19 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
       return Colors.black;
     } catch (_) {
       return Colors.black;
+    }
+  }
+
+  Future<void> loadLastPage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedPage = prefs.getInt("reader_${widget.postId}");
+
+    if (savedPage != null && savedPage < widget.pages.length) {
+      currentPage = savedPage;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _controller.jumpToPage(savedPage);
+      });
     }
   }
 
@@ -589,10 +904,13 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
             PageView.builder(
               controller: _controller,
               itemCount: widget.pages.length,
-              onPageChanged: (index) {
+              onPageChanged: (index) async {
                 setState(() {
                   currentPage = index;
                 });
+
+                final prefs = await SharedPreferences.getInstance();
+                prefs.setInt("reader_${widget.postId}", index);
               },
               itemBuilder: (context, index) {
                 final page = widget.pages[index];
@@ -606,11 +924,26 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
 
                 return LayoutBuilder(
                   builder: (context, constraints) {
-                    return SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minHeight: constraints.maxHeight,
+                    return Center(
+                      child: Container(
+                        margin: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(16),
+                        width: constraints.maxWidth * 0.95,
+                        height: constraints.maxHeight * 0.95,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(
+                            color: const Color(0xFF800000),
+                            width: 2,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 6,
+                              offset: Offset(2, 2),
+                            ),
+                          ],
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -647,6 +980,9 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
                                           top: dy * box.maxHeight,
                                           child: Image.network(
                                             imageUrl,
+                                            headers: const {
+                                              "User-Agent": "Flutter",
+                                            },
                                             width: (block['imageWidth'] ?? 200)
                                                 .toDouble(),
                                             fit: BoxFit.cover,
@@ -670,20 +1006,84 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
             ),
 
             Positioned(
-              top: 12,
-              right: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  "${currentPage + 1} / ${widget.pages.length}",
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
+              bottom: 20,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: GestureDetector(
+                  onTap: () {
+                    showModalBottomSheet(
+                      context: context,
+                      backgroundColor: Colors.white,
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(20),
+                        ),
+                      ),
+                      builder: (context) {
+                        return SizedBox(
+                          height: 300,
+                          child: GridView.builder(
+                            padding: const EdgeInsets.all(20),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 5,
+                                  mainAxisSpacing: 12,
+                                  crossAxisSpacing: 12,
+                                ),
+                            itemCount: widget.pages.length,
+                            itemBuilder: (context, index) {
+                              final bool isCurrent = index == currentPage;
+
+                              return GestureDetector(
+                                onTap: () {
+                                  Navigator.pop(context);
+
+                                  _controller.animateToPage(
+                                    index,
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeInOut,
+                                  );
+                                },
+                                child: Container(
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: isCurrent
+                                        ? const Color(0xFF800000)
+                                        : Colors.grey.shade200,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    "${index + 1}",
+                                    style: TextStyle(
+                                      color: isCurrent
+                                          ? Colors.white
+                                          : Colors.black,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      "Page ${currentPage + 1} / ${widget.pages.length}",
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
                 ),
               ),
             ),

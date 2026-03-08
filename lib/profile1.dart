@@ -4,7 +4,6 @@ import 'package:bigilu/main.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:share_plus/share_plus.dart';
 import 'package:bigilu/write.dart';
 import 'package:bigilu/home.dart';
 import 'package:bigilu/hashtag.dart';
@@ -33,6 +32,50 @@ class _ProfilePageState extends State<ProfilePage> {
 
   List<Map<String, dynamic>> savedPosts = [];
 
+  String fullUrl(String? path) {
+    if (path == null || path.isEmpty) {
+      return "";
+    }
+
+    // ✅ If already a complete URL (http or https), return as-is
+    if (path.startsWith("http://") || path.startsWith("https://")) {
+      String normalizedPath = path.replaceFirst("http://", "https://");
+      // Extract the path part after the domain
+      int domainEnd = normalizedPath.indexOf('/', 8); // After https://
+      if (domainEnd != -1) {
+        String domain = normalizedPath.substring(0, domainEnd);
+        String pathPart = normalizedPath.substring(domainEnd);
+        // Normalize the path part
+        pathPart = pathPart
+            .replaceAll("\\", "/")
+            .replaceAll(RegExp(r'^/+'), "");
+        pathPart = pathPart.replaceAll("Uploads", "uploads");
+        pathPart = pathPart.replaceAll("Profile_images", "profile_images");
+        pathPart = pathPart.replaceAll("Cover_images", "cover_images");
+        pathPart = pathPart.replaceAll("Page_images", "page_images");
+        return domain + "/" + pathPart;
+      }
+      return normalizedPath;
+    }
+
+    // ✅ Clean up path - normalize slashes and case
+    path = path.replaceAll("\\", "/").replaceAll(RegExp(r'^/+'), "");
+
+    // ✅ Normalize folder names to lowercase for consistency
+    path = path.replaceAll("Uploads", "uploads");
+    path = path.replaceAll("Profile_images", "profile_images");
+    path = path.replaceAll("Cover_images", "cover_images");
+    path = path.replaceAll("Page_images", "page_images");
+
+    // ✅ If only filename, prepend correct folder
+    if (!path.contains("/")) {
+      path = "uploads/profile_images/$path";
+    }
+
+    // ✅ Return complete HTTPS URL
+    return "https://bigiluu.com/$path";
+  }
+
   Widget _draftPlaceholder(String title) {
     return Container(
       width: double.infinity,
@@ -60,16 +103,15 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadUserPosts();
     _loadUserDrafts();
     _loadSavedPosts();
+    print("PROFILE USER ID: ${widget.userId}");
   }
 
-  final String baseUrl = "http://192.168.29.182:3000/api/profile";
+  final String baseUrl = "https://bigiluu.com/api/profile/profile/";
 
   Future<void> _loadUserPosts() async {
     try {
       final response = await http.get(
-        Uri.parse(
-          "http://192.168.29.182:3000/api/posts/userPosts/${widget.userId}",
-        ),
+        Uri.parse("https://bigiluu.com/api/posts/userPosts/${widget.userId}"),
       );
 
       print("USER POSTS RAW RESPONSE: ${response.body}");
@@ -90,6 +132,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 "content": e['content'] ?? [],
                 "username": e['username'] ?? "",
                 "profile_image": e['profile_image'] ?? "",
+                "readers_count": e['readers_count'] ?? 0,
               },
             ),
           );
@@ -105,9 +148,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _loadUserDrafts() async {
     try {
       final response = await http.get(
-        Uri.parse(
-          "http://192.168.29.182:3000/api/posts/userDrafts/${widget.userId}",
-        ),
+        Uri.parse("https://bigiluu.com/api/posts/userDrafts/${widget.userId}"),
       );
 
       if (response.statusCode == 200) {
@@ -190,9 +231,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _loadSavedPosts() async {
     try {
       final response = await http.get(
-        Uri.parse(
-          "http://192.168.29.182:3000/api/posts/savedPosts/${widget.userId}",
-        ),
+        Uri.parse("https://bigiluu.com/api/posts/savedPosts/${widget.userId}"),
       );
 
       print("SAVED POSTS RAW RESPONSE: ${response.body}");
@@ -226,7 +265,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _loadProfileFromBackend() async {
     try {
-      final response = await http.get(Uri.parse("$baseUrl/${widget.userId}"));
+      final response = await http.get(Uri.parse("$baseUrl${widget.userId}"));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -234,7 +273,7 @@ class _ProfilePageState extends State<ProfilePage> {
         setState(() {
           userName = data['username'] ?? "";
           _networkImageUrl = data['profile_image'] != null
-              ? "http://192.168.29.182:3000/${data['profile_image']}"
+              ? fullUrl(data['profile_image'])
               : null;
           _image = null; // Always use backend image if available
         });
@@ -294,7 +333,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _deleteDraft(String draftId) async {
     try {
       final response = await http.delete(
-        Uri.parse("http://192.168.29.182:3000/api/draft/deleteDraft/$draftId"),
+        Uri.parse("https://bigiluu.com/api/draft/deleteDraft/$draftId"),
       );
 
       if (response.statusCode == 200) {
@@ -363,7 +402,7 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       final response = await http.delete(
         Uri.parse(
-          "http://192.168.29.182:3000/api/posts/removeSavedPost/${widget.userId}/$postId",
+          "https://bigiluu.com/api/posts/removeSavedPost/${widget.userId}/$postId",
         ),
       );
 
@@ -401,7 +440,7 @@ class _ProfilePageState extends State<ProfilePage> {
           final String? rawCover = post['cover_img'];
           final String coverUrl =
               (rawCover != null && rawCover.toString().isNotEmpty)
-              ? "http://192.168.29.182:3000/$rawCover"
+              ? fullUrl(rawCover)
               : "";
 
           final String title = (post['title'] ?? "").toString();
@@ -525,7 +564,7 @@ class _ProfilePageState extends State<ProfilePage> {
             for (var p in sourceList) {
               final response = await http.get(
                 Uri.parse(
-                  "http://192.168.29.182:3000/api/posts/singlePost/${p['post_id']}",
+                  "https://bigiluu.com/api/posts/singlePost/${p['post_id']}",
                 ),
               );
 
@@ -548,17 +587,10 @@ class _ProfilePageState extends State<ProfilePage> {
             );
 
             // 🔥 IF POST REMOVED FROM SAVED TAB
-            if (removedPostId != null) {
+            if (removedPostId != null && removedPostId is String) {
               setState(() {
-                // 🔥 If in Our Posts tab
-                if (selectedTab == 0) {
-                  myPosts.removeWhere((p) => p['post_id'] == removedPostId);
-                }
-
-                // 🔥 If in Saved tab
-                if (selectedTab == 2) {
-                  savedPosts.removeWhere((p) => p['post_id'] == removedPostId);
-                }
+                myPosts.removeWhere((p) => p['post_id'] == removedPostId);
+                savedPosts.removeWhere((p) => p['post_id'] == removedPostId);
               });
             }
           },
@@ -676,11 +708,12 @@ class _ProfilePageState extends State<ProfilePage> {
                               ),
                             );
 
-                            if (result != null) {
+                            if (result != null && result is Map) {
                               setState(() {
                                 userName = result['username'] ?? userName;
-                                _image = result['image'];
-                                _networkImageUrl = result['imageUrl'];
+                                _networkImageUrl =
+                                    result['profile_image'] ?? _networkImageUrl;
+                                _image = null;
                               });
                             }
                           },
@@ -692,22 +725,6 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                           child: const Text(
                             "Edit Profile",
-                            style: TextStyle(color: Colors.white),
-                          ),
-                        ),
-
-                        const SizedBox(width: 8),
-
-                        ElevatedButton(
-                          onPressed: () => Share.share("Check out my profile!"),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF800000),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25),
-                            ),
-                          ),
-                          child: const Text(
-                            "Share Profile",
                             style: TextStyle(color: Colors.white),
                           ),
                         ),
@@ -834,11 +851,20 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           IconButton(
             icon: const Icon(Icons.edit, color: Colors.white),
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              final result = await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const WritePage()),
               );
+
+              // 🔥 If draft saved, refresh drafts instantly
+              if (result == true) {
+                await _loadUserDrafts();
+                setState(() {
+                  selectedTab =
+                      1; // optional → automatically switch to Draft tab
+                });
+              }
             },
           ),
         ],
@@ -867,6 +893,7 @@ class _FullPostPageState extends State<FullPostPage> {
   List<dynamic> pages = [];
   String? coverImg;
   String? caption;
+  int readersCount = 0; // track reader count for display
   bool loading = true;
 
   int currentPage = 0;
@@ -883,10 +910,9 @@ class _FullPostPageState extends State<FullPostPage> {
 
   Future<void> _loadPost() async {
     try {
+      // switch to getPost to retrieve readers_count and owner info
       final response = await http.get(
-        Uri.parse(
-          "http://192.168.29.182:3000/api/posts/singlePost/${widget.postId}",
-        ),
+        Uri.parse("https://bigiluu.com/api/posts/getPost/${widget.postId}"),
       );
 
       if (response.statusCode == 200) {
@@ -896,6 +922,7 @@ class _FullPostPageState extends State<FullPostPage> {
           coverImg = data['cover_img'];
           caption = data['caption'];
           pages = data['content'];
+          readersCount = data['readers_count'] ?? 0;
           loading = false;
         });
       } else {
@@ -910,9 +937,7 @@ class _FullPostPageState extends State<FullPostPage> {
   Future<void> _deletePost() async {
     try {
       final response = await http.delete(
-        Uri.parse(
-          "http://192.168.29.182:3000/api/posts/deletePost/${widget.postId}",
-        ),
+        Uri.parse("https://bigiluu.com/api/posts/deletePost/${widget.postId}"),
       );
 
       if (response.statusCode == 200) {
@@ -956,7 +981,7 @@ class _FullPostPageState extends State<FullPostPage> {
 
   @override
   Widget build(BuildContext context) {
-    final totalPages = pages.length;
+    final totalPages = pages.length + 1; // include cover page as first page
 
     return Scaffold(
       appBar: AppBar(
@@ -980,7 +1005,7 @@ class _FullPostPageState extends State<FullPostPage> {
                   // ==========================
                   PageView.builder(
                     controller: _pageController,
-                    itemCount: totalPages,
+                    itemCount: totalPages + 1, // extra cover page
                     onPageChanged: (index) {
                       setState(() {
                         currentPage = index;
@@ -990,32 +1015,65 @@ class _FullPostPageState extends State<FullPostPage> {
                       // ==========================
                       // COVER PAGE (index 0)
                       // ==========================
-                      /*if (index == 0) {
-                      return SingleChildScrollView(
-                        child: Column(
-                          children: [
-                            if (coverImg != null)
-                              Image.network(coverImg!, fit: BoxFit.cover),
-                            if (caption != null)
-                              Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Text(
-                                  caption!,
-                                  style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
+                      if (index == 0) {
+                        return SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (coverImg != null)
+                                Image.network(coverImg!, fit: BoxFit.cover),
+                              if (caption != null)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    8,
+                                    16,
+                                    8,
+                                  ), // reduced top padding
+                                  child: Text(
+                                    caption!,
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
-                              ),
-                          ],
-                        ),
-                      );
-                    }*/
+                              // readers count below caption
+                              if (readersCount > 0)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    16,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.visibility,
+                                        size: 18,
+                                        color: Colors.grey,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        "$readersCount readers",
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      }
 
                       // ==========================
                       // CONTENT PAGES (index - 1)
                       // ==========================
-                      final page = pages[index];
+                      final page = pages[index - 1];
 
                       return SingleChildScrollView(
                         padding: const EdgeInsets.all(12),
@@ -1165,7 +1223,7 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
           : PageView.builder(
               controller: controller,
               scrollDirection: Axis.vertical,
-              itemCount: posts.length,
+              itemCount: posts.isEmpty ? 1 : posts.length,
               itemBuilder: (context, index) {
                 final post = posts[index];
 
@@ -1175,72 +1233,179 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       /// POST
-                      Expanded(
-                        child: PostContainer(
-                          post: post,
-                          isLiked: false,
-                          isSaved: widget.title == "Saved",
-                          onLike: () {},
-                          onSave: () async {
-                            if (widget.title == "Saved") {
-                              try {
-                                final response = await http.delete(
-                                  Uri.parse(
-                                    "http://192.168.29.182:3000/api/posts/removeSavedPost/${widget.userId}/${post['post_id']}",
-                                  ),
-                                );
-
-                                if (response.statusCode == 200) {
-                                  setState(() {
-                                    posts.removeWhere(
-                                      (p) => p['post_id'] == post['post_id'],
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: Stack(
+                          children: [
+                            PostContainer(
+                              post: post,
+                              isSaved: widget.title == "Saved",
+                              onSave: () async {
+                                if (widget.title == "Saved") {
+                                  try {
+                                    final response = await http.delete(
+                                      Uri.parse(
+                                        "https://bigiluu.com/api/posts/removeSavedPost/${widget.userId}/${post['post_id']}",
+                                      ),
                                     );
-                                  });
 
-                                  // 🔥 RETURN REMOVED POST ID TO PREVIOUS PAGE
-                                  Navigator.pop(context, post['post_id']);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text("Removed from saved"),
+                                    if (response.statusCode == 200) {
+                                      setState(() {
+                                        posts.removeWhere(
+                                          (p) =>
+                                              p['post_id'] == post['post_id'],
+                                        );
+                                      });
+
+                                      Navigator.pop(
+                                        context,
+                                        post['post_id'].toString(),
+                                      );
+
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text("Removed from saved"),
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    print("Error removing saved: $e");
+                                  }
+                                }
+                              },
+                              onTap: () async {
+                                if (widget.title == "Post") {
+                                  final deleted = await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => FullPostPage(
+                                        postId: post['post_id'].toString(),
+                                        showDelete: true,
+                                      ),
+                                    ),
+                                  );
+
+                                  if (deleted == true) {
+                                    setState(() {
+                                      posts.removeWhere(
+                                        (p) => p['post_id'] == post['post_id'],
+                                      );
+                                    });
+
+                                    Navigator.pop(context, post['post_id']);
+                                  }
+                                } else {
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => FullScreenPostViewer(
+                                        pages: post['content'] ?? [],
+                                        username: post['username'] ?? "",
+                                        profileImage:
+                                            post['profile_image'] ?? "",
+                                        postId: post['post_id'],
+                                      ),
                                     ),
                                   );
                                 }
-                              } catch (e) {
-                                print("Error removing saved: $e");
-                              }
-                            }
-                          },
-                          onTap: () async {
-                            final deleted = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => FullPostPage(
-                                  postId: post['post_id'].toString(),
-                                  showDelete: widget.title == "Post",
-                                  //openFirstContent: true,
+                              },
+                            ),
+
+                            /// 🔥 DELETE BUTTON FOR OWN POSTS
+                            if (widget.title == "Post")
+                              Positioned(
+                                top: 10,
+                                right: 10,
+                                child: GestureDetector(
+                                  onTap: () async {
+                                    showDialog(
+                                      context: context,
+                                      builder: (_) => AlertDialog(
+                                        title: const Text("Delete Post"),
+                                        content: const Text(
+                                          "Are you sure you want to delete this post?",
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context),
+                                            child: const Text("Cancel"),
+                                          ),
+                                          TextButton(
+                                            onPressed: () async {
+                                              Navigator.pop(context);
+
+                                              try {
+                                                final response = await http.delete(
+                                                  Uri.parse(
+                                                    "https://bigiluu.com/api/posts/deletePost/${post['post_id']}",
+                                                  ),
+                                                );
+
+                                                if (response.statusCode ==
+                                                    200) {
+                                                  setState(() {
+                                                    posts.removeWhere(
+                                                      (p) =>
+                                                          p['post_id'] ==
+                                                          post['post_id'],
+                                                    );
+                                                  });
+
+                                                  ScaffoldMessenger.of(
+                                                    context,
+                                                  ).showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text(
+                                                        "Post deleted successfully",
+                                                      ),
+                                                    ),
+                                                  );
+
+                                                  if (posts.isEmpty) {
+                                                    Navigator.pop(context);
+                                                  }
+                                                }
+                                              } catch (e) {
+                                                print("Delete error: $e");
+                                              }
+                                            },
+                                            child: const Text(
+                                              "Delete",
+                                              style: TextStyle(
+                                                color: Colors.red,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.delete,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            );
-
-                            // 🔥 IF POST DELETED
-                            if (deleted == true) {
-                              setState(() {
-                                posts.removeWhere(
-                                  (p) => p['post_id'] == post['post_id'],
-                                );
-                              });
-
-                              // 🔥 RETURN ID BACK TO PROFILE PAGE
-                              Navigator.pop(context, post['post_id']);
-                            }
-                          },
+                          ],
                         ),
                       ),
 
                       /// CAPTION
+                      /// CAPTION
                       if ((post['caption'] ?? "").toString().isNotEmpty)
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                          padding: const EdgeInsets.fromLTRB(12, 2, 12, 2),
                           child: Text(
                             post['caption'],
                             style: const TextStyle(
@@ -1249,6 +1414,25 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                             ),
                           ),
                         ),
+
+                      /// 🔥 READERS COUNT
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 2, 12, 4),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.visibility,
+                              size: 16,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              "${post['readers_count'] ?? 0} readers",
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ),
 
                       /// HASHTAG
                       if ((post['hastag'] ?? "").toString().isNotEmpty)

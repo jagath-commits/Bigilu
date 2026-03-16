@@ -43,153 +43,299 @@ class _HashtagPageState extends State<HashtagPage> {
         final data = json.decode(response.body);
         setState(() => hashtags = List<Map<String, dynamic>>.from(data));
       }
-    } catch (_) {} finally {
-      setState(() => isLoading = false);
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
+    const brandColor = Color(0xFFB11226);
 
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.light,
-          statusBarBrightness: Brightness.dark,
+      backgroundColor: const Color(0xFFF8F9FA),
+      appBar: AppBar(
+        title: const Text(
+          "Explore Hashtags",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 20),
         ),
-        child: SafeArea(
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: Image.asset("assets/images/vijay1.jpg", fit: BoxFit.cover),
-              ),
-              Positioned.fill(child: Container(color: Colors.black.withOpacity(0.5))),
-              Column(
-                children: [
-                  Padding(
-                    padding: EdgeInsets.all(screenWidth * 0.04),
-                    child: TextField(
-                      controller: _controller,
-                      decoration: InputDecoration(
-                        hintText: "Search hashtag...",
-                        filled: true,
-                        fillColor: Colors.white.withOpacity(0.95),
-                        prefixIcon: const Icon(Icons.search),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      onChanged: (v) => setState(() => searchText = v),
-                    ),
-                  ),
-                  Expanded(
-                    child: isLoading
-                        ? const Center(child: CircularProgressIndicator(color: Colors.white))
-                        : ListView(
-                            padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.06),
-                            children: hashtags
-                                .where((i) => i["hashtag"]
-                                    .toLowerCase()
-                                    .contains(searchText.toLowerCase()))
-                                .map((item) {
-                              return GestureDetector(
-                                onTap: () {
-                                  final route = Platform.isIOS
-                                      ? CupertinoPageRoute(
-                                          builder: (_) => HashtagPostsPage(tag: item["hashtag"]),
-                                        )
-                                      : MaterialPageRoute(
-                                          builder: (_) => HashtagPostsPage(tag: item["hashtag"]),
-                                        );
-                                  Navigator.push(context, route);
-                                },
-                                child: Padding(
-                                  padding: EdgeInsets.symmetric(vertical: screenWidth * 0.02),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(item["hashtag"],
-                                          style: TextStyle(
-                                              fontSize: screenWidth * 0.055,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.white)),
-                                      Text("${item["count"]} write up",
-                                          style: TextStyle(
-                                              fontSize: screenWidth * 0.04,
-                                              color: Colors.grey[300])),
-                                      const Divider(color: Colors.white30),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
+        backgroundColor: brandColor,
+        elevation: 0,
+        centerTitle: true,
+        automaticallyImplyLeading: false,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+        ),
+      ),
+      body: Column(
+        children: [
+          // Search Bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
                   ),
                 ],
               ),
-            ],
+              child: TextField(
+                controller: _controller,
+                onChanged: (v) => setState(() => searchText = v),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+                decoration: InputDecoration(
+                  hintText: "Search hashtags...",
+                  hintStyle: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.w500),
+                  prefixIcon: const Icon(Icons.search, color: brandColor),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                ),
+              ),
+            ),
           ),
-        ),
+
+          // Hashtag List
+          Expanded(
+            child: isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: brandColor),
+                  )
+                : ListView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    children: hashtags
+                        .where(
+                          (i) => i["hashtag"].toLowerCase().contains(
+                                searchText.toLowerCase(),
+                              ),
+                        )
+                        .map((item) {
+                      return GestureDetector(
+                        onTap: () {
+                          final route = Platform.isIOS
+                              ? CupertinoPageRoute(
+                                  builder: (_) => HashtagPostsPage(
+                                    tag: item["hashtag"],
+                                  ),
+                                )
+                              : MaterialPageRoute(
+                                  builder: (_) => HashtagPostsPage(
+                                    tag: item["hashtag"],
+                                  ),
+                                );
+                          Navigator.push(context, route);
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.03),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                            border: Border.all(color: Colors.black.withOpacity(0.02)),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: brandColor.withOpacity(0.08),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.tag_rounded, color: brandColor, size: 22),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item["hashtag"],
+                                      style: const TextStyle(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF1A1A1A),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      "${item["count"]} stories published",
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey.shade500,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey.shade300, size: 16),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+          ),
+        ],
       ),
       bottomNavigationBar: _buildBottomNavigationBar(context),
     );
   }
 
   Widget _buildBottomNavigationBar(BuildContext context) {
-    return BottomAppBar(
-      height: 60,
-      color: const Color(0xFF800000),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.person, color: Colors.white),
-            onPressed: () async {
-              String? userId = await getUserId();
-              if (userId != null) {
-                Navigator.push(
-                  context,
-                  Platform.isIOS
-                      ? CupertinoPageRoute(builder: (_) => ProfilePage(userId: userId))
-                      : MaterialPageRoute(builder: (_) => ProfilePage(userId: userId)),
-                );
-              }
-            },
-          ),
-          const Icon(Icons.tag, color: Colors.white),
-          IconButton(
-            icon: const Icon(Icons.home, color: Colors.white),
-            onPressed: () {
-              Navigator.push(
-                context,
-                Platform.isIOS
-                    ? CupertinoPageRoute(builder: (_) => const HomePage())
-                    : MaterialPageRoute(builder: (_) => const HomePage()),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.edit, color: Colors.white),
-            onPressed: () {
-              Navigator.push(
-                context,
-                Platform.isIOS
-                    ? CupertinoPageRoute(builder: (_) => const WritePage())
-                    : MaterialPageRoute(builder: (_) => const WritePage()),
-              );
-            },
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
           ),
         ],
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _build3DNavItem(
+                context,
+                Icons.home_rounded,
+                "Home",
+                () {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const HomePage()),
+                    (route) => false,
+                  );
+                },
+                isActive: false,
+              ),
+              _build3DNavItem(
+                context,
+                Icons.explore_rounded,
+                "Explore",
+                () {},
+                isActive: true,
+              ),
+              _build3DNavItem(
+                context,
+                Icons.edit_rounded,
+                "Write",
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const WritePage()),
+                  );
+                },
+                isActive: false,
+              ),
+              _build3DNavItem(
+                context,
+                Icons.person_rounded,
+                "Profile",
+                () async {
+                  String? userId = await getUserId();
+                  if (userId != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ProfilePage(userId: userId),
+                      ),
+                    );
+                  }
+                },
+                isActive: false,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _build3DNavItem(
+    BuildContext context,
+    IconData icon,
+    String label,
+    VoidCallback onPressed, {
+    bool isActive = false,
+  }) {
+    double screenWidth = MediaQuery.of(context).size.width;
+    double iconSize = screenWidth < 360 ? 22 : 26;
+    double fontSize = screenWidth < 360 ? 9 : 10;
+
+    Color activeColor = const Color(0xFFB11226);
+    Color inactiveColor = Colors.grey.shade600;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(16),
+        splashColor: activeColor.withOpacity(0.15),
+        highlightColor: activeColor.withOpacity(0.08),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: isActive
+              ? BoxDecoration(
+                  color: activeColor.withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: activeColor.withOpacity(0.35),
+                    width: 1.2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: activeColor.withOpacity(0.12),
+                      blurRadius: 8,
+                      offset: const Offset(0, 1.5),
+                    ),
+                  ],
+                )
+              : BoxDecoration(borderRadius: BorderRadius.circular(12)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                color: isActive ? activeColor : inactiveColor,
+                size: iconSize,
+              ),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isActive ? activeColor : inactiveColor,
+                  fontSize: fontSize,
+                  fontWeight: isActive ? FontWeight.w800 : FontWeight.w700,
+                  fontFamily: 'Roboto',
+                  letterSpacing: 0.2,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
-
-
 
 class HashtagPostsPage extends StatefulWidget {
   final String tag;
@@ -227,22 +373,22 @@ class _HashtagPostsPageState extends State<HashtagPostsPage> {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        setState(() {
-          posts = data;
-          isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            posts = data;
+            isLoading = false;
+          });
+        }
       }
     } catch (e) {
       debugPrint("Error fetching hashtag posts: $e");
-      setState(() => isLoading = false);
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
   void toggleLike(String postId) {
     setState(() {
-      likedPosts.contains(postId)
-          ? likedPosts.remove(postId)
-          : likedPosts.add(postId);
+      likedPosts.contains(postId) ? likedPosts.remove(postId) : likedPosts.add(postId);
     });
   }
 
@@ -259,11 +405,9 @@ class _HashtagPostsPageState extends State<HashtagPostsPage> {
         body: jsonEncode({'user_id': userId, 'post_id': postId}),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 && mounted) {
         setState(() {
-          savedPosts.contains(postId)
-              ? savedPosts.remove(postId)
-              : savedPosts.add(postId);
+          savedPosts.contains(postId) ? savedPosts.remove(postId) : savedPosts.add(postId);
         });
       }
     } catch (e) {
@@ -273,81 +417,60 @@ class _HashtagPostsPageState extends State<HashtagPostsPage> {
 
   @override
   Widget build(BuildContext context) {
+    const brandColor = Color(0xFFB11226);
+
     return Scaffold(
-      backgroundColor: Colors.white,
-
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF800000),
-        title: Text(widget.tag),
-        centerTitle: Platform.isIOS, // iOS style
+        title: Text(
+          widget.tag,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18),
+        ),
+        backgroundColor: brandColor,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+        ),
       ),
-
-      body: SafeArea(
-        child: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : posts.isEmpty
-                ? const Center(child: Text("No posts found"))
-                : ListView.builder(
-                    physics: const BouncingScrollPhysics(), // iOS smooth scroll
-                    itemCount: posts.length,
-                    itemBuilder: (context, index) {
-                      final post = posts[index];
-                      final postId = post['post_id'].toString();
-
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          PostContainer(
-                            post: post,
-                            
-                            isSaved: savedPosts.contains(postId),
-                            
-                            onSave: () => toggleSave(postId),
-                          ),
-
-                          if ((post['caption'] ?? "").toString().isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  post['caption'],
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                          if ((post['hastag'] ?? "").toString().isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  post['hastag'],
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.blue,
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                          const SizedBox(height: 8),
-                          Divider(height: 1, thickness: 0.5),
-                          const SizedBox(height: 6),
-                        ],
-                      );
-                    },
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator(color: brandColor))
+          : posts.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.auto_stories_outlined, size: 64, color: Colors.grey.shade300),
+                      const SizedBox(height: 16),
+                      Text(
+                        "No stories found for ${widget.tag}",
+                        style: TextStyle(color: Colors.grey.shade500, fontSize: 16, fontWeight: FontWeight.w600),
+                      ),
+                    ],
                   ),
-      ),
+                )
+              : ListView.builder(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  itemCount: posts.length,
+                  itemBuilder: (context, index) {
+                    final post = posts[index];
+                    final postId = post['post_id'].toString();
+
+                    return PostContainer(
+                      post: post,
+                      isSaved: savedPosts.contains(postId),
+                      onSave: () => toggleSave(postId),
+                    );
+                  },
+                ),
     );
   }
 }
-
-
 
 class PostDetailPage extends StatefulWidget {
   final String postId;
@@ -380,9 +503,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
   Future<void> _loadPost() async {
     try {
       final response = await http.get(
-        Uri.parse(
-          "https://bigiluu.com/api/posts/singlePost/${widget.postId}",
-        ),
+        Uri.parse("https://bigiluu.com/api/posts/singlePost/${widget.postId}"),
       );
 
       if (response.statusCode == 200) {
@@ -414,118 +535,192 @@ class _PostDetailPageState extends State<PostDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    const brandColor = Color(0xFFB11226);
     final totalPages = pages.length;
 
     return Scaffold(
-      backgroundColor: Colors.white,
-
+      backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF800000),
-        foregroundColor: Colors.white,
-        title: const Text("Post"),
-        centerTitle: Platform.isIOS, // iOS style title
+        title: Column(
+          children: [
+            const Text(
+              "Reading",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 20,
+                fontFamily: 'serif',
+              ),
+            ),
+            Text(
+              "Page ${currentPage + 1} of $totalPages",
+              style: TextStyle(
+                color: Colors.white60,
+                fontWeight: FontWeight.w500,
+                fontSize: 12,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded, color: Colors.white, size: 26),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
-
-      body: SafeArea(
-        child: loading
-            ? const Center(
-                child: CircularProgressIndicator(color: Colors.black),
-              )
-            : Stack(
-                children: [
-                  PageView.builder(
+      body: loading
+          ? const Center(child: CircularProgressIndicator(color: brandColor))
+          : Stack(
+              fit: StackFit.expand,
+              children: [
+                Positioned.fill(
+                  child: PageView.builder(
                     controller: _pageController,
-                    physics: const BouncingScrollPhysics(), // iOS smooth scroll
+                    physics: const BouncingScrollPhysics(),
                     itemCount: totalPages,
-                    onPageChanged: (index) {
-                      setState(() => currentPage = index);
-                    },
-                    itemBuilder: (context, index) {
-                      final page = pages[index];
+                  onPageChanged: (index) {
+                    setState(() => currentPage = index);
+                  },
+                  itemBuilder: (context, index) {
+                    final page = pages[index];
+                    final fontSize = (page['fontSize'] ?? 18).toDouble();
+                    final fontFamily = page['fontFamily'] ?? 'Roboto';
+                    final fontColor = _parseColor(page['fontColor']);
 
-                      return SingleChildScrollView(
-                        padding: const EdgeInsets.all(12),
-                        physics: const BouncingScrollPhysics(),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ...(page['blocks'] as List).map<Widget>((block) {
-                              if (block['type'] == "text") {
-                                return Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 6),
-                                  child: Text(
-                                    block['text'] ?? "",
-                                    style: TextStyle(
-                                      fontSize:
-                                          (page['fontSize'] ?? 16).toDouble(),
-                                      color: _parseColor(page['fontColor']),
-                                      fontFamily: page['fontFamily'],
-                                    ),
-                                  ),
-                                );
-                              }
-
-                              if (block['type'] == "image" &&
-                                  block['image'] != null &&
-                                  block['image'].toString().isNotEmpty) {
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 10,
-                                  ),
-                                  child: Image.network(
-                                    "https://bigiluu.com/${block['image']}",
-                                    fit: BoxFit.contain,
-                                    loadingBuilder:
-                                        (context, child, progress) {
-                                      if (progress == null) return child;
-                                      return const Center(
-                                        child: CircularProgressIndicator(),
-                                      );
-                                    },
-                                    errorBuilder:
-                                        (context, error, stackTrace) {
-                                      return const Text(
-                                        "Image not found",
-                                        style: TextStyle(color: Colors.red),
-                                      );
-                                    },
-                                  ),
-                                );
-                              }
-
-                              return const SizedBox();
-                            }).toList(),
+                    return SizedBox.expand(
+                      child: Container(
+                        margin: const EdgeInsets.fromLTRB(16, 8, 16, 75),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFDFBF7),
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.4),
+                              blurRadius: 25,
+                              offset: const Offset(0, 12),
+                            ),
                           ],
                         ),
-                      );
-                    },
-                  ),
-
-                  Positioned(
-                    top: 12,
-                    right: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.7),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        "${currentPage + 1} / $totalPages",
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 12,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(24),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Positioned(
+                                left: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: 35,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight,
+                                      colors: [
+                                        Colors.black.withOpacity(0.18),
+                                        Colors.black.withOpacity(0.08),
+                                        Colors.transparent,
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Positioned.fill(
+                                child: Opacity(
+                                  opacity: 0.02,
+                                  child: Image.network(
+                                    "https://www.transparenttextures.com/patterns/paper-fibers.png",
+                                    repeat: ImageRepeat.repeat,
+                                    errorBuilder: (_, __, ___) => const SizedBox(),
+                                  ),
+                                ),
+                              ),
+                              SingleChildScrollView(
+                                physics: const BouncingScrollPhysics(),
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(55, 50, 40, 70),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      ...(page['blocks'] as List? ?? []).map<Widget>((block) {
+                                        if (block['type'] == "text") {
+                                          return Padding(
+                                            padding: const EdgeInsets.only(bottom: 20),
+                                            child: Text(
+                                              block['text'] ?? "",
+                                              style: TextStyle(
+                                                fontSize: fontSize,
+                                                fontFamily: fontFamily,
+                                                color: fontColor.withOpacity(0.9),
+                                                height: 1.7,
+                                                letterSpacing: 0.4,
+                                                fontWeight: FontWeight.w400,
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                        if (block['type'] == "image" && block['image'] != null && block['image'].toString().isNotEmpty) {
+                                          return Container(
+                                            margin: const EdgeInsets.only(bottom: 24),
+                                            decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(16),
+                                              boxShadow: [
+                                                BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 10, offset: const Offset(0, 5)),
+                                              ],
+                                            ),
+                                            child: ClipRRect(
+                                              borderRadius: BorderRadius.circular(16),
+                                              child: Image.network(
+                                                "https://bigiluu.com/${block['image']}",
+                                                fit: BoxFit.cover,
+                                                loadingBuilder: (context, child, progress) {
+                                                  if (progress == null) return child;
+                                                  return Container(
+                                                    height: 200,
+                                                    color: Colors.grey.shade50,
+                                                    child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: brandColor)),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                        return const SizedBox();
+                                      }),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                bottom: 24,
+                                left: 0,
+                                right: 0,
+                                child: Center(
+                                  child: Text(
+                                    "— ${index + 1} of $totalPages —",
+                                    style: TextStyle(
+                                      color: Colors.grey.shade400,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12,
+                                      letterSpacing: 1.2,
+                                      fontFamily: 'serif',
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
+                    );
+                  },
                   ),
-                ],
-              ),
-      ),
+                ),
+              ],
+            ),
     );
   }
 

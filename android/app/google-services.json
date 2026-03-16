@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1006820989274:android:d7e05621dc0f05691ebb63",
+        "mobilesdk_app_id": "1:1006820989274:android:b2e89b256dca74621ebb63",
         "android_client_info": {
-          "package_name": "com.example.bigilu"
+          "package_name": "com.coderead.bigiluu"
         }
       },
       "oauth_client": [],

@@ -1,3 +1,13 @@
+import java.util.Properties
+import java.io.FileInputStream
+
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -7,7 +17,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.bigilu"
+    namespace = "com.coderead.bigiluu"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -22,7 +32,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.bigilu"
+        applicationId = "com.coderead.bigiluu"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -31,27 +41,38 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+    create("release") {
+        keyAlias = keystoreProperties["keyAlias"] as String
+        keyPassword = keystoreProperties["keyPassword"] as String
+        storeFile = file(keystoreProperties["storeFile"] as String)
+        storePassword = keystoreProperties["storePassword"] as String
+    }
+}
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            getByName("release") {
+    signingConfig = signingConfigs.getByName("release")
+}
         }
     }
 }
 
 dependencies {
-  // Import the Firebase BoM
-  implementation(platform("com.google.firebase:firebase-bom:34.9.0"))
+    // Firebase BOM
+    implementation(platform("com.google.firebase:firebase-bom:34.10.0"))
 
+    // Firebase Auth (REQUIRED for phone OTP)
+    implementation("com.google.firebase:firebase-auth")
 
-  // TODO: Add the dependencies for Firebase products you want to use
-  // When using the BoM, don't specify versions in Firebase dependencies
-  implementation("com.google.firebase:firebase-analytics")
+    // Optional
+    implementation("com.google.firebase:firebase-analytics")
 
-
-  // Add the dependencies for any other desired Firebase products
-  // https://firebase.google.com/docs/android/setup#available-libraries
+    // Play Integrity (important for phone auth verification)
+    implementation("com.google.android.play:integrity:1.3.0")
 }
 
 flutter {

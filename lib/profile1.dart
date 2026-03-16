@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:bigilu/main.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:bigilu/write.dart';
@@ -53,7 +52,7 @@ class _ProfilePageState extends State<ProfilePage> {
         pathPart = pathPart.replaceAll("Profile_images", "profile_images");
         pathPart = pathPart.replaceAll("Cover_images", "cover_images");
         pathPart = pathPart.replaceAll("Page_images", "page_images");
-        return domain + "/" + pathPart;
+        return "$domain/$pathPart";
       }
       return normalizedPath;
     }
@@ -74,25 +73,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
     // ✅ Return complete HTTPS URL
     return "https://bigiluu.com/$path";
-  }
-
-  Widget _draftPlaceholder(String title) {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      color: Colors.grey[300],
-      child: Center(
-        child: Text(
-          title.isNotEmpty ? title : "Untitled Draft",
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Colors.black54,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
-    );
   }
 
   @override
@@ -251,6 +231,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 "content": e['content'] ?? [],
                 "username": e['username'] ?? "",
                 "profile_image": e['profile_image'] ?? "",
+                "hastag": e['hastag'] ?? "",
               },
             ),
           );
@@ -375,271 +356,280 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  void _confirmRemoveSaved(String postId) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Remove Saved Post"),
-        content: const Text("Remove this post from saved?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _removeSavedPost(postId);
-            },
-            child: const Text("Remove", style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Future<void> _removeSavedPost(String postId) async {
-    try {
-      final response = await http.delete(
-        Uri.parse(
-          "https://bigiluu.com/api/posts/removeSavedPost/${widget.userId}/$postId",
-        ),
-      );
 
-      if (response.statusCode == 200) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Removed from saved")));
 
-        _loadSavedPosts(); // 🔥 refresh saved tab
-      } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Failed to remove")));
-      }
-    } catch (e) {
-      print("Remove saved error: $e");
-    }
-  }
 
   Widget _buildGridSection() {
+    final list = _getSelectedList();
+    if (list.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.auto_stories_outlined,
+              size: 64,
+              color: Colors.grey.shade200,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              "No posts found",
+              style: TextStyle(
+                color: Colors.grey.shade400,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return GridView.builder(
-      padding: const EdgeInsets.all(8),
-      itemCount: _getSelectedList().length,
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      itemCount: list.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 4,
-        mainAxisSpacing: 4,
+        crossAxisCount: 2,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 24,
         childAspectRatio: 0.65,
       ),
       itemBuilder: (context, index) {
-        final post = _getSelectedList()[index];
-
-        // Drafts
-        if (selectedTab == 1) {
-          final String? rawCover = post['cover_img'];
-          final String coverUrl =
-              (rawCover != null && rawCover.toString().isNotEmpty)
-              ? fullUrl(rawCover)
-              : "";
-
-          final String title = (post['title'] ?? "").toString();
-
-          return Stack(
-            children: [
-              GestureDetector(
-                onTap: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => WritePage(
-                        draftId: post['post_id'],
-                        draftContent: jsonEncode(post['rawContent']),
-                        draftCover: post['cover_img'],
-                      ),
-                    ),
-                  );
-
-                  _loadUserDrafts();
-                },
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: Container(
-                    color: Colors.grey[200],
-                    child: Stack(
-                      children: [
-                        /// 🔥 COVER IMAGE (SAFE)
-                        if (coverUrl.isNotEmpty)
-                          Image.network(
-                            coverUrl,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
-                            loadingBuilder: (context, child, progress) {
-                              if (progress == null) return child;
-                              return const Center(
-                                child: CircularProgressIndicator(),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) {
-                              return _draftPlaceholder(title);
-                            },
-                          )
-                        else
-                          _draftPlaceholder(title),
-
-                        /// 🔥 TITLE (SAFE)
-                        if (title.isNotEmpty)
-                          Positioned(
-                            bottom: 8,
-                            left: 8,
-                            right: 8,
-                            child: Text(
-                              title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                shadows: [
-                                  Shadow(
-                                    blurRadius: 4,
-                                    color: Colors.black,
-                                    offset: Offset(1, 1),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              /// DELETE BUTTON
-              Positioned(
-                top: 6,
-                right: 6,
-                child: GestureDetector(
-                  onTap: () => _confirmDeleteDraft(post['post_id']),
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.delete,
-                      size: 16,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        }
-        // Normal Posts & Saved
-        final img = post['cover_img'] ?? "";
+        final post = list[index];
+        final String postId = post['post_id'].toString();
+        final String img = post['cover_img'] ?? "";
+        final String title = (post['title'] ?? "").toString();
 
         return GestureDetector(
           onTap: () async {
-            final postId = post['post_id'];
+            if (selectedTab == 1) {
+              // Drafts
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => WritePage(
+                    draftId: postId,
+                    draftContent: jsonEncode(post['rawContent']),
+                    draftCover: post['cover_img'],
+                  ),
+                ),
+              );
+              _loadUserDrafts();
+              return;
+            }
 
-            // 🔥 Decide which list we are using
+            // Normal Posts & Saved
             List<Map<String, dynamic>> sourceList = selectedTab == 0
                 ? myPosts
                 : savedPosts;
-
-            // 🔥 Get clicked index
             int clickedIndex = sourceList.indexWhere(
               (p) => p['post_id'] == postId,
             );
 
-            // 🔥 Fetch full post data for ALL posts
+            // Loading Overlay
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (_) => const Center(
+                child: CircularProgressIndicator(color: Color(0xFFB11226)),
+              ),
+            );
+
             List<Map<String, dynamic>> fullPosts = [];
-
-            for (var p in sourceList) {
-              final response = await http.get(
-                Uri.parse(
-                  "https://bigiluu.com/api/posts/singlePost/${p['post_id']}",
-                ),
-              );
-
-              if (response.statusCode == 200) {
-                fullPosts.add(jsonDecode(response.body));
+            try {
+              for (var p in sourceList) {
+                final response = await http.get(
+                  Uri.parse(
+                    "https://bigiluu.com/api/posts/singlePost/${p['post_id']}",
+                  ),
+                );
+                if (response.statusCode == 200) {
+                  fullPosts.add(jsonDecode(response.body));
+                }
               }
+            } finally {
+              Navigator.pop(context); // Close loading
             }
 
-            // 🔥 Open feed style viewer starting from clicked post
             final removedPostId = await Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => ProfileFeedViewer(
                   posts: fullPosts,
                   initialIndex: clickedIndex < 0 ? 0 : clickedIndex,
-                  title: selectedTab == 0 ? "Post" : "Saved",
+                  title: selectedTab == 0 ? "My Books" : "Saved",
                   userId: widget.userId,
                 ),
               ),
             );
 
-            // 🔥 IF POST REMOVED FROM SAVED TAB
-            if (removedPostId != null && removedPostId is String) {
-              setState(() {
-                myPosts.removeWhere((p) => p['post_id'] == removedPostId);
-                savedPosts.removeWhere((p) => p['post_id'] == removedPostId);
-              });
+            if (removedPostId != null) {
+              _loadUserPosts();
+              _loadSavedPosts();
             }
           },
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 10,
+                  offset: const Offset(4, 6),
+                ),
+              ],
+            ),
             child: Stack(
               children: [
-                img.isNotEmpty
-                    ? Image.network(
-                        img,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: double.infinity,
-                        loadingBuilder: (context, child, progress) {
-                          if (progress == null) return child;
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: Colors.grey[300],
-                            child: const Icon(Icons.broken_image),
-                          );
-                        },
-                      )
-                    : Container(color: Colors.grey[300]),
+                // 3D Page Edges
+                Positioned(
+                  right: 0,
+                  top: 4,
+                  bottom: 4,
+                  width: 8,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: const BorderRadius.horizontal(
+                        right: Radius.circular(6),
+                      ),
+                      border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                    ),
+                  ),
+                ),
 
-                /// 🔥 TITLE OVER IMAGE
-                if ((post['title'] ?? "").toString().isNotEmpty)
-                  Positioned(
-                    bottom: 8,
-                    left: 8,
-                    right: 8,
-                    child: Text(
-                      post['title'],
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        shadows: [
-                          Shadow(
-                            blurRadius: 4,
-                            color: Colors.black,
-                            offset: Offset(1, 1),
+                // Cover
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  right: 6,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (img.isNotEmpty)
+                          Image.network(
+                            img,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, progress) {
+                              if (progress == null) return child;
+                              return Container(color: Colors.grey.shade100);
+                            },
+                            errorBuilder: (_, __, ___) => Container(
+                              color: Colors.grey.shade200,
+                              child: const Icon(
+                                Icons.book_rounded,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          )
+                        else
+                          Container(
+                            color: Colors.grey.shade200,
+                            child: Center(
+                              child: Text(
+                                title.isNotEmpty ? title : "No Cover",
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
                           ),
-                        ],
+
+                        // Depth Overlay
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                              colors: [
+                                Colors.black.withOpacity(0.4),
+                                Colors.black.withOpacity(0.05),
+                                Colors.transparent,
+                                Colors.black.withOpacity(0.2),
+                              ],
+                              stops: const [0.0, 0.05, 0.2, 1.0],
+                            ),
+                          ),
+                        ),
+
+                        // Title Overlay
+                        Positioned(
+                          bottom: 12,
+                          left: 12,
+                          right: 12,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (post['hastag'] != null &&
+                                  post['hastag'].toString().isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  margin: const EdgeInsets.only(bottom: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.4),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    "#${post['hastag']}",
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              Text(
+                                title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 13,
+                                  fontFamily: 'serif',
+                                  shadows: [
+                                    Shadow(
+                                      color: Colors.black87,
+                                      blurRadius: 8,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Delete button for drafts
+                if (selectedTab == 1)
+                  Positioned(
+                    top: 6,
+                    right: 12,
+                    child: GestureDetector(
+                      onTap: () => _confirmDeleteDraft(postId),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          size: 14,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -656,122 +646,255 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       backgroundColor: Colors.white,
       resizeToAvoidBottomInset: true,
-      body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 10),
+      body: Container(
+        color: const Color(0xFFF8F9FA),
+        child: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) {
+            return [
+              // Profile Header Section
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.vertical(
+                          bottom: Radius.circular(32),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0x0A000000),
+                            blurRadius: 20,
+                            offset: Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          _buildAvatar(),
+                          const SizedBox(height: 16),
+                          Text(
+                            userName.isNotEmpty ? userName : "User",
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF1A1A1A),
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "Creative Storyteller",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade500,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
 
-            // Make top section scroll-safe
-            Expanded(
-              child: Column(
-                children: [
-                  // Username
-                  Text(
-                    userName,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                          // Stats Row
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _buildStatItem("${myPosts.length}", "Books"),
+                              _buildStatVerticalDivider(),
+                              _buildStatItem("${savedPosts.length}", "Saved"),
+                              _buildStatVerticalDivider(),
+                              _buildStatItem("${draftPosts.length}", "Drafts"),
+                            ],
+                          ),
 
-                  const SizedBox(height: 20),
+                          const SizedBox(height: 32),
 
-                  _buildAvatar(),
-
-                  const SizedBox(height: 15),
-
-                  Text(
-                    "${myPosts.length}",
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Text("Posts"),
-
-                  const SizedBox(height: 20),
-
-                  // Buttons (responsive)
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 8),
-
-                        ElevatedButton(
-                          onPressed: () async {
-                            final result = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    EditProfilePage(userId: widget.userId),
+                          // Action Buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () async {
+                                    final result = await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => EditProfilePage(
+                                          userId: widget.userId,
+                                        ),
+                                      ),
+                                    );
+                                    if (result != null && result is Map) {
+                                      setState(() {
+                                        userName =
+                                            result['username'] ?? userName;
+                                        _networkImageUrl =
+                                            result['profile_image'] ??
+                                            _networkImageUrl;
+                                        _image = null;
+                                      });
+                                    }
+                                  },
+                                  icon: const Icon(
+                                    Icons.edit_note_rounded,
+                                    size: 20,
+                                    color: Colors.white,
+                                  ),
+                                  label: const Text(
+                                    "Edit Profile",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFB11226),
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                ),
                               ),
-                            );
-
-                            if (result != null && result is Map) {
-                              setState(() {
-                                userName = result['username'] ?? userName;
-                                _networkImageUrl =
-                                    result['profile_image'] ?? _networkImageUrl;
-                                _image = null;
-                              });
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF800000),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25),
-                            ),
+                              const SizedBox(width: 12),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: IconButton(
+                                  onPressed: _confirmLogout,
+                                  icon: const Icon(
+                                    Icons.logout_rounded,
+                                    color: Color(0xFFE53935),
+                                  ),
+                                  padding: const EdgeInsets.all(12),
+                                ),
+                              ),
+                            ],
                           ),
-                          child: const Text(
-                            "Edit Profile",
-                            style: TextStyle(color: Colors.white),
-                          ),
-                        ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
 
-                        const SizedBox(width: 8),
-
-                        ElevatedButton(
-                          onPressed: _confirmLogout,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF800000),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25),
-                            ),
+              // Sticky Tabs Section
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _SliverAppBarDelegate(
+                  minHeight: 70,
+                  maxHeight: 70,
+                  child: Container(
+                    color: const Color(0xFFF8F9FA),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 8,
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
                           ),
-                          child: const Text(
-                            "Logout",
-                            style: TextStyle(color: Colors.white),
-                          ),
-                        ),
-
-                        const SizedBox(width: 8),
-                      ],
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          _buildModernTab("Books", 0),
+                          _buildModernTab("Drafts", 1),
+                          _buildModernTab("Saved", 2),
+                        ],
+                      ),
                     ),
                   ),
-
-                  const SizedBox(height: 20),
-                  const Divider(),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildTab("Our Posts", 0),
-                      _buildTab("Draft", 1),
-                      _buildTab("Saved", 2),
-                    ],
-                  ),
-                  const Divider(),
-
-                  // Grid Section
-                  Expanded(child: _buildGridSection()),
-                ],
+                ),
               ),
-            ),
-          ],
+            ];
+          },
+          body: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _buildGridSection(),
+          ),
         ),
       ),
       bottomNavigationBar: _buildBottomNavigationBar(context),
+    );
+  }
+
+  Widget _buildStatItem(String value, String label) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF1A1A1A),
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatVerticalDivider() {
+    return Container(
+      height: 24,
+      width: 1,
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      color: Colors.grey.shade200,
+    );
+  }
+
+  Widget _buildModernTab(String title, int index) {
+    final bool isSelected = selectedTab == index;
+    const brandColor = Color(0xFFB11226);
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => selectedTab = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? brandColor : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: brandColor.withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : [],
+          ),
+          child: Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: isSelected ? Colors.white : Colors.grey.shade500,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -783,13 +906,34 @@ class _ProfilePageState extends State<ProfilePage> {
 
     if (_image != null) {
       provider = FileImage(_image!);
-    } else if (_networkImageUrl != null) {
+    } else if (_networkImageUrl != null && _networkImageUrl!.isNotEmpty) {
       provider = NetworkImage(_networkImageUrl!);
     } else {
       provider = const NetworkImage('https://i.stack.imgur.com/l60Hf.png');
     }
 
-    return CircleAvatar(radius: 50, backgroundImage: provider);
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: const Color(0xFFB11226).withOpacity(0.5),
+          width: 3,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFB11226).withOpacity(0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: CircleAvatar(
+        radius: MediaQuery.of(context).size.width < 360
+            ? 40
+            : 48, // Reduced from 45/55
+        backgroundImage: provider,
+      ),
+    );
   }
 
   // ============================
@@ -801,71 +945,99 @@ class _ProfilePageState extends State<ProfilePage> {
     return savedPosts;
   }
 
-  Widget _buildTab(String title, int index) {
-    return GestureDetector(
-      onTap: () => setState(() => selectedTab = index),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: selectedTab == index
-              ? FontWeight.bold
-              : FontWeight.normal,
-          color: selectedTab == index ? const Color(0xFF800000) : Colors.grey,
+  // ============================
+  // Bottom Navigation
+  // ============================
+  Widget _buildBottomNavigationBar(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _build3DNavItem(context, Icons.home_rounded, "Home", () {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HomePage()),
+                  (route) => false,
+                );
+              }, isActive: false),
+              _build3DNavItem(context, Icons.explore_rounded, "Explore", () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HashtagPage()),
+                );
+              }, isActive: false),
+              _build3DNavItem(context, Icons.edit_rounded, "Write", () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const WritePage()),
+                );
+                if (result == true) {
+                  await _loadUserDrafts();
+                  setState(() => selectedTab = 1);
+                }
+              }, isActive: false),
+              _build3DNavItem(
+                context,
+                Icons.person_rounded,
+                "Profile",
+                () {},
+                isActive: true,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // ============================
-  // Bottom Navigation
-  // ============================
-  Widget _buildBottomNavigationBar(BuildContext context) {
-    return BottomAppBar(
-      height: 60,
-      color: const Color(0xFF800000),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.person, color: Colors.white),
-            onPressed: () {},
-          ), // Already on profile
-          IconButton(
-            icon: const Icon(Icons.tag, color: Colors.white),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const HashtagPage()),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.home, color: Colors.white),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const HomePage()),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.edit, color: Colors.white),
-            onPressed: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const WritePage()),
-              );
+  Widget _build3DNavItem(
+    BuildContext context,
+    IconData icon,
+    String label,
+    VoidCallback onPressed, {
+    bool isActive = false,
+  }) {
+    double screenWidth = MediaQuery.of(context).size.width;
+    double iconInternalSize = screenWidth < 360 ? 24 : 28;
+    double fontSize = screenWidth < 360 ? 11 : 12;
 
-              // 🔥 If draft saved, refresh drafts instantly
-              if (result == true) {
-                await _loadUserDrafts();
-                setState(() {
-                  selectedTab =
-                      1; // optional → automatically switch to Draft tab
-                });
-              }
-            },
+    Color activeColor = const Color(0xFFB11226);
+    Color inactiveColor = Colors.grey.shade400;
+
+    return GestureDetector(
+      onTap: onPressed,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: isActive ? activeColor : inactiveColor,
+            size: iconInternalSize,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: isActive ? activeColor : inactiveColor,
+              fontSize: fontSize,
+              fontWeight: isActive ? FontWeight.w800 : FontWeight.w500,
+              fontFamily: 'Roboto',
+              letterSpacing: 0.3,
+            ),
           ),
         ],
       ),
@@ -985,180 +1157,359 @@ class _FullPostPageState extends State<FullPostPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Post"),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded, color: Colors.black87),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Column(
+          children: [
+            const Text(
+              "Reading",
+              style: TextStyle(
+                color: Colors.black87,
+                fontWeight: FontWeight.w900,
+                fontSize: 20,
+                fontFamily: 'serif',
+              ),
+            ),
+            Text(
+              "Page ${currentPage + 1} of $totalPages",
+              style: TextStyle(
+                color: Colors.black54,
+                fontWeight: FontWeight.w500,
+                fontSize: 12,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
+        ),
         actions: widget.showDelete
             ? [
                 IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: Colors.redAccent,
+                  ),
                   onPressed: _confirmDelete,
                 ),
               ]
-            : null,
+            : [const SizedBox(width: 48)],
       ),
       body: SafeArea(
         child: loading
             ? const Center(child: CircularProgressIndicator())
             : Stack(
+                fit: StackFit.expand,
                 children: [
-                  // ==========================
                   // PAGE VIEW
-                  // ==========================
-                  PageView.builder(
-                    controller: _pageController,
-                    itemCount: totalPages + 1, // extra cover page
-                    onPageChanged: (index) {
-                      setState(() {
-                        currentPage = index;
-                      });
-                    },
-                    itemBuilder: (context, index) {
-                      // ==========================
-                      // COVER PAGE (index 0)
-                      // ==========================
-                      if (index == 0) {
-                        return SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              if (coverImg != null)
-                                Image.network(coverImg!, fit: BoxFit.cover),
-                              if (caption != null)
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    8,
-                                    16,
-                                    8,
-                                  ), // reduced top padding
-                                  child: Text(
-                                    caption!,
-                                    style: const TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
+                  Positioned.fill(
+                    child: PageView.builder(
+                      controller: _pageController,
+                      itemCount: totalPages,
+                      onPageChanged: (index) {
+                        setState(() {
+                          currentPage = index;
+                        });
+                      },
+                      itemBuilder: (context, index) {
+                        // Custom premium container for each page
+                        return SizedBox.expand(
+                          child: Container(
+                            margin: const EdgeInsets.fromLTRB(16, 8, 16, 75),
+                            decoration: BoxDecoration(
+                              color: const Color(
+                                0xFFFDFBF7,
+                              ), // Premium cream paper
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
                                 ),
-                              // readers count below caption
-                              if (readersCount > 0)
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    0,
-                                    16,
-                                    16,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.visibility,
-                                        size: 18,
-                                        color: Colors.grey,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        "$readersCount readers",
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(24),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  // Spine Binding Effect
+                                  Positioned(
+                                    left: 0,
+                                    top: 0,
+                                    bottom: 0,
+                                    width: 30,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.centerLeft,
+                                          end: Alignment.centerRight,
+                                          colors: [
+                                            Colors.black.withOpacity(0.15),
+                                            Colors.black.withOpacity(0.05),
+                                            Colors.transparent,
+                                          ],
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ),
-                            ],
-                          ),
-                        );
-                      }
-
-                      // ==========================
-                      // CONTENT PAGES (index - 1)
-                      // ==========================
-                      final page = pages[index - 1];
-
-                      return SingleChildScrollView(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ...(page['blocks'] as List? ?? []).map<Widget>((
-                              block,
-                            ) {
-                              if (block['type'] == "text") {
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 6,
-                                  ),
-                                  child: Text(
-                                    block['text'] ?? "",
-                                    style: TextStyle(
-                                      fontSize: (page['fontSize'] ?? 16)
-                                          .toDouble(),
-                                      color: _parseColor(page['fontColor']),
-                                      fontFamily: page['fontFamily'],
                                     ),
                                   ),
-                                );
-                              }
 
-                              if (block['type'] == "image" &&
-                                  block['image'] != null &&
-                                  block['image'].toString().isNotEmpty) {
-                                // 🔥 DEBUG: print image URL coming from backend
-                                print("FULL POST IMAGE URL: ${block['image']}");
-
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 10,
+                                  // Paper Texture Overlay
+                                  Positioned.fill(
+                                    child: Opacity(
+                                      opacity: 0.02,
+                                      child: Image.network(
+                                        "https://www.transparenttextures.com/patterns/paper-fibers.png",
+                                        repeat: ImageRepeat.repeat,
+                                        errorBuilder: (_, __, ___) =>
+                                            const SizedBox(),
+                                      ),
+                                    ),
                                   ),
-                                  child: Image.network(
-                                    block['image'],
-                                    fit: BoxFit.contain,
-                                    loadingBuilder: (context, child, progress) {
-                                      if (progress == null) return child;
-                                      return const Center(
-                                        child: CircularProgressIndicator(),
-                                      );
-                                    },
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return const Text(
-                                        "Image not found",
-                                        style: TextStyle(color: Colors.red),
-                                      );
-                                    },
+
+                                  // Content
+                                  if (index == 0)
+                                    // COVER PAGE
+                                    SingleChildScrollView(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        45,
+                                        40,
+                                        32,
+                                        40,
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          if (coverImg != null)
+                                            ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              child: Image.network(
+                                                coverImg!,
+                                                fit: BoxFit.contain,
+                                                loadingBuilder:
+                                                    (context, child, progress) {
+                                                      if (progress == null)
+                                                        return child;
+                                                      return Container(
+                                                        height: 200,
+                                                        color: Colors
+                                                            .grey
+                                                            .shade100,
+                                                        child: const Center(
+                                                          child:
+                                                              CircularProgressIndicator(
+                                                                strokeWidth: 2,
+                                                              ),
+                                                        ),
+                                                      );
+                                                    },
+                                              ),
+                                            ),
+                                          if (caption != null &&
+                                              caption!.isNotEmpty)
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.fromLTRB(
+                                                    0,
+                                                    24,
+                                                    0,
+                                                    12,
+                                                  ),
+                                              child: Text(
+                                                caption!,
+                                                style: const TextStyle(
+                                                  fontSize: 24,
+                                                  fontWeight: FontWeight.w800,
+                                                  fontFamily: 'serif',
+                                                  height: 1.3,
+                                                  color: Color(0xFF2C2C2C),
+                                                ),
+                                              ),
+                                            ),
+                                          if (readersCount > 0)
+                                            Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons.visibility,
+                                                  size: 16,
+                                                  color: Colors.grey,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  "$readersCount readers",
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Colors.grey,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                        ],
+                                      ),
+                                    )
+                                  else
+                                    // CONTENT PAGES
+                                    Builder(
+                                      builder: (context) {
+                                        final page = pages[index - 1];
+                                        return SingleChildScrollView(
+                                          padding: const EdgeInsets.fromLTRB(
+                                            50,
+                                            45,
+                                            35,
+                                            60,
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              ...(page['blocks'] as List? ?? []).map<
+                                                Widget
+                                              >((block) {
+                                                if (block['type'] == "text") {
+                                                  return Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                          bottom: 16,
+                                                        ),
+                                                    child: Text(
+                                                      block['text'] ?? "",
+                                                      style: TextStyle(
+                                                        fontSize:
+                                                            (page['fontSize'] ??
+                                                                    18)
+                                                                .toDouble(),
+                                                        color: _parseColor(
+                                                          page['fontColor'],
+                                                        ).withOpacity(0.85),
+                                                        fontFamily:
+                                                            page['fontFamily'] ??
+                                                            'Roboto',
+                                                        height: 1.6,
+                                                        letterSpacing: 0.2,
+                                                      ),
+                                                    ),
+                                                  );
+                                                }
+
+                                                if (block['type'] == "image" &&
+                                                    block['image'] != null &&
+                                                    block['image']
+                                                        .toString()
+                                                        .isNotEmpty) {
+                                                  return Container(
+                                                    margin:
+                                                        const EdgeInsets.only(
+                                                          bottom: 20,
+                                                          top: 4,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            14,
+                                                          ),
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          color: Colors.black
+                                                              .withOpacity(0.1),
+                                                          blurRadius: 8,
+                                                          offset: const Offset(
+                                                            0,
+                                                            4,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    child: ClipRRect(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            14,
+                                                          ),
+                                                      child: Image.network(
+                                                        block['image'],
+                                                        fit: BoxFit.cover,
+                                                        loadingBuilder:
+                                                            (
+                                                              context,
+                                                              child,
+                                                              progress,
+                                                            ) {
+                                                              if (progress ==
+                                                                  null)
+                                                                return child;
+                                                              return Container(
+                                                                height: 200,
+                                                                color: Colors
+                                                                    .grey
+                                                                    .shade100,
+                                                                child: const Center(
+                                                                  child: CircularProgressIndicator(
+                                                                    strokeWidth:
+                                                                        2,
+                                                                  ),
+                                                                ),
+                                                              );
+                                                            },
+                                                        errorBuilder:
+                                                            (
+                                                              _,
+                                                              __,
+                                                              ___,
+                                                            ) => Container(
+                                                              height: 100,
+                                                              color: Colors
+                                                                  .grey
+                                                                  .shade100,
+                                                              child: const Icon(
+                                                                Icons
+                                                                    .broken_image,
+                                                                color:
+                                                                    Colors.grey,
+                                                              ),
+                                                            ),
+                                                      ),
+                                                    ),
+                                                  );
+                                                }
+                                                return const SizedBox();
+                                              }),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+
+                                  // Page number indicator
+                                  Positioned(
+                                    bottom: 24,
+                                    left: 0,
+                                    right: 0,
+                                    child: Center(
+                                      child: Text(
+                                        "— ${index + 1} —",
+                                        style: TextStyle(
+                                          color: Colors.grey.shade400,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 12,
+                                          letterSpacing: 1.2,
+                                          fontFamily: 'serif',
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                );
-                              }
-
-                              return const SizedBox();
-                            }).toList(),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-
-                  // ==========================
-                  // PAGE NUMBER INDICATOR
-                  // ==========================
-                  Positioned(
-                    top: 12,
-                    right: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        "${currentPage + 1} / $totalPages",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                      ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -1199,6 +1550,20 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
   late List<Map<String, dynamic>> posts;
   late PageController controller;
 
+  String _fullUrl(String? path) {
+    if (path == null || path.isEmpty) return "";
+    if (path.startsWith("http://") || path.startsWith("https://")) {
+      return path.replaceFirst("http://", "https://");
+    }
+    path = path.replaceAll("\\", "/").replaceAll(RegExp(r'^/+'), "");
+    path = path.replaceAll("Uploads", "uploads");
+    path = path.replaceAll("Profile_images", "profile_images");
+    path = path.replaceAll("Cover_images", "cover_images");
+    path = path.replaceAll("Page_images", "page_images");
+    if (!path.contains("/")) path = "uploads/cover_images/$path";
+    return "https://bigiluu.com/$path";
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1226,77 +1591,180 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
               itemCount: posts.isEmpty ? 1 : posts.length,
               itemBuilder: (context, index) {
                 final post = posts[index];
+                final String img = _fullUrl(post['cover_img'] ?? '');
+                final String caption = (post['caption'] ?? '').toString();
+                final String hashtag = (post['hastag'] ?? '').toString();
+                final String username = (post['username'] ?? 'Storyteller')
+                    .toString();
+                final String profileImg = _fullUrl(post['profile_image'] ?? '');
+                final int readersCount = post['readers_count'] ?? 0;
 
-                return SizedBox(
-                  height: MediaQuery.of(context).size.height,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      /// POST
-                      Flexible(
-                        fit: FlexFit.loose,
-                        child: Stack(
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      physics: const NeverScrollableScrollPhysics(),
+                      child: SizedBox(
+                        height: constraints.maxHeight,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            PostContainer(
-                              post: post,
-                              isSaved: widget.title == "Saved",
-                              onSave: () async {
-                                if (widget.title == "Saved") {
-                                  try {
-                                    final response = await http.delete(
-                                      Uri.parse(
-                                        "https://bigiluu.com/api/posts/removeSavedPost/${widget.userId}/${post['post_id']}",
-                                      ),
-                                    );
-
-                                    if (response.statusCode == 200) {
-                                      setState(() {
-                                        posts.removeWhere(
-                                          (p) =>
-                                              p['post_id'] == post['post_id'],
-                                        );
-                                      });
-
-                                      Navigator.pop(
-                                        context,
-                                        post['post_id'].toString(),
-                                      );
-
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text("Removed from saved"),
+                            // ─── HEADER ───────────────────────────────────────
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 22,
+                                    backgroundColor: Colors.grey.shade200,
+                                    backgroundImage: profileImg.isNotEmpty
+                                        ? NetworkImage(profileImg)
+                                        : null,
+                                    child: profileImg.isEmpty
+                                        ? const Icon(
+                                            Icons.person,
+                                            color: Colors.grey,
+                                          )
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          username,
+                                          style: const TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w800,
+                                            color: Color(0xFF1A1A1A),
+                                          ),
                                         ),
-                                      );
-                                    }
-                                  } catch (e) {
-                                    print("Error removing saved: $e");
-                                  }
-                                }
-                              },
-                              onTap: () async {
-                                if (widget.title == "Post") {
-                                  final deleted = await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => FullPostPage(
-                                        postId: post['post_id'].toString(),
-                                        showDelete: true,
-                                      ),
+                                        const Text(
+                                          "Storyteller",
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  );
+                                  ),
+                                  // Delete button
+                                  if (widget.title == "My Stories" ||
+                                      widget.title == "Post" ||
+                                      widget.title == "My Books")
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.delete_outline_rounded,
+                                        color: Colors.redAccent,
+                                        size: 22,
+                                      ),
+                                      onPressed: () async {
+                                        final confirm = await showDialog<bool>(
+                                          context: context,
+                                          builder: (_) => AlertDialog(
+                                            title: const Text("Delete Post"),
+                                            content: const Text(
+                                              "Are you sure you want to delete this post?",
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(
+                                                  context,
+                                                  false,
+                                                ),
+                                                child: const Text("Cancel"),
+                                              ),
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(
+                                                  context,
+                                                  true,
+                                                ),
+                                                child: const Text(
+                                                  "Delete",
+                                                  style: TextStyle(
+                                                    color: Colors.red,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                        if (confirm == true) {
+                                          try {
+                                            final response = await http.delete(
+                                              Uri.parse(
+                                                "https://bigiluu.com/api/posts/deletePost/${post['post_id']}",
+                                              ),
+                                            );
+                                            if (response.statusCode == 200) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    "Post deleted successfully",
+                                                  ),
+                                                ),
+                                              );
+                                              setState(() {
+                                                posts.removeAt(index);
+                                              });
+                                              if (posts.isEmpty) {
+                                                Navigator.pop(
+                                                  context,
+                                                  post['post_id'].toString(),
+                                                );
+                                              }
+                                            }
+                                          } catch (e) {
+                                            print("Delete error: $e");
+                                          }
+                                        }
+                                      },
+                                    ),
+                                  // Readers count chip
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(
+                                        0xFFB11226,
+                                      ).withOpacity(0.08),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.auto_stories_rounded,
+                                          color: Color(0xFFB11226),
+                                          size: 14,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          "$readersCount",
+                                          style: const TextStyle(
+                                            color: Color(0xFFB11226),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
 
-                                  if (deleted == true) {
-                                    setState(() {
-                                      posts.removeWhere(
-                                        (p) => p['post_id'] == post['post_id'],
-                                      );
-                                    });
-
-                                    Navigator.pop(context, post['post_id']);
-                                  }
-                                } else {
+                            // ─── BOOK COVER ───────────────────────────────────
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () async {
                                   await Navigator.push(
                                     context,
                                     MaterialPageRoute(
@@ -1309,154 +1777,375 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                                       ),
                                     ),
                                   );
-                                }
-                              },
-                            ),
-
-                            /// 🔥 DELETE BUTTON FOR OWN POSTS
-                            if (widget.title == "Post")
-                              Positioned(
-                                top: 10,
-                                right: 10,
-                                child: GestureDetector(
-                                  onTap: () async {
-                                    showDialog(
-                                      context: context,
-                                      builder: (_) => AlertDialog(
-                                        title: const Text("Delete Post"),
-                                        content: const Text(
-                                          "Are you sure you want to delete this post?",
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  child: Hero(
+                                    tag: "feed_post_${post['post_id']}",
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: const BorderRadius.only(
+                                          topRight: Radius.circular(12),
+                                          bottomRight: Radius.circular(12),
+                                          topLeft: Radius.circular(6),
+                                          bottomLeft: Radius.circular(6),
                                         ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () =>
-                                                Navigator.pop(context),
-                                            child: const Text("Cancel"),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(
+                                              0.35,
+                                            ),
+                                            blurRadius: 20,
+                                            offset: const Offset(10, 14),
                                           ),
-                                          TextButton(
-                                            onPressed: () async {
-                                              Navigator.pop(context);
-
-                                              try {
-                                                final response = await http.delete(
-                                                  Uri.parse(
-                                                    "https://bigiluu.com/api/posts/deletePost/${post['post_id']}",
-                                                  ),
-                                                );
-
-                                                if (response.statusCode ==
-                                                    200) {
-                                                  setState(() {
-                                                    posts.removeWhere(
-                                                      (p) =>
-                                                          p['post_id'] ==
-                                                          post['post_id'],
-                                                    );
-                                                  });
-
-                                                  ScaffoldMessenger.of(
-                                                    context,
-                                                  ).showSnackBar(
-                                                    const SnackBar(
-                                                      content: Text(
-                                                        "Post deleted successfully",
+                                        ],
+                                      ),
+                                      child: Stack(
+                                        children: [
+                                          // Page edges
+                                          Positioned(
+                                            right: 0,
+                                            top: 6,
+                                            bottom: 6,
+                                            width: 14,
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius:
+                                                    const BorderRadius.horizontal(
+                                                      right: Radius.circular(8),
+                                                    ),
+                                                border: Border.all(
+                                                  color: Colors.grey
+                                                      .withOpacity(0.2),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          // Front cover
+                                          Positioned.fill(
+                                            child: Padding(
+                                              padding: const EdgeInsets.only(
+                                                right: 12,
+                                              ),
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                                child: Stack(
+                                                  fit: StackFit.expand,
+                                                  children: [
+                                                    if (img.isNotEmpty)
+                                                      Image.network(
+                                                        img,
+                                                        fit: BoxFit.cover,
+                                                        loadingBuilder:
+                                                            (
+                                                              ctx,
+                                                              child,
+                                                              progress,
+                                                            ) {
+                                                              if (progress ==
+                                                                  null)
+                                                                return child;
+                                                              return Container(
+                                                                color: Colors
+                                                                    .grey
+                                                                    .shade100,
+                                                              );
+                                                            },
+                                                        errorBuilder:
+                                                            (
+                                                              _,
+                                                              __,
+                                                              ___,
+                                                            ) => Container(
+                                                              color: Colors
+                                                                  .grey
+                                                                  .shade200,
+                                                              child: const Icon(
+                                                                Icons
+                                                                    .book_rounded,
+                                                                color:
+                                                                    Colors.grey,
+                                                                size: 40,
+                                                              ),
+                                                            ),
+                                                      )
+                                                    else
+                                                      Container(
+                                                        color: Colors
+                                                            .grey
+                                                            .shade200,
+                                                        child: const Icon(
+                                                          Icons.book_rounded,
+                                                          color: Colors.grey,
+                                                          size: 40,
+                                                        ),
+                                                      ),
+                                                    // Depth overlay
+                                                    Container(
+                                                      decoration: BoxDecoration(
+                                                        gradient: LinearGradient(
+                                                          begin: Alignment
+                                                              .centerLeft,
+                                                          end: Alignment
+                                                              .centerRight,
+                                                          colors: [
+                                                            Colors.black
+                                                                .withOpacity(
+                                                                  0.5,
+                                                                ),
+                                                            Colors.black
+                                                                .withOpacity(
+                                                                  0.1,
+                                                                ),
+                                                            Colors.transparent,
+                                                            Colors.black
+                                                                .withOpacity(
+                                                                  0.3,
+                                                                ),
+                                                          ],
+                                                          stops: const [
+                                                            0.0,
+                                                            0.05,
+                                                            0.25,
+                                                            1.0,
+                                                          ],
+                                                        ),
                                                       ),
                                                     ),
-                                                  );
-
-                                                  if (posts.isEmpty) {
-                                                    Navigator.pop(context);
-                                                  }
-                                                }
-                                              } catch (e) {
-                                                print("Delete error: $e");
-                                              }
-                                            },
-                                            child: const Text(
-                                              "Delete",
-                                              style: TextStyle(
-                                                color: Colors.red,
+                                                    // Title overlay
+                                                    Positioned(
+                                                      bottom: 32,
+                                                      left: 20,
+                                                      right: 16,
+                                                      child: Text(
+                                                        caption,
+                                                        maxLines: 3,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        style: const TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 22,
+                                                          fontWeight:
+                                                              FontWeight.w900,
+                                                          fontFamily: 'serif',
+                                                          height: 1.2,
+                                                          shadows: [
+                                                            Shadow(
+                                                              color: Colors
+                                                                  .black87,
+                                                              blurRadius: 16,
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
                                               ),
                                             ),
                                           ),
                                         ],
                                       ),
-                                    );
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: const BoxDecoration(
-                                      color: Colors.red,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.delete,
-                                      color: Colors.white,
-                                      size: 18,
                                     ),
                                   ),
                                 ),
                               ),
+                            ),
+
+                            // ─── METADATA ─────────────────────────────────────
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (caption.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 6),
+                                      child: Text(
+                                        caption,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                          color: Color(0xFF4A4A4A),
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ),
+                                  Row(
+                                    children: [
+                                      if (hashtag.isNotEmpty)
+                                        Expanded(
+                                          child: Text(
+                                            hashtag,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              color: Color(0xFFB11226),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // ─── ACTION BUTTONS ────────────────────────────────
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: () async {
+                                        await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                FullScreenPostViewer(
+                                                  pages: post['content'] ?? [],
+                                                  username:
+                                                      post['username'] ?? "",
+                                                  profileImage:
+                                                      post['profile_image'] ??
+                                                      "",
+                                                  postId: post['post_id'],
+                                                ),
+                                          ),
+                                        );
+                                      },
+                                      icon: const Icon(
+                                        Icons.menu_book_rounded,
+                                        size: 16,
+                                      ),
+                                      label: const Text("Read"),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: const Color(
+                                          0xFFB11226,
+                                        ),
+                                        side: const BorderSide(
+                                          color: Color(0xFFB11226),
+                                          width: 1.2,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 10,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  if (widget.title == "Saved")
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: () async {
+                                          try {
+                                            final response = await http.delete(
+                                              Uri.parse(
+                                                "https://bigiluu.com/api/posts/removeSavedPost/${widget.userId}/${post['post_id']}",
+                                              ),
+                                            );
+                                            if (response.statusCode == 200) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    "Removed from saved",
+                                                  ),
+                                                ),
+                                              );
+                                              setState(() {
+                                                posts.removeAt(index);
+                                              });
+                                              if (posts.isEmpty) {
+                                                Navigator.pop(
+                                                  context,
+                                                  post['post_id'].toString(),
+                                                );
+                                              }
+                                            }
+                                          } catch (e) {
+                                            print("Remove saved error: $e");
+                                          }
+                                        },
+                                        icon: const Icon(
+                                          Icons.bookmark_remove_outlined,
+                                          size: 16,
+                                        ),
+                                        label: const Text("Unsave"),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: Colors.grey.shade600,
+                                          side: BorderSide(
+                                            color: Colors.grey.shade300,
+                                            width: 1.2,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 10,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+
+                            const Divider(thickness: 0.4, height: 1),
                           ],
                         ),
                       ),
-
-                      /// CAPTION
-                      /// CAPTION
-                      if ((post['caption'] ?? "").toString().isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 2, 12, 2),
-                          child: Text(
-                            post['caption'],
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-
-                      /// 🔥 READERS COUNT
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 2, 12, 4),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.visibility,
-                              size: 16,
-                              color: Colors.grey,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              "${post['readers_count'] ?? 0} readers",
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      /// HASHTAG
-                      if ((post['hastag'] ?? "").toString().isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-                          child: Text(
-                            post['hastag'],
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Colors.blue,
-                            ),
-                          ),
-                        ),
-
-                      Divider(
-                        thickness: 0.6,
-                        height: 1,
-                        color: Colors.grey.shade300,
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 );
               },
             ),
     );
+  }
+}
+
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  _SliverAppBarDelegate({
+    required this.minHeight,
+    required this.maxHeight,
+    required this.child,
+  });
+  final double minHeight;
+  final double maxHeight;
+  final Widget child;
+
+  @override
+  double get minExtent => minHeight;
+  @override
+  double get maxExtent => maxHeight;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return SizedBox.expand(child: child);
+  }
+
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return maxHeight != oldDelegate.maxHeight ||
+        minHeight != oldDelegate.minHeight ||
+        child != oldDelegate.child;
   }
 }

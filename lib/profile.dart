@@ -62,7 +62,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         pathPart = pathPart.replaceAll("Profile_images", "profile_images");
         pathPart = pathPart.replaceAll("Cover_images", "cover_images");
         pathPart = pathPart.replaceAll("Page_images", "page_images");
-        return domain + "/" + pathPart;
+        return "$domain/$pathPart";
       }
       return normalizedPath;
     }
@@ -237,6 +237,32 @@ class _EditProfilePageState extends State<EditProfilePage> {
     final picked = await _picker.pickImage(source: source, imageQuality: 70);
     if (picked != null) {
       setState(() => _image = File(picked.path));
+
+      // Show success feedback
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+              SizedBox(width: 12),
+              Text(
+                'Image selected! Click Save to update.',
+                style: TextStyle(
+                  fontFamily: 'Roboto',
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFFB11226),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
     }
   }
 
@@ -250,68 +276,155 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFFAFAFC),
       appBar: AppBar(
-        title: const Text("Edit Profile"),
+        backgroundColor: Colors.white,
+        elevation: 2,
+        automaticallyImplyLeading: true,
         systemOverlayStyle: const SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
           statusBarIconBrightness: Brightness.dark,
           statusBarBrightness: Brightness.light,
         ),
+        title: const Text(
+          "Edit Profile",
+          style: TextStyle(
+            color: Colors.black87,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            fontFamily: 'Roboto',
+            letterSpacing: 0.3,
+          ),
+        ),
+        iconTheme: const IconThemeData(color: Colors.black87),
       ),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(
               padding: EdgeInsets.symmetric(
-                horizontal: screenWidth * 0.05,
-                vertical: 20,
+                horizontal: screenWidth * 0.06,
+                vertical: 24,
               ),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: IntrinsicHeight(
                   child: Column(
                     children: [
-                      const SizedBox(height: 10),
+                      /// Profile Avatar Section
+                      Center(child: _buildProfessionalAvatar()),
 
-                      _buildAvatar(),
+                      SizedBox(height: screenHeight * 0.04),
 
-                      SizedBox(height: screenHeight * 0.03),
-
-                      _buildInput('Name', _nameController),
-
-                      _buildInput(
-                        'Mobile Number',
-                        _mobileController,
-                        readOnly: true,
+                      /// Input Fields Section
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.black.withOpacity(0.06),
+                            width: 1.2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 16,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            _buildProfessionalInput(
+                              'Full Name',
+                              _nameController,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildProfessionalInput(
+                              'Mobile Number',
+                              _mobileController,
+                              readOnly: true,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildProfessionalInput('Email', _emailController),
+                            const SizedBox(height: 16),
+                            _buildProfessionalInput(
+                              'Membership ID',
+                              _idController,
+                            ),
+                          ],
+                        ),
                       ),
 
-                      _buildInput('Email', _emailController),
+                      SizedBox(height: screenHeight * 0.04),
 
-                      _buildInput('Membership ID', _idController),
-
-                      SizedBox(height: screenHeight * 0.03),
-
-                      SizedBox(
-                        width: double.infinity,
-                        height: screenHeight * 0.06,
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF800000),
-                            foregroundColor: Colors.white,
+                      /// Save Button
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFB11226).withOpacity(0.4),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: _isLoading ? null : saveProfile,
+                            borderRadius: BorderRadius.circular(14),
+                            child: Container(
+                              width: double.infinity,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(14),
+                                gradient: const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFFB11226),
+                                    Color(0xFF8A0C20),
+                                  ],
+                                ),
+                              ),
+                              child: Center(
+                                child: _isLoading
+                                    ? SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white.withOpacity(0.9),
+                                          strokeWidth: 2.5,
+                                        ),
+                                      )
+                                    : Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.check_circle_rounded,
+                                            color: Colors.white,
+                                            size: 20,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          const Text(
+                                            'Save Changes',
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.white,
+                                              fontFamily: 'Roboto',
+                                              letterSpacing: 0.4,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                              ),
+                            ),
                           ),
-                          onPressed: _isLoading ? null : saveProfile,
-                          icon: const Icon(Icons.save),
-                          label: _isLoading
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Text('Save'),
                         ),
                       ),
 
@@ -324,14 +437,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
           },
         ),
       ),
-      bottomNavigationBar: _buildBottomNavigationBar(context),
+      bottomNavigationBar: _buildProfessionalBottomNav(context),
     );
   }
 
-  // ===============================
-  // AVATAR
-  // ===============================
-  Widget _buildAvatar() {
+  /// Professional Avatar with Enhanced Styling
+  Widget _buildProfessionalAvatar() {
     ImageProvider provider;
 
     if (_image != null) {
@@ -342,46 +453,292 @@ class _EditProfilePageState extends State<EditProfilePage> {
       provider = const NetworkImage('https://i.stack.imgur.com/l60Hf.png');
     }
 
-    return GestureDetector(
-      onTap: _showImagePickerOptions,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          CircleAvatar(radius: 50, backgroundImage: provider),
-          Positioned(
-            bottom: 0,
-            right: 0,
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        GestureDetector(
+          onTap: _showImagePickerOptions,
+          child: Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFB11226).withOpacity(0.3),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
             child: CircleAvatar(
-              radius: 16,
-              backgroundColor: Colors.amber,
-              child: const Icon(Icons.edit, size: 16, color: Colors.black),
+              radius: 60,
+              backgroundImage: provider,
+              backgroundColor: Colors.grey.shade200,
             ),
           ),
-        ],
-      ),
+        ),
+        Positioned(
+          bottom: 0,
+          right: 0,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _showImagePickerOptions,
+              borderRadius: BorderRadius.circular(20),
+              splashColor: Colors.white.withOpacity(0.4),
+              highlightColor: Colors.white.withOpacity(0.2),
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFFB11226), Color(0xFF8A0C20)],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFB11226).withOpacity(0.5),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.camera_alt_rounded,
+                  size: 20,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildInput(
+  /// Professional Input Field
+  Widget _buildProfessionalInput(
     String label,
     TextEditingController controller, {
     bool readOnly = false,
   }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: TextField(
-        controller: controller,
-        readOnly: readOnly,
-        decoration: InputDecoration(
-          labelText: label,
-          filled: true,
-          fillColor: readOnly ? Colors.grey.shade200 : null,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: Colors.black87,
+            fontFamily: 'Roboto',
+            letterSpacing: 0.2,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: readOnly
+                  ? Colors.grey.shade300
+                  : const Color(0xFF2196F3).withOpacity(0.3),
+              width: 1.3,
+            ),
+            color: readOnly ? Colors.grey.shade100 : Colors.white,
+          ),
+          child: TextField(
+            controller: controller,
+            readOnly: readOnly,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              fontFamily: 'Roboto',
+              color: Colors.black87,
+            ),
+            decoration: InputDecoration(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 14,
+              ),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              hintText: 'Enter $label',
+              hintStyle: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                fontFamily: 'Roboto',
+                color: Colors.grey.shade400,
+              ),
+              suffixIcon: readOnly
+                  ? Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: Icon(
+                        Icons.lock_rounded,
+                        color: Colors.grey.shade400,
+                        size: 18,
+                      ),
+                    )
+                  : null,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Professional Bottom Navigation - Premium Enhanced
+  Widget _buildProfessionalBottomNav(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border(
+            top: BorderSide(color: const Color(0xFFB11226), width: 2.4),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.14),
+              blurRadius: 28,
+              offset: const Offset(0, -8),
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 12,
+              offset: const Offset(0, -3),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildPremiumNavItem(
+                context,
+                Icons.person_rounded,
+                'Profile',
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ProfilePage(userId: widget.userId),
+                    ),
+                  );
+                },
+                isActive: true,
+              ),
+              _buildPremiumNavItem(context, Icons.tag_rounded, 'Discover', () {
+                final route = Platform.isIOS
+                    ? CupertinoPageRoute(builder: (_) => const HashtagPage())
+                    : MaterialPageRoute(builder: (_) => const HashtagPage());
+                Navigator.push(context, route);
+              }),
+              _buildPremiumNavItem(context, Icons.home_rounded, 'Home', () {
+                final route = Platform.isIOS
+                    ? CupertinoPageRoute(builder: (_) => const HomePage())
+                    : MaterialPageRoute(builder: (_) => const HomePage());
+                Navigator.push(context, route);
+              }),
+              _buildPremiumNavItem(context, Icons.edit_rounded, 'Write', () {
+                final route = Platform.isIOS
+                    ? CupertinoPageRoute(builder: (_) => const WritePage())
+                    : MaterialPageRoute(builder: (_) => const WritePage());
+                Navigator.push(context, route);
+              }),
+            ],
+          ),
         ),
       ),
     );
   }
 
+  /// Premium Navigation Item with Enhanced Styling
+  Widget _buildPremiumNavItem(
+    BuildContext context,
+    IconData icon,
+    String label,
+    VoidCallback onPressed, {
+    bool isActive = false,
+  }) {
+    double screenWidth = MediaQuery.of(context).size.width;
+    double iconSize = screenWidth < 360 ? 23 : 28;
+    double fontSize = screenWidth < 360 ? 9.5 : 10.5;
+
+    Color activeColor = const Color(0xFFB11226);
+    Color inactiveColor = Colors.grey.shade500;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(14),
+        splashColor: activeColor.withOpacity(0.2),
+        highlightColor: activeColor.withOpacity(0.1),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: isActive
+              ? BoxDecoration(
+                  color: activeColor.withOpacity(0.16),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: activeColor.withOpacity(0.4),
+                    width: 1.3,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: activeColor.withOpacity(0.15),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                )
+              : BoxDecoration(borderRadius: BorderRadius.circular(14)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                color: isActive ? activeColor : inactiveColor,
+                size: iconSize,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isActive ? activeColor : inactiveColor,
+                  fontSize: fontSize,
+                  fontWeight: isActive ? FontWeight.w800 : FontWeight.w700,
+                  fontFamily: 'Roboto',
+                  letterSpacing: 0.3,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Show Image Picker Options
   void _showImagePickerOptions() {
     showModalBottomSheet(
       context: context,
@@ -389,72 +746,31 @@ class _EditProfilePageState extends State<EditProfilePage> {
         child: Wrap(
           children: [
             ListTile(
-              leading: const Icon(Icons.photo),
-              title: const Text('Gallery'),
+              leading: const Icon(Icons.photo_library_rounded),
+              title: const Text(
+                'Gallery',
+                style: TextStyle(
+                  fontFamily: 'Roboto',
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(ImageSource.gallery);
               },
             ),
             ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Camera'),
+              leading: const Icon(Icons.camera_alt_rounded),
+              title: const Text(
+                'Camera',
+                style: TextStyle(
+                  fontFamily: 'Roboto',
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(ImageSource.camera);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBottomNavigationBar(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: BottomAppBar(
-        height: 60,
-        color: const Color(0xFF800000),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.person, color: Colors.white),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ProfilePage(userId: widget.userId),
-                  ),
-                );
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.tag, color: Colors.white),
-              onPressed: () {
-                final route = Platform.isIOS
-                    ? CupertinoPageRoute(builder: (_) => const HashtagPage())
-                    : MaterialPageRoute(builder: (_) => const HashtagPage());
-                Navigator.push(context, route);
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.home, color: Colors.white),
-              onPressed: () {
-                final route = Platform.isIOS
-                    ? CupertinoPageRoute(builder: (_) => const HomePage())
-                    : MaterialPageRoute(builder: (_) => const HomePage());
-                Navigator.push(context, route);
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.edit, color: Colors.white),
-              onPressed: () {
-                final route = Platform.isIOS
-                    ? CupertinoPageRoute(builder: (_) => const WritePage())
-                    : MaterialPageRoute(builder: (_) => const WritePage());
-                Navigator.push(context, route);
               },
             ),
           ],

@@ -13,12 +13,14 @@ class PageBlock {
   String type;
   String? text;
   File? image;
-  String? imageUrl; // 🔥 ADD THIS
+  String? imageUrl;
   double? imageWidth;
-  Offset? imagePosition; // 🔥 ADD THIS
+  Offset? imagePosition;
   String? previousText;
+  bool isHeadline;
+  bool isHighlighted; // 🔥 NEW
 
-  PageBlock.text(this.text)
+  PageBlock.text(this.text, {this.isHeadline = false, this.isHighlighted = false})
     : type = "text",
       image = null,
       imageUrl = null,
@@ -29,6 +31,8 @@ class PageBlock {
     : type = "image",
       text = null,
       imageUrl = null,
+      isHeadline = false,
+      isHighlighted = false,
       imageWidth = 200,
       imagePosition = const Offset(0, 0),
       previousText = null;
@@ -36,6 +40,8 @@ class PageBlock {
   PageBlock.networkImage(this.imageUrl)
     : type = "image",
       text = null,
+      isHeadline = false,
+      isHighlighted = false,
       image = null,
       imageWidth = 200,
       imagePosition = const Offset(0, 0),
@@ -46,6 +52,10 @@ class PageData {
   double fontSize;
   String fontFamily;
   int fontColor;
+  double lineSpacing;
+  double letterSpacing;
+  double pageMargin;
+  TextAlign textAlign;
 
   List<PageBlock> blocks;
 
@@ -53,6 +63,10 @@ class PageData {
     required this.fontSize,
     required this.fontFamily,
     required this.fontColor,
+    this.lineSpacing = 1.4,
+    this.letterSpacing = 0.0,
+    this.pageMargin = 50.0,
+    this.textAlign = TextAlign.left,
   }) : blocks = [PageBlock.text("")];
 }
 
@@ -73,7 +87,6 @@ class WritePage extends StatefulWidget {
 }
 
 class _WritePageState extends State<WritePage> {
-  String? _draftCoverImage;
   String? _draftId;
 
   // previously a fixed constant – use a getter so the limit updates
@@ -82,27 +95,39 @@ class _WritePageState extends State<WritePage> {
 
   final Map<String, TextEditingController> _controllers = {};
   final Map<String, FocusNode> _focusNodes = {};
+  int? _focusedBlockIndex;
+  
+  // State variables consolidated at top
+  List<PageData> _pages = [
+    PageData(
+      fontSize: 22,
+      fontFamily: "Roboto",
+      fontColor: 0xFF000000,
+    )
+  ];
+  int _currentPage = 0;
+  final PageController _pageController = PageController();
 
-  int _getWordLimit(PageData page) {
-    bool hasImage = page.blocks.any((block) => block.type == "image");
+  final List<String> _fontFamilies = [
+    "Roboto",
+    "Lora",
+    "Playfair Display",
+    "Inter",
+    "Merienda",
+    "Lobster",
+  ];
 
-    return hasImage ? 120 : 250;
-  }
-
-  int _countWords(String text) {
-    if (text.trim().isEmpty) return 0;
-    return text.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
-  }
-
-  int _getMaxLines(double fontSize) {
-    if (fontSize <= 16) return 25;
-    if (fontSize <= 18) return 22;
-    if (fontSize <= 20) return 20;
-    if (fontSize <= 22) return 25;
-    if (fontSize <= 24) return 17;
-    if (fontSize <= 26) return 16;
-    return 15; // font size 28
-  }
+  final List<int> _fontColors = [
+    0xFF000000, // Black
+    0xFFF44336, // Red
+    0xFF2196F3, // Blue
+    0xFF4CAF50, // Green
+    0xFF9C27B0, // Purple
+    0xFFFF9800, // Orange
+    0xFF009668, // Teal
+    0xFF795548, // Brown
+    0xFFB11226, // Brand Red
+  ];
 
   @override
   void initState() {
@@ -122,13 +147,22 @@ class _WritePageState extends State<WritePage> {
 
   @override
   void dispose() {
-    for (var controller in _controllers.values) {
-      controller.dispose();
+    _pageController.dispose();
+    for (var ctrl in _controllers.values) {
+      ctrl.dispose();
     }
-    for (var focusNode in _focusNodes.values) {
-      focusNode.dispose();
+    for (var node in _focusNodes.values) {
+      node.dispose();
     }
     super.dispose();
+  }
+
+  void _onFocusChanged(int blockIndex, bool hasFocus) {
+    if (hasFocus) {
+      setState(() {
+        _focusedBlockIndex = blockIndex;
+      });
+    }
   }
 
   // optionally assume an image will be added (useful when calculating before inserting)
@@ -137,13 +171,21 @@ class _WritePageState extends State<WritePage> {
     PageData page,
     double maxWidth, {
     bool assumeImage = false,
+    bool isHeadline = false, // 🔥 ADD THIS
   }) {
     final painter = TextPainter(
       text: TextSpan(
         text: text,
-        style: TextStyle(fontSize: page.fontSize, fontFamily: page.fontFamily),
+        style: TextStyle(
+          fontSize: isHeadline ? 28 : page.fontSize, // ✅ USE HEADLINE SIZE
+          fontWeight: isHeadline ? FontWeight.w900 : FontWeight.w400,
+          fontFamily: page.fontFamily,
+          height: page.lineSpacing,
+          letterSpacing: page.letterSpacing,
+        ),
       ),
       maxLines: null,
+      textAlign: page.textAlign,
       textDirection: TextDirection.ltr,
     );
 
@@ -154,7 +196,7 @@ class _WritePageState extends State<WritePage> {
 
     // enforce line counts: 25 lines per page
     int actualLines = painter.computeLineMetrics().length;
-    int allowedLines = 25;
+    int allowedLines = 23;
     if (actualLines > allowedLines) return true;
 
     double allowedHeight = _pageHeightLimit;
@@ -171,8 +213,6 @@ class _WritePageState extends State<WritePage> {
   void _rebalancePagesFromIndex(int pageIndex) {
     if (pageIndex >= _pages.length) return;
 
-    double maxWidth = MediaQuery.of(context).size.width * 0.75;
-
     // Collect all text blocks and images from this page onwards
     String allText = "";
     List<MapEntry<int, int>> imagePositions = []; // (pageIdx, blockIdx) pairs
@@ -181,7 +221,7 @@ class _WritePageState extends State<WritePage> {
       for (int b = 0; b < _pages[p].blocks.length; b++) {
         final block = _pages[p].blocks[b];
         if (block.type == "text" && (block.text ?? "").isNotEmpty) {
-          allText += (block.text ?? "") + "\n";
+          allText += "${block.text ?? ""}\n";
         } else if (block.type == "image") {
           imagePositions.add(MapEntry(p, b));
         }
@@ -200,7 +240,17 @@ class _WritePageState extends State<WritePage> {
       _distributeTextToPages(pageIndex, allText);
     }
 
-    // Update all controllers from this page onwards
+    // Track current keys to avoid disposing active controllers
+    Set<String> activeKeys = {};
+    for (int p = pageIndex; p < _pages.length; p++) {
+      for (int b = 0; b < _pages[p].blocks.length; b++) {
+        if (_pages[p].blocks[b].type == "text") {
+          activeKeys.add("$p-$b");
+        }
+      }
+    }
+
+    // Update or create controllers, keeping track of what we use
     for (int p = pageIndex; p < _pages.length; p++) {
       for (int b = 0; b < _pages[p].blocks.length; b++) {
         if (_pages[p].blocks[b].type == "text") {
@@ -216,6 +266,17 @@ class _WritePageState extends State<WritePage> {
         }
       }
     }
+
+    // Cleanup orphaned controllers
+    _controllers.removeWhere((key, ctrl) {
+      if (!activeKeys.contains(key)) {
+        ctrl.dispose();
+        _focusNodes[key]?.dispose();
+        _focusNodes.remove(key);
+        return true;
+      }
+      return false;
+    });
 
     // Remove trailing empty pages
     while (_pages.length > 1 &&
@@ -234,7 +295,7 @@ class _WritePageState extends State<WritePage> {
   /// new pages as needed.  Guarantees no page ends up overflowing the visible
   /// area, even when [text] is very large (e.g. from a paste).
   void _distributeTextToPages(int startPage, String text) {
-    double maxWidth = MediaQuery.of(context).size.width * 0.75;
+    double maxWidth = MediaQuery.of(context).size.width - (_pages[0].pageMargin * 2);
     String remaining = text;
     int pageIdx = startPage;
 
@@ -275,7 +336,11 @@ class _WritePageState extends State<WritePage> {
       String existing = lastBlock.text ?? "";
       String candidate = existing + remaining;
 
-      if (!_doesTextOverflow(candidate, page, maxWidth)) {
+      // Determine if the block being distributed is a headline
+      // This assumes that if the lastBlock is a headline, the text being added to it should also be treated as such for overflow calculation.
+      bool isHeadlineBlock = lastBlock.isHeadline;
+
+      if (!_doesTextOverflow(candidate, page, maxWidth, isHeadline: isHeadlineBlock)) {
         // whole remainder fits on this page
         lastBlock.text = candidate;
         remaining = "";
@@ -285,7 +350,7 @@ class _WritePageState extends State<WritePage> {
         while (low < high) {
           int mid = (low + high + 1) ~/ 2;
           String prefix = existing + remaining.substring(0, mid);
-          if (_doesTextOverflow(prefix, page, maxWidth)) {
+          if (_doesTextOverflow(prefix, page, maxWidth, isHeadline: isHeadlineBlock)) { // ✅ PASS HEADLINE STATUS
             high = mid - 1;
           } else {
             low = mid;
@@ -306,77 +371,96 @@ class _WritePageState extends State<WritePage> {
   }
 
   void _handleTextChange(String value, int pageIndex, int blockIndex) {
-  final page = _pages[pageIndex];
-  double maxWidth = MediaQuery.of(context).size.width * 0.75;
+    final page = _pages[pageIndex];
+    double maxWidth = MediaQuery.of(context).size.width - (page.pageMargin * 2);
 
-  _pages[pageIndex].blocks[blockIndex].text = value;
-  _controllers["$pageIndex-$blockIndex"]?.text = value;
-  _pages[pageIndex].blocks[blockIndex].previousText = value;
+    // Update text without truncating lines
+    _pages[pageIndex].blocks[blockIndex].text = value;
+    _pages[pageIndex].blocks[blockIndex].previousText = value;
 
-  int oldPageCount = _pages.length;
+    int oldPageCount = _pages.length;
 
-  if (_doesTextOverflow(value, page, maxWidth)) {
-    _rebalancePagesFromIndex(pageIndex);
+    if (_doesTextOverflow(value, page, maxWidth)) {
+      _rebalancePagesFromIndex(pageIndex);
 
-    /// 🔥 if a new page was created
-    if (_pages.length > oldPageCount) {
-      int newPageIndex = pageIndex + 1;
+      // Check if we need to move focus to the next page
+      // This happens if a new page was created OR if content moved to the next page
+      String newBlockText = _pages[pageIndex].blocks[blockIndex].text ?? "";
+      bool contentMoved = newBlockText.length < value.length;
 
-      setState(() {
-        _currentPage = newPageIndex;
-      });
+      if (_pages.length > oldPageCount || contentMoved) {
+        int newPageIndex = (_pages.length > oldPageCount)
+            ? _pages.length - 1
+            : pageIndex + 1;
 
-      /// 🔥 jump to the new page
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _pageController.jumpToPage(newPageIndex);
-      });
+        // Ensure target page is valid
+        if (newPageIndex >= _pages.length) return;
 
-      /// 🔥 move cursor to first text field
-      Future.delayed(const Duration(milliseconds: 100), () {
-        String key = "$newPageIndex-0";
+        setState(() {
+          _currentPage = newPageIndex;
+        });
 
-        if (!_controllers.containsKey(key)) {
-          _controllers[key] = TextEditingController(
-            text: _pages[newPageIndex].blocks.first.text ?? "",
-          );
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _pageController.jumpToPage(newPageIndex);
+        });
 
-        if (!_focusNodes.containsKey(key)) {
-          _focusNodes[key] = FocusNode();
-        }
+        Future.delayed(const Duration(milliseconds: 100), () {
+          // Find first text block in next page
+          int targetBlockIndex = 0;
+          for (int b = 0; b < _pages[newPageIndex].blocks.length; b++) {
+            if (_pages[newPageIndex].blocks[b].type == "text") {
+              targetBlockIndex = b;
+              break;
+            }
+          }
 
-        FocusScope.of(context).requestFocus(_focusNodes[key]);
-      });
+          String key = "$newPageIndex-$targetBlockIndex";
+
+          if (!_controllers.containsKey(key)) {
+            _controllers[key] = TextEditingController(
+              text: _pages[newPageIndex].blocks[targetBlockIndex].text ?? "",
+            );
+          }
+
+          if (!_focusNodes.containsKey(key)) {
+            _focusNodes[key] = FocusNode();
+          }
+
+          FocusScope.of(context).requestFocus(_focusNodes[key]);
+
+          // Place cursor at the end
+          final ctrl = _controllers[key]!;
+          ctrl.selection = TextSelection.collapsed(offset: ctrl.text.length);
+        });
+      }
+    } else {
+      _pullContentUpIfSpace(pageIndex);
     }
-  } else {
-    _pullContentUpIfSpace(pageIndex);
-  }
 
-  /// remove empty pages
-  while (_pages.length > 1 &&
-      _pages.last.blocks.every(
-        (b) => b.type != "text" || (b.text ?? "").trim().isEmpty,
-      ) &&
-      !_pages.last.blocks.any((b) => b.type == "image")) {
-    _pages.removeLast();
-    if (_currentPage >= _pages.length) {
-      _currentPage = _pages.length - 1;
+    while (_pages.length > 1 &&
+        _pages.last.blocks.every(
+          (b) => b.type != "text" || (b.text ?? "").trim().isEmpty,
+        ) &&
+        !_pages.last.blocks.any((b) => b.type == "image")) {
+      _pages.removeLast();
+      if (_currentPage >= _pages.length) {
+        _currentPage = _pages.length - 1;
+      }
     }
   }
-}
 
   /// Pull content from next page if current page has space
   void _pullContentUpIfSpace(int pageIndex) {
     if (pageIndex >= _pages.length - 1) return; // No next page
 
-    double maxWidth = MediaQuery.of(context).size.width * 0.75;
     var currentPage = _pages[pageIndex];
+    double maxWidth = MediaQuery.of(context).size.width - (currentPage.pageMargin * 2);
     var nextPage = _pages[pageIndex + 1];
 
     // Calculate current page usage
     String currentText = "";
     for (var b in currentPage.blocks) {
-      if (b.type == "text") currentText += (b.text ?? "") + "\n";
+      if (b.type == "text") currentText += "${b.text ?? ""}\n";
     }
     currentText = currentText.trim();
 
@@ -395,7 +479,7 @@ class _WritePageState extends State<WritePage> {
         if (canMove) {
           // Try to move first block to current page
           var blockToMove = nextTextBlocks.first;
-          String testText = currentText + "\n" + (blockToMove.text ?? "");
+          String testText = "$currentText\n${blockToMove.text ?? ""}";
 
           if (!_doesTextOverflow(testText, currentPage, maxWidth)) {
             // It fits! Move the block
@@ -418,107 +502,62 @@ class _WritePageState extends State<WritePage> {
     }
   }
 
-  Future<void> _postDraft() async {
-    try {
-      List<Map<String, dynamic>> pagesJson = [];
-
-      for (var page in _pages) {
-        List<Map<String, dynamic>> blocksJson = [];
-
-        for (var block in page.blocks) {
-          blocksJson.add({
-            "type": block.type,
-            "text": block.text,
-            "image": block.image?.path.split('/').last,
-            "imageWidth": block.imageWidth,
-          });
-        }
-
-        pagesJson.add({
-          "fontSize": page.fontSize,
-          "fontFamily": page.fontFamily,
-          "fontColor": page.fontColor,
-          "blocks": blocksJson,
-        });
-      }
-
-      final contentJson = jsonEncode(pagesJson);
-
-      final prefs = await SharedPreferences.getInstance();
-      final currentUserId = prefs.getString("user_id");
-
-      // ✅ ALWAYS assign
-      String url = "https://bigiluu.com/api/posts/createPost";
-
-      Map<String, dynamic> body = {
-        "user_id": currentUserId,
-        "content": contentJson,
-        "caption": "",
-      };
-
-      // If draft exists → delete first
-      if (widget.draftId != null) {
-        await http.delete(
-          Uri.parse(
-            "https://bigiluu.com/api/draft/deleteDraft/${widget.draftId}",
-          ),
-        );
-      }
-
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode(body),
-      );
-
-      final data = jsonDecode(response.body);
-
-      if (data['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Post published successfully!")),
-        );
-
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      print("Error posting draft: $e");
-    }
-  }
-
   void _loadDraftContent(String content) {
     try {
-      List<dynamic> decoded = jsonDecode(content);
+      final decoded = jsonDecode(content);
+
+      List<dynamic> pagesData = [];
+
+      // handle both formats
+      if (decoded is Map && decoded.containsKey("pages")) {
+        pagesData = decoded["pages"];
+      } else if (decoded is List) {
+        pagesData = decoded;
+      }
 
       _pages = [];
 
-      for (var page in decoded) {
+      for (var page in pagesData) {
         PageData pageData = PageData(
-          fontSize: (page['fontSize'] ?? 20).toDouble(),
+          fontSize: (page['fontSize'] ?? 22).toDouble(),
           fontFamily: page['fontFamily'] ?? "Roboto",
           fontColor: page['fontColor'] ?? Colors.black.value,
+          lineSpacing: (page['lineSpacing'] ?? 1.4).toDouble(),
+          letterSpacing: (page['letterSpacing'] ?? 0.0).toDouble(),
+          pageMargin: (page['pageMargin'] ?? 50.0).toDouble(),
+          textAlign: TextAlign.values[page['textAlign'] ?? 0],
         );
 
         pageData.blocks.clear();
 
-        for (var block in page['blocks']) {
-          if (block['type'] == "text") {
-            pageData.blocks.add(PageBlock.text(block['text'] ?? ""));
-          }
+        if (page['blocks'] != null) {
+          for (var block in page['blocks']) {
+            if (block['type'] == "text") {
+              pageData.blocks.add(PageBlock.text(
+                block['text'] ?? "",
+                isHeadline: block['isHeadline'] ?? false,
+                isHighlighted: block['isHighlighted'] ?? false, // ✅ LOAD HIGHLIGHT
+              ));
+            }
 
-          if (block['type'] == "image") {
-            final imageName = block['image'];
-            final width = (block['imageWidth'] ?? 200).toDouble();
-            final posX = (block['imagePosX'] ?? 0).toDouble();
-            final posY = (block['imagePosY'] ?? 0).toDouble();
+            if (block['type'] == "image") {
+              final imageName = block['image'];
 
-            if (imageName != null && imageName.toString().trim().isNotEmpty) {
-              final imageUrl =
-                  "https://bigiluu.com/uploads/draft_covers/$imageName";
+              if (imageName != null && imageName.toString().isNotEmpty) {
+                final imageUrl =
+                    "https://bigiluu.com/uploads/page_images/$imageName";
 
-              final imgBlock = PageBlock.networkImage(imageUrl);
-              imgBlock.imageWidth = width;
-              imgBlock.imagePosition = Offset(posX, posY);
-              pageData.blocks.add(imgBlock);
+                final imgBlock = PageBlock.networkImage(imageUrl);
+
+                imgBlock.imageWidth = (block['imageWidth'] ?? 200).toDouble();
+
+                imgBlock.imagePosition = Offset(
+                  (block['imagePosX'] ?? 0).toDouble(),
+                  (block['imagePosY'] ?? 0).toDouble(),
+                );
+
+                pageData.blocks.add(imgBlock);
+              }
             }
           }
         }
@@ -526,19 +565,45 @@ class _WritePageState extends State<WritePage> {
         _pages.add(pageData);
       }
 
+      if (_pages.isEmpty) {
+        _pages.add(
+          PageData(
+            fontSize: 22,
+            fontFamily: "Roboto",
+            fontColor: Colors.black.value,
+            lineSpacing: 1.4,
+            letterSpacing: 0.0,
+            pageMargin: 50.0,
+            textAlign: TextAlign.left,
+          ),
+        );
+      }
+
       setState(() {
         _currentPage = 0;
       });
     } catch (e) {
-      print("Draft load error: $e");
+      print("❌ Draft load crash: $e");
+
+      // prevent crash
+      setState(() {
+        _pages = [
+          PageData(
+            fontSize: 22,
+            fontFamily: "Roboto",
+            fontColor: Colors.black.value,
+            lineSpacing: 1.4,
+            letterSpacing: 0.0,
+            pageMargin: 50.0,
+            textAlign: TextAlign.left,
+          ),
+        ];
+        _currentPage = 0;
+      });
     }
   }
 
   final ImagePicker _imagePicker = ImagePicker();
-
-  List<PageData> _pages = [
-    PageData(fontSize: 22, fontFamily: "Roboto", fontColor: Colors.black.value),
-  ];
 
   Future<void> saveDraft() async {
     final prefs = await SharedPreferences.getInstance();
@@ -550,8 +615,8 @@ class _WritePageState extends State<WritePage> {
 
     request.fields["user_id"] = userId ?? "";
 
-    if (widget.draftId != null) {
-      request.fields["draft_id"] = widget.draftId!;
+    if (_draftId != null) {
+      request.fields["draft_id"] = _draftId!;
     }
 
     List<Map<String, dynamic>> pagesJson = [];
@@ -582,6 +647,8 @@ class _WritePageState extends State<WritePage> {
           "imageWidth": block.imageWidth,
           "imagePosX": block.imagePosition?.dx,
           "imagePosY": block.imagePosition?.dy,
+          "isHeadline": block.isHeadline,
+          "isHighlighted": block.isHighlighted, // ✅ SAVE TO DRAFT
         });
       }
 
@@ -589,6 +656,10 @@ class _WritePageState extends State<WritePage> {
         "fontSize": page.fontSize,
         "fontFamily": page.fontFamily,
         "fontColor": page.fontColor,
+        "lineSpacing": page.lineSpacing,
+        "letterSpacing": page.letterSpacing,
+        "pageMargin": page.pageMargin,
+        "textAlign": page.textAlign.index,
         "blocks": blocksJson,
       });
     }
@@ -623,7 +694,7 @@ class _WritePageState extends State<WritePage> {
     if (image != null) {
       setState(() {
         // before inserting, make sure current page can fit the image
-        double maxWidth = MediaQuery.of(context).size.width * 0.75;
+        double maxWidth = MediaQuery.of(context).size.width - (_pages[index].pageMargin * 2);
         // combine all existing text in the page
         String combinedText = _pages[index].blocks
             .where((b) => b.type == "text")
@@ -679,7 +750,7 @@ class _WritePageState extends State<WritePage> {
       for (int i = 0; i < blocks.length - 1; i++) {
         if (blocks[i].type == "text" && blocks[i + 1].type == "text") {
           blocks[i].text =
-              (blocks[i].text ?? "") + '\n' + (blocks[i + 1].text ?? "");
+              '${blocks[i].text ?? ""}\n${blocks[i + 1].text ?? ""}';
           blocks.removeAt(i + 1);
           break;
         }
@@ -695,65 +766,63 @@ class _WritePageState extends State<WritePage> {
       return;
     }
 
-    setState(() {
-      _pages.removeAt(_currentPage);
+    int pageToDelete = _currentPage; // ✅ lock the correct page index
 
-      // Move to previous page if needed
+    setState(() {
+      _pages.removeAt(pageToDelete);
+
+      // move cursor safely
       if (_currentPage >= _pages.length) {
         _currentPage = _pages.length - 1;
       }
 
-      _pageController.jumpToPage(_currentPage);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _pageController.jumpToPage(_currentPage);
+      });
 
-      // Update controllers for pages after the deleted one
-      for (int p = _currentPage; p < _pages.length; p++) {
+      // update controllers safely
+      Map<String, TextEditingController> newControllers = {};
+      Map<String, FocusNode> newFocusNodes = {};
+
+      for (int p = 0; p < _pages.length; p++) {
         for (int b = 0; b < _pages[p].blocks.length; b++) {
           if (_pages[p].blocks[b].type == "text") {
-            String oldKey = "${p + 1}-$b";
+            String oldKey = "${p >= pageToDelete ? p + 1 : p}-$b";
             String newKey = "$p-$b";
+
             if (_controllers.containsKey(oldKey)) {
-              _controllers[newKey] = _controllers.remove(oldKey)!;
-              _focusNodes[newKey] = _focusNodes.remove(oldKey)!;
+              newControllers[newKey] = _controllers[oldKey]!;
+            }
+
+            if (_focusNodes.containsKey(oldKey)) {
+              newFocusNodes[newKey] = _focusNodes[oldKey]!;
             }
           }
         }
       }
+
+      _controllers
+        ..clear()
+        ..addAll(newControllers);
+
+      _focusNodes
+        ..clear()
+        ..addAll(newFocusNodes);
     });
   }
 
-  double _fontSize = 22;
-  Color _fontColor = Colors.black;
-  String _fontFamily = "Roboto";
-  final PageController _pageController = PageController();
-  int _currentPage = 0;
-
-  final List<String> _fontFamilies = [
-    "Roboto",
-    "Merienda",
-    "Courier New",
-    "Times New Roman",
-    "Arial",
-    "Lobster",
-  ];
-
-  final List<Color> _fontColors = [
-    Colors.black,
-    Colors.red,
-    Colors.blue,
-    Colors.green,
-    Colors.purple,
-    Colors.orange,
-    Colors.teal,
-    Colors.brown,
-  ];
-
   void _addNewPage() {
     setState(() {
+      final lastPage = _pages.isNotEmpty ? _pages.last : null;
       _pages.add(
         PageData(
-          fontSize: 22,
-          fontFamily: "Roboto",
-          fontColor: Colors.black.value,
+          fontSize: lastPage?.fontSize ?? 22,
+          fontFamily: lastPage?.fontFamily ?? "Roboto",
+          fontColor: lastPage?.fontColor ?? Colors.black.value,
+          lineSpacing: lastPage?.lineSpacing ?? 1.4,
+          letterSpacing: lastPage?.letterSpacing ?? 0.0,
+          pageMargin: lastPage?.pageMargin ?? 50.0,
+          textAlign: lastPage?.textAlign ?? TextAlign.left,
         ),
       );
       _pageController.jumpToPage(_pages.length - 1);
@@ -772,16 +841,13 @@ class _WritePageState extends State<WritePage> {
         return false;
       },
       child: Scaffold(
-        resizeToAvoidBottomInset: true,
+        backgroundColor: const Color(0xFFF8F9FA),
         appBar: AppBar(
           backgroundColor: Colors.white,
-          elevation: 0,
+          elevation: 2,
+          shadowColor: Colors.black.withOpacity(0.05),
           automaticallyImplyLeading: false,
-          systemOverlayStyle: const SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent,
-            statusBarIconBrightness: Brightness.dark,
-            statusBarBrightness: Brightness.light,
-          ),
+          toolbarHeight: 70,
           title: Row(
             children: [
               Image.asset(
@@ -789,25 +855,32 @@ class _WritePageState extends State<WritePage> {
                 height: 50,
                 fit: BoxFit.contain,
               ),
-
-              const Spacer(), // pushes buttons to right
-
+              const Spacer(),
               TextButton(
                 onPressed: () async {
                   await saveDraft();
-
-                  // Go back and tell profile to refresh
                   Navigator.pop(context, true);
                 },
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFFB11226),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: const Color(0xFFB11226).withOpacity(0.2),
+                    ),
+                  ),
+                ),
                 child: const Text(
-                  "Save Draft",
-                  style: TextStyle(fontSize: 16, color: Color(0xFF800000)),
+                  "Draft",
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                 ),
               ),
-
-              const SizedBox(width: 8),
-
-              TextButton(
+              const SizedBox(width: 12),
+              ElevatedButton(
                 onPressed: () {
                   final route = Platform.isIOS
                       ? CupertinoPageRoute(
@@ -822,12 +895,23 @@ class _WritePageState extends State<WritePage> {
                             draftId: widget.draftId,
                           ),
                         );
-
                   Navigator.push(context, route);
                 },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFB11226),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
                 child: const Text(
-                  "Next",
-                  style: TextStyle(fontSize: 16, color: Color(0xFF800000)),
+                  "Continue",
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
                 ),
               ),
             ],
@@ -837,7 +921,10 @@ class _WritePageState extends State<WritePage> {
           children: [
             Expanded(
               child: Padding(
-                padding: EdgeInsets.all(size.width * 0.04),
+                padding: EdgeInsets.symmetric(
+                  horizontal: size.width * 0.05,
+                  vertical: 20,
+                ),
                 child: Stack(
                   children: [
                     PageView.builder(
@@ -847,247 +934,919 @@ class _WritePageState extends State<WritePage> {
                         setState(() => _currentPage = index);
                       },
                       itemBuilder: (context, index) {
-                        return Container(
-                          width: double.infinity,
-                          padding: EdgeInsets.all(size.width * 0.03),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            border: Border.all(
-                              color: const Color(0xFF800000),
-                              width: 2,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Colors.black12,
-                                blurRadius: 6,
-                                offset: Offset(2, 2),
-                              ),
-                            ],
-                          ),
-                          child: SizedBox(
-                            height: MediaQuery.of(context).size.height * 0.65,
-                            child: SingleChildScrollView(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: List.generate(
-                                  _pages[index].blocks.length,
-                                  (blockIndex) {
-                                    final block =
-                                        _pages[index].blocks[blockIndex];
-                                    if (block.type == "text") {
-                                      String key = "$index-$blockIndex";
-
-                                      if (!_controllers.containsKey(key)) {
-                                        _controllers[key] =
-                                            TextEditingController(
-                                              text: block.text ?? "",
-                                            );
-                                      }
-
-                                      if (!_focusNodes.containsKey(key)) {
-                                        _focusNodes[key] = FocusNode();
-                                      }
-
-                                      return Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 6,
-                                        ),
-                                        child: TextField(
-                                          controller: _controllers[key],
-                                          focusNode: _focusNodes[key],
-                                          onChanged: (value) {
-                                            _handleTextChange(
-                                              value,
-                                              index,
-                                              blockIndex,
-                                            );
-                                          },
-                                          maxLines: null,
-                                          style: TextStyle(
-                                            fontSize: _pages[index].fontSize,
-                                            fontFamily:
-                                                _pages[index].fontFamily,
-                                            color: Color(
-                                              _pages[index].fontColor,
-                                            ),
-                                          ),
-                                          decoration: InputDecoration(
-                                            hintText: blockIndex == 0
-                                                ? "Write your heart..."
-                                                : null,
-                                            border: InputBorder.none,
-                                          ),
-                                        ),
-                                      );
-                                    }
-
-                                    if (block.type == "image") {
-                                      Widget imageWidget;
-                                      if (block.image != null) {
-                                        imageWidget = Image.file(
-                                          block.image!,
-                                          width: 200,
-                                          height: 200,
-                                          fit: BoxFit.contain,
-                                        );
-                                      } else if (block.imageUrl != null &&
-                                          block.imageUrl!.isNotEmpty) {
-                                        imageWidget = Image.network(
-                                          block.imageUrl!,
-                                          width: 200,
-                                          height: 200,
-                                          fit: BoxFit.contain,
-                                        );
-                                      } else {
-                                        return const SizedBox();
-                                      }
-                                      return Stack(
-                                        alignment: Alignment.topRight,
-                                        children: [
-                                          Center(child: imageWidget),
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.delete,
-                                              color: Colors.red,
-                                            ),
-                                            onPressed: () => _removeImageBlock(
-                                              index,
-                                              blockIndex,
-                                            ),
-                                          ),
-                                        ],
-                                      );
-                                    }
-                                    return const SizedBox();
-                                  },
+                        return Center(
+                          child: Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 20),
+                            decoration: BoxDecoration(
+                              color: const Color(
+                                0xFFFDFBF7,
+                              ), // Premium cream paper
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.08),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
                                 ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(24),
+                              child: Stack(
+                                children: [
+                                  // Spine Binding Effect
+                                  Positioned(
+                                    left: 0,
+                                    top: 0,
+                                    bottom: 0,
+                                    width: 32,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.centerLeft,
+                                          end: Alignment.centerRight,
+                                          colors: [
+                                            Colors.black.withOpacity(0.12),
+                                            Colors.black.withOpacity(0.04),
+                                            Colors.transparent,
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                  // Paper Texture Overlay
+                                  Positioned.fill(
+                                    child: Opacity(
+                                      opacity: 0.02,
+                                      child: Image.network(
+                                        "https://www.transparenttextures.com/patterns/paper-fibers.png",
+                                        repeat: ImageRepeat.repeat,
+                                        errorBuilder: (_, __, ___) =>
+                                            const SizedBox(),
+                                      ),
+                                    ),
+                                  ),
+
+                                  // Content Area
+                                  Container(
+                                    height:
+                                        MediaQuery.of(context).size.height *
+                                        0.65,
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: _pages[index].pageMargin,
+                                      vertical: 40,
+                                    ),
+                                    child: SingleChildScrollView(
+                                      physics: const BouncingScrollPhysics(),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          ..._pages[index].blocks.asMap().entries.map((
+                                            entry,
+                                          ) {
+                                            final blockIndex = entry.key;
+                                            final block = entry.value;
+
+                                            if (block.type == "text") {
+                                              String key = "$index-$blockIndex";
+
+                                              if (!_controllers.containsKey(
+                                                key,
+                                              )) {
+                                                _controllers[key] =
+                                                    TextEditingController(
+                                                      text: block.text ?? "",
+                                                    );
+                                              }
+
+                                              if (!_focusNodes.containsKey(
+                                                key,
+                                              )) {
+                                                _focusNodes[key] = FocusNode();
+                                              }
+
+                                              return Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 4,
+                                                    ),
+                                                child: TextField(
+                                                  controller: _controllers[key],
+                                                  focusNode: _focusNodes[key],
+                                                  onTap: () {
+                                                    _onFocusChanged(blockIndex, true);
+                                                  },
+                                                  keyboardType:
+                                                      TextInputType.multiline,
+                                                  textInputAction:
+                                                      TextInputAction.newline,
+                                                  maxLines: null,
+                                                  onChanged: (value) {
+                                                    _handleTextChange(
+                                                      value,
+                                                      index,
+                                                      blockIndex,
+                                                    );
+                                                  },
+                                                  textAlign: _pages[index].textAlign,
+                                                  style: TextStyle(
+                                                    fontSize: block.isHeadline ? 28 : _pages[index].fontSize,
+                                                    fontWeight: block.isHeadline ? FontWeight.w900 : FontWeight.w400,
+                                                    fontFamily: _pages[index].fontFamily,
+                                                    color: Color(_pages[index].fontColor),
+                                                    height: _pages[index].lineSpacing,
+                                                    letterSpacing: block.isHeadline ? -0.5 : _pages[index].letterSpacing,
+                                                    backgroundColor: block.isHighlighted ? const Color(0xFFFFF1A1).withOpacity(0.8) : null,
+                                                  ),
+                                                  decoration: InputDecoration(
+                                                    hintText: blockIndex == 0
+                                                        ? "Share your story..."
+                                                        : null,
+                                                    hintStyle: TextStyle(
+                                                      color:
+                                                          Colors.grey.shade400,
+                                                      fontStyle:
+                                                          FontStyle.italic,
+                                                    ),
+                                                    border: InputBorder.none,
+                                                  ),
+                                                ),
+                                              );
+                                            }
+
+                                            if (block.type == "image") {
+                                              Widget imageWidget;
+                                              if (block.image != null) {
+                                                imageWidget = Image.file(
+                                                  block.image!,
+                                                  width: double.infinity,
+                                                  fit: BoxFit.contain,
+                                                );
+                                              } else if (block.imageUrl !=
+                                                      null &&
+                                                  block.imageUrl!.isNotEmpty) {
+                                                imageWidget = Image.network(
+                                                  block.imageUrl!,
+                                                  width: double.infinity,
+                                                  fit: BoxFit.contain,
+                                                );
+                                              } else {
+                                                return const SizedBox();
+                                              }
+                                              return Container(
+                                                margin:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 16,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.black
+                                                          .withOpacity(0.12),
+                                                      blurRadius: 10,
+                                                      offset: const Offset(
+                                                        0,
+                                                        5,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: ClipRRect(
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
+                                                  child: Stack(
+                                                    alignment:
+                                                        Alignment.topRight,
+                                                    children: [
+                                                      imageWidget,
+                                                      Padding(
+                                                        padding:
+                                                            const EdgeInsets.all(
+                                                              8.0,
+                                                            ),
+                                                        child: CircleAvatar(
+                                                          backgroundColor:
+                                                              Colors.white,
+                                                          radius: 18,
+                                                          child: IconButton(
+                                                            icon: const Icon(
+                                                              Icons
+                                                                  .close_rounded,
+                                                              color: Color(
+                                                                0xFFB11226,
+                                                              ),
+                                                              size: 18,
+                                                            ),
+                                                            onPressed: () =>
+                                                                _removeImageBlock(
+                                                                  index,
+                                                                  blockIndex,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              );
+                                            }
+                                            return const SizedBox();
+                                          }),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
                         );
                       },
                     ),
+                    // Floating Page Indicator
                     Positioned(
                       top: 10,
-                      right: 10,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF800000),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          "Page ${_currentPage + 1} / ${_pages.length}",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.8),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            "PAGE ${_currentPage + 1} / ${_pages.length}",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.2,
+                            ),
                           ),
                         ),
                       ),
                     ),
+
+                    // Actions
                     Positioned(
-                      left: 12,
-                      bottom: 12,
-                      child: FloatingActionButton(
-                        backgroundColor: const Color(0xFF800000),
-                        heroTag: "deletePage",
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (_) => AlertDialog(
-                              title: const Text("Delete Page?"),
-                              content: const Text(
-                                "This action cannot be undone.",
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text("Cancel"),
-                                ),
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.pop(context);
-                                    _deleteCurrentPage();
-                                  },
-                                  child: const Text(
-                                    "Delete",
-                                    style: TextStyle(color: Colors.red),
+                      left: 0,
+                      bottom: 0,
+                      right: 0,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          FloatingActionButton.small(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFFB11226),
+                            elevation: 4,
+                            heroTag: "deletePage",
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (_) => AlertDialog(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
                                   ),
+                                  title: const Text("Delete Page?"),
+                                  content: const Text(
+                                    "This action cannot be undone and will remove all content on this page.",
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text("Keep it"),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        _deleteCurrentPage();
+                                      },
+                                      child: const Text(
+                                        "Delete",
+                                        style: TextStyle(
+                                          color: Color(0xFFB11226),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              );
+                            },
+                            child: const Icon(Icons.delete_outline_rounded),
+                          ),
+                          FloatingActionButton(
+                            backgroundColor: const Color(0xFFB11226),
+                            elevation: 4,
+                            onPressed: _addNewPage,
+                            child: const Icon(
+                              Icons.add_rounded,
+                              size: 32,
+                              color: Colors.white,
                             ),
-                          );
-                        },
-                        child: const Icon(Icons.delete, color: Colors.white),
-                      ),
-                    ),
-                    Positioned(
-                      right: 12,
-                      bottom: 12,
-                      child: FloatingActionButton(
-                        backgroundColor: const Color(0xFF800000),
-                        onPressed: _addNewPage,
-                        child: const Icon(Icons.add, color: Colors.white),
+                          ),
+                          FloatingActionButton.small(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF00966F),
+                            elevation: 4,
+                            heroTag: "addImage",
+                            onPressed: () => _pickImageForPage(_currentPage),
+                            child: const Icon(
+                              Icons.add_photo_alternate_outlined,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
             ),
+            // Bottom Toolbar
             Container(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              color: Colors.grey[200],
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.font_download),
-                    onSelected: (value) {
-                      setState(() {
-                        _fontFamily = value;
-                        _pages[_currentPage].fontFamily = value;
-                      });
+                  _buildToolbarButton(
+                    context,
+                    Icons.text_format_rounded,
+                    "Text Styles",
+                    () {
+                      HapticFeedback.lightImpact();
+                      _showStylePicker();
                     },
-                    itemBuilder: (context) => _fontFamilies
-                        .map(
-                          (font) => PopupMenuItem(
-                            value: font,
-                            child: Text(
-                              font,
-                              style: TextStyle(fontFamily: font),
-                            ),
-                          ),
-                        )
-                        .toList(),
                   ),
-                  PopupMenuButton<Color>(
-                    icon: const Icon(Icons.color_lens),
-                    onSelected: (value) {
-                      setState(() {
-                        _fontColor = value;
-                        _pages[_currentPage].fontColor = value.value;
-                      });
+                  _buildToolbarButton(
+                    context,
+                    Icons.add_photo_alternate_rounded,
+                    "Add Photo",
+                    () {
+                      HapticFeedback.lightImpact();
+                      _pickImageForPage(_currentPage);
                     },
-                    itemBuilder: (context) => _fontColors
-                        .map(
-                          (color) => PopupMenuItem(
-                            value: color,
-                            child: CircleAvatar(
-                              backgroundColor: color,
-                              radius: 10,
-                            ),
-                          ),
-                        )
-                        .toList(),
                   ),
                 ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToolbarButton(
+    BuildContext context,
+    IconData icon,
+    String label,
+    VoidCallback onTap, {
+    bool isActive = false,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFFB11226).withOpacity(0.08) : null,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: isActive ? const Color(0xFFB11226) : Colors.grey.shade700,
+              size: 24,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+                color:
+                    isActive ? const Color(0xFFB11226) : Colors.grey.shade700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showStylePicker() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            if (_currentPage >= _pages.length) return const SizedBox();
+            final page = _pages[_currentPage];
+            final focusedBlock = (_focusedBlockIndex != null &&
+                                  _focusedBlockIndex! < page.blocks.length &&
+                                  page.blocks[_focusedBlockIndex!].type == "text")
+                ? page.blocks[_focusedBlockIndex!]
+                : null;
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              decoration: const BoxDecoration(
+                color: Color(0xFFF9F9F7),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+              ),
+              child: Column(
+                children: [
+                  // Handle
+                  Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 8),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          "DISPLAYS",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.grey.shade500,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              page.fontSize = 22;
+                              page.lineSpacing = 1.4;
+                              page.letterSpacing = 0.0;
+                              page.fontFamily = "Roboto";
+                              page.textAlign = TextAlign.left;
+                            });
+                            setModalState(() {});
+                          },
+                          child: const Text(
+                            "RESET",
+                            style: TextStyle(
+                              color: Color(0xFFB11226),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      children: [
+                        // --- FONT SIZE ---
+                        const SizedBox(height: 16),
+                        _buildSectionHeaderLabel("FONT SIZE"),
+                        const SizedBox(height: 16),
+                        _buildStepper(
+                          value: "${page.fontSize.toInt()} px",
+                          onDecrement: () {
+                            if (page.fontSize > 16) {
+                              setState(() => page.fontSize--);
+                              setModalState(() {});
+                            }
+                          },
+                          onIncrement: () {
+                            if (page.fontSize < 48) {
+                              setState(() => page.fontSize++);
+                              setModalState(() {});
+                            }
+                          },
+                        ),
+
+                        const SizedBox(height: 32),
+                        
+                        // --- FONT FAMILY ---
+                        _buildSectionHeaderLabel("FONT FAMILY"),
+                        const SizedBox(height: 16),
+                        Container(
+                          height: 54,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            children: _fontFamilies.take(3).map((font) {
+                              final isSelected = page.fontFamily == font;
+                              return Expanded(
+                                child: GestureDetector(
+                                  onTap: () {
+                                    HapticFeedback.selectionClick();
+                                    setState(() => page.fontFamily = font);
+                                    setModalState(() {});
+                                  },
+                                  child: Container(
+                                    height: 46,
+                                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                                    decoration: BoxDecoration(
+                                      color: isSelected ? Colors.white : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)] : null,
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      font,
+                                      style: TextStyle(
+                                        fontFamily: font,
+                                        fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
+                                        color: isSelected ? Colors.black : Colors.grey.shade500,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+
+                        const SizedBox(height: 32),
+
+                        // --- TYPOGRAPHY ---
+                        _buildSectionHeaderLabel("TYPOGRAPHY"),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildTypographyStepper(
+                                label: "LINE SPACING",
+                                value: page.lineSpacing.toStringAsFixed(1),
+                                onDecrement: () {
+                                  if (page.lineSpacing > 1.0) {
+                                    setState(() => page.lineSpacing -= 0.1);
+                                    setModalState(() {});
+                                  }
+                                },
+                                onIncrement: () {
+                                  if (page.lineSpacing < 3.0) {
+                                    setState(() => page.lineSpacing += 0.1);
+                                    setModalState(() {});
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _buildTypographyStepper(
+                                label: "LETTERING",
+                                value: page.letterSpacing.toStringAsFixed(1),
+                                onDecrement: () {
+                                  if (page.letterSpacing > -2.0) {
+                                    setState(() => page.letterSpacing -= 0.1);
+                                    setModalState(() {});
+                                  }
+                                },
+                                onIncrement: () {
+                                  if (page.letterSpacing < 5.0) {
+                                    setState(() => page.letterSpacing += 0.1);
+                                    setModalState(() {});
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        
+                        const SizedBox(height: 24),
+                        
+                        Row(
+                          children: [
+                             Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildSectionHeaderLabel("ALIGNMENT"),
+                                  const SizedBox(height: 12),
+                                  Container(
+                                    height: 54,
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade100,
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        _buildAlignButton(TextAlign.left, page.textAlign, (val) {
+                                          setState(() => page.textAlign = val);
+                                          setModalState(() {});
+                                        }, Icons.format_align_left_rounded),
+                                        _buildAlignButton(TextAlign.center, page.textAlign, (val) {
+                                          setState(() => page.textAlign = val);
+                                          setModalState(() {});
+                                        }, Icons.format_align_center_rounded),
+                                        _buildAlignButton(TextAlign.right, page.textAlign, (val) {
+                                          setState(() => page.textAlign = val);
+                                          setModalState(() {});
+                                        }, Icons.format_align_right_rounded),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _buildTypographyStepper(
+                                label: "PAGE MARGIN",
+                                value: page.pageMargin.toInt().toString(),
+                                onDecrement: () {
+                                  if (page.pageMargin > 10) {
+                                    setState(() => page.pageMargin -= 5);
+                                    setModalState(() {});
+                                  }
+                                },
+                                onIncrement: () {
+                                  if (page.pageMargin < 100) {
+                                    setState(() => page.pageMargin += 5);
+                                    setModalState(() {});
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 32),
+
+                        // --- WRITING SPECIFIC: BLOCK STYLES ---
+                        _buildSectionHeaderLabel("BLOCK STYLE"),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            _buildBlockStyleButton(
+                              "Headline",
+                              Icons.title_rounded,
+                              focusedBlock?.isHeadline ?? false,
+                              focusedBlock == null ? null : () {
+                                HapticFeedback.mediumImpact();
+                                setState(() => focusedBlock.isHeadline = !focusedBlock.isHeadline);
+                                setModalState(() {});
+                              },
+                            ),
+                            const SizedBox(width: 12),
+                            _buildBlockStyleButton(
+                              "Highlight",
+                              Icons.auto_fix_high_rounded,
+                              focusedBlock?.isHighlighted ?? false,
+                              focusedBlock == null ? null : () {
+                                HapticFeedback.mediumImpact();
+                                setState(() => focusedBlock.isHighlighted = !focusedBlock.isHighlighted);
+                                setModalState(() {});
+                              },
+                            ),
+                          ],
+                        ),
+                        if (focusedBlock == null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Text(
+                              "Tap on text to enable block styles",
+                              style: TextStyle(color: Colors.grey.shade500, fontSize: 11, fontStyle: FontStyle.italic),
+                            ),
+                          ),
+
+                        const SizedBox(height: 24),
+                        _buildSectionHeaderLabel("TEXT COLOR"),
+                        const SizedBox(height: 16),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: _fontColors.map((colorValue) {
+                            final isSelected = page.fontColor == colorValue;
+                            return GestureDetector(
+                              onTap: () {
+                                setState(() => page.fontColor = colorValue);
+                                setModalState(() {});
+                              },
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: Color(colorValue),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: isSelected ? const Color(0xFFB11226) : Colors.transparent,
+                                    width: 2,
+                                  ),
+                                  boxShadow: isSelected ? [BoxShadow(color: const Color(0xFFB11226).withOpacity(0.4), blurRadius: 8)] : null,
+                                ),
+                                child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 18) : null,
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 60),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildSectionHeaderLabel(String label) {
+    return Text(
+      label,
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w900,
+        color: Colors.grey.shade500,
+        letterSpacing: 1.1,
+      ),
+    );
+  }
+
+  Widget _buildStepper({required String value, required VoidCallback onDecrement, required VoidCallback onIncrement}) {
+    return Container(
+      height: 68,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          _buildStepButton(Icons.remove, onDecrement),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                color: Colors.black,
+                fontFamily: "Lora", 
+              ),
+            ),
+          ),
+          _buildStepButton(Icons.add, onIncrement),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepButton(IconData icon, VoidCallback? onTap) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Icon(icon, color: Colors.black87, size: 24),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTypographyStepper({required String label, required String value, required VoidCallback onDecrement, required VoidCallback onIncrement}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.grey.shade500, letterSpacing: 0.8)),
+        const SizedBox(height: 10),
+        Container(
+          height: 54,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              _buildSmallStepButton(Icons.remove, onDecrement),
+              Expanded(
+                child: Text(
+                  value,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                ),
+              ),
+              _buildSmallStepButton(Icons.add, onIncrement),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSmallStepButton(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Icon(icon, size: 18, color: Colors.black54),
+      ),
+    );
+  }
+
+  Widget _buildAlignButton(TextAlign value, TextAlign current, Function(TextAlign) onChanged, IconData icon) {
+    bool isSelected = value == current;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => onChanged(value),
+        child: Container(
+          height: 46,
+          margin: const EdgeInsets.symmetric(horizontal: 2),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)] : null,
+          ),
+          child: Icon(icon, color: isSelected ? Colors.black : Colors.grey.shade400, size: 22),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBlockStyleButton(String label, IconData icon, bool isActive, VoidCallback? onTap) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: 60,
+          decoration: BoxDecoration(
+            color: isActive ? Colors.white : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isActive ? const Color(0xFFB11226) : Colors.transparent,
+              width: 1.5,
+            ),
+            boxShadow: isActive ? [BoxShadow(color: const Color(0xFFB11226).withOpacity(0.1), blurRadius: 10)] : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 20, color: isActive ? const Color(0xFFB11226) : Colors.grey.shade600),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: isActive ? const Color(0xFFB11226) : Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1114,7 +1873,7 @@ class _CoverEditorPageState extends State<CoverEditorPage> {
   Color _fontColor = Colors.white;
   String _fontFamily = "Roboto";
 
-  Offset _textPosition = const Offset(0.5, 0.4);
+  final Offset _textPosition = const Offset(0.5, 0.4);
 
   final List<String> _fontFamilies = [
     "Roboto",
@@ -1150,10 +1909,22 @@ class _CoverEditorPageState extends State<CoverEditorPage> {
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text("Design Cover"),
+        title: const Text(
+          "Design Cover",
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w800,
+            fontSize: 20,
+          ),
+        ),
+        backgroundColor: const Color(0xFFB11226),
+        elevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          TextButton(
+          IconButton(
             onPressed: () {
               Navigator.push(
                 context,
@@ -1171,147 +1942,228 @@ class _CoverEditorPageState extends State<CoverEditorPage> {
                 ),
               );
             },
-            child: const Text(
-              "Next",
-              style: TextStyle(fontSize: 16, color: Color(0xFF800000)),
-            ),
+            icon: const Icon(Icons.arrow_forward_ios_rounded, size: 20),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
         ],
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+        ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         child: Column(
           children: [
-            /// COVER PREVIEW AREA
-            GestureDetector(
-              onTap: _pickCoverImage,
-              child: Container(
-                width: size.width * 0.7,
-                height: size.height * 0.5,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: Colors.grey.shade300,
-                ),
-                child: Stack(
-                  children: [
-                    // Cover Image
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: _coverImage != null
-                          ? Image.file(
-                              _coverImage!,
-                              width: double.infinity,
-                              height: double.infinity,
-                              fit: BoxFit.cover,
-                            )
-                          : const Center(child: Icon(Icons.image, size: 60)),
-                    ),
-
-                    // DRAGGABLE TITLE
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        return Stack(
-                          children: [
-                            Positioned(
-                              top: 30,
-                              left: 0,
-                              right: 0,
-                              child: Center(
-                                child: Text(
-                                  _titleController.text,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: _fontSize,
-                                    color: _fontColor,
-                                    fontFamily: _fontFamily,
-                                    fontWeight: FontWeight.bold,
-                                    shadows: const [
-                                      Shadow(
-                                        blurRadius: 8,
-                                        color: Colors.black,
-                                        offset: Offset(2, 2),
-                                      ),
-                                    ],
+            Center(
+              child: GestureDetector(
+                onTap: _pickCoverImage,
+                child: Container(
+                  width: size.width * 0.65,
+                  height: size.height * 0.45,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(24),
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 30,
+                        offset: const Offset(0, 20),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: Stack(
+                      children: [
+                        // Cover Image
+                        _coverImage != null
+                            ? Image.file(
+                                _coverImage!,
+                                width: double.infinity,
+                                height: double.infinity,
+                                fit: BoxFit.cover,
+                              )
+                            : Container(
+                                color: Colors.grey.shade100,
+                                child: Center(
+                                  child: Icon(
+                                    Icons.image_outlined,
+                                    size: 60,
+                                    color: Colors.grey.shade400,
                                   ),
                                 ),
                               ),
+
+                        // Title Overlay
+                        Positioned(
+                          top: 30,
+                          left: 20,
+                          right: 20,
+                          child: Text(
+                            _titleController.text,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: _fontSize,
+                              color: _fontColor,
+                              fontFamily: _fontFamily,
+                              fontWeight: FontWeight.bold,
+                              shadows: [
+                                Shadow(
+                                  blurRadius: 10,
+                                  color: Colors.black.withOpacity(0.5),
+                                  offset: const Offset(2, 2),
+                                ),
+                              ],
                             ),
-                          ],
-                        );
-                      },
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 48),
 
-            /// TITLE INPUT
-            TextField(
-              controller: _titleController,
-              onChanged: (value) => setState(() {}),
-              decoration: const InputDecoration(
-                hintText: "Enter Book Title",
-                border: OutlineInputBorder(),
+            /// CONTROLS
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
               ),
-            ),
-
-            const SizedBox(height: 20),
-
-            /// FONT SIZE
-            Row(
-              children: [
-                const Text("Font Size"),
-                Expanded(
-                  child: Slider(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Book Title",
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _titleController,
+                    onChanged: (v) => setState(() {}),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    decoration: InputDecoration(
+                      hintText: "Enter a catchy title...",
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      const Text(
+                        "Text Size",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        "${_fontSize.toInt()} px",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFB11226),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Slider(
                     min: 16,
                     max: 60,
                     value: _fontSize,
-                    onChanged: (value) {
-                      setState(() => _fontSize = value);
-                    },
+                    activeColor: const Color(0xFFB11226),
+                    inactiveColor: const Color(0xFFB11226).withOpacity(0.1),
+                    onChanged: (v) => setState(() => _fontSize = v),
                   ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 10),
-
-            /// FONT FAMILY
-            DropdownButton<String>(
-              value: _fontFamily,
-              isExpanded: true,
-              items: _fontFamilies
-                  .map(
-                    (font) => DropdownMenuItem(
-                      value: font,
-                      child: Text(font, style: TextStyle(fontFamily: font)),
+                  const SizedBox(height: 24),
+                  const Text(
+                    "Font Style",
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 50,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _fontFamilies.length,
+                      itemBuilder: (context, index) {
+                        final font = _fontFamilies[index];
+                        final isSelected = _fontFamily == font;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: ChoiceChip(
+                            label: Text(
+                              font,
+                              style: TextStyle(
+                                fontFamily: font,
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.black87,
+                              ),
+                            ),
+                            selected: isSelected,
+                            selectedColor: const Color(0xFFB11226),
+                            backgroundColor: Colors.grey.shade100,
+                            onSelected: (v) =>
+                                setState(() => _fontFamily = font),
+                          ),
+                        );
+                      },
                     ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                setState(() => _fontFamily = value!);
-              },
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    "Text Color",
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 12,
+                    children: _colors.map((color) {
+                      final isSelected = _fontColor == color;
+                      return GestureDetector(
+                        onTap: () => setState(() => _fontColor = color),
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSelected
+                                  ? const Color(0xFFB11226)
+                                  : Colors.grey.shade300,
+                              width: isSelected ? 3 : 1,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
             ),
-
-            const SizedBox(height: 10),
-
-            /// COLOR PICKER
-            Wrap(
-              spacing: 10,
-              children: _colors
-                  .map(
-                    (color) => GestureDetector(
-                      onTap: () => setState(() => _fontColor = color),
-                      child: CircleAvatar(backgroundColor: color, radius: 15),
-                    ),
-                  )
-                  .toList(),
-            ),
-
-            const SizedBox(height: 30),
+            const SizedBox(height: 40),
           ],
         ),
       ),
@@ -1350,22 +2202,19 @@ class _PostPageState extends State<PostPage> {
   final TextEditingController _captionController = TextEditingController();
   final TextEditingController _hashtagController = TextEditingController();
 
-  final ImagePicker _picker = ImagePicker();
-  File? _pickedImage;
-
-  Future<void> _pickCoverImage() async {
-    final XFile? picked = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 80,
-    );
-    if (picked != null) {
-      setState(() => _pickedImage = File(picked.path));
-    }
-  }
-
+  @override
   void initState() {
     super.initState();
     print("Draft ID in PostPage: ${widget.draftId}");
+  }
+
+  List<String> extractHashtags(String input) {
+    final regex = RegExp(r'#[\p{L}\p{M}0-9_]+', unicode: true);
+    return regex
+        .allMatches(input)
+        .map((m) => m.group(0)!.toLowerCase())
+        .toSet()
+        .toList();
   }
 
   Future<void> _submitPost() async {
@@ -1376,11 +2225,14 @@ class _PostPageState extends State<PostPage> {
 
     var request = http.MultipartRequest("POST", uri);
 
+    request.headers["Accept"] = "application/json";
+    //request.headers["Content-Type"] = "multipart/form-data";
+
     request.fields["user_id"] = userId ?? "";
     String? coverImageName;
 
     if (widget.coverImage != null) {
-      File? finalCover = _pickedImage ?? widget.coverImage;
+      File? finalCover = widget.coverImage;
 
       if (finalCover != null) {
         request.files.add(
@@ -1393,7 +2245,15 @@ class _PostPageState extends State<PostPage> {
     request.fields["caption"] = _captionController.text;
     String tagText = _hashtagController.text.trim();
 
-    // ✅ If user didn't enter hashtag → auto generate
+    // If user typed hashtags manually
+    if (tagText.isNotEmpty) {
+      List<String> tags = extractHashtags(tagText);
+
+      // normalize hashtags
+      tagText = tags.join(" ");
+    }
+
+    // If user didn't type hashtag → auto generate
     if (tagText.isEmpty) {
       List<String> words = [];
 
@@ -1410,22 +2270,19 @@ class _PostPageState extends State<PostPage> {
         }
       }
 
-      // Remove small words & duplicates
-      words = words
-          .where((w) => w.length > 4) // only meaningful words
-          .toSet()
-          .take(5) // limit to 5 hashtags
-          .toList();
+      words = words.where((w) => w.length > 4).toSet().take(5).toList();
 
       tagText = words.map((w) => "#$w").join(" ");
     }
 
+    request.fields["hastag"] = tagText;
+
     // If user typed without #
-    if (tagText.isNotEmpty && !tagText.startsWith("#")) {
+    /*if (tagText.isNotEmpty && !tagText.startsWith("#")) {
       tagText = "#$tagText";
     }
 
-    request.fields["hastag"] = tagText;
+    request.fields["hastag"] = tagText;*/
 
     List<Map<String, dynamic>> pagesJson = [];
 
@@ -1452,6 +2309,8 @@ class _PostPageState extends State<PostPage> {
           "imageWidth": block.imageWidth,
           "imagePosX": block.imagePosition?.dx,
           "imagePosY": block.imagePosition?.dy,
+          "isHeadline": block.isHeadline,
+          "isHighlighted": block.isHighlighted, // ✅ PERSIST HIGHLIGHT
         });
       }
 
@@ -1521,189 +2380,390 @@ class _PostPageState extends State<PostPage> {
 
   @override
   Widget build(BuildContext context) {
+    const brandColor = Color(0xFFB11226);
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Create Post")),
+      backgroundColor: const Color(0xFFF8F9FA),
+      appBar: AppBar(
+        title: const Text(
+          "Review & Publish",
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+          ),
+        ),
+        backgroundColor: brandColor,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            color: Colors.white,
+            size: 20,
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+        ),
+      ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(size.width * 0.04),
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 20),
+            const Text(
+              "Final Preview",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF1A1A1A),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "Swipe to review your story pages before publishing.",
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Carousel-like preview
             SizedBox(
-              width: size.width * 0.7,
-              height: size.height * 0.5,
+              height: size.height * 0.45,
               child: PageView.builder(
-                itemCount: widget.pages.length + 1, // +1 for cover
+                itemCount: widget.pages.length + 1,
+                controller: PageController(viewportFraction: 0.8),
                 itemBuilder: (context, index) {
-                  // 🟣 FIRST PAGE = COVER
-                  if (index == 0) {
-                    return Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Colors.black26,
-                            blurRadius: 10,
-                            offset: Offset(4, 6),
-                          ),
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: index == 0
+                          ? Colors.white
+                          : const Color(0xFFFCF5E5),
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.12),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: Stack(
+                        children: [
+                          if (index > 0)
+                            Positioned(
+                              left: 0,
+                              top: 0,
+                              bottom: 0,
+                              width: 15,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                    colors: [
+                                      Colors.black.withOpacity(0.08),
+                                      Colors.transparent,
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          index == 0
+                              ? _buildCoverPreview()
+                              : _buildPagePreview(index - 1),
                         ],
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Stack(
-                          children: [
-                            if (widget.coverImage != null)
-                              Image.file(
-                                widget.coverImage!,
-                                width: double.infinity,
-                                height: double.infinity,
-                                fit: BoxFit.cover,
-                              )
-                            else
-                              Container(color: Colors.grey.shade300),
-
-                            if (widget.title != null)
-                              LayoutBuilder(
-                                builder: (context, constraints) {
-                                  return Stack(
-                                    children: [
-                                      Positioned(
-                                        top: 30,
-                                        left: 0,
-                                        right: 0,
-                                        child: Center(
-                                          child: Text(
-                                            widget.title ?? "",
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                              fontSize:
-                                                  widget.titleFontSize ?? 28,
-                                              color:
-                                                  widget.titleColor ??
-                                                  Colors.white,
-                                              fontFamily:
-                                                  widget.titleFontFamily ??
-                                                  "Roboto",
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-
-                  // 🔵 OTHER PAGES = CONTENT
-                  final page = widget.pages[index - 1];
-
-                  return Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(
-                        color: const Color(0xFF800000),
-                        width: 2,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: ListView.builder(
-                      itemCount: page.blocks.length,
-                      itemBuilder: (context, blockIndex) {
-                        final block = page.blocks[blockIndex];
-
-                        if (block.type == "text") {
-                          return Text(
-                            block.text ?? "",
-                            style: TextStyle(
-                              fontSize: page.fontSize,
-                              fontFamily: page.fontFamily,
-                              color: Color(page.fontColor),
-                            ),
-                          );
-                        }
-
-                        // IMAGE
-                        if (block.type == "image") {
-                          Widget imageWidget;
-                          if (block.image != null) {
-                            imageWidget = Image.file(
-                              block.image!,
-                              width: 200,
-                              height: 200,
-                              fit: BoxFit.contain,
-                            );
-                          } else if (block.imageUrl != null &&
-                              block.imageUrl!.isNotEmpty) {
-                            imageWidget = Image.network(
-                              block.imageUrl!,
-                              width: 200,
-                              height: 200,
-                              fit: BoxFit.contain,
-                            );
-                          } else {
-                            return const SizedBox();
-                          }
-                          return Center(child: imageWidget);
-                        }
-                        return const SizedBox();
-                      },
                     ),
                   );
                 },
               ),
             ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _captionController,
-              decoration: InputDecoration(
-                hintText: "Write a caption...",
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            ),
-            const SizedBox(height: 15),
 
-            TextField(
-              controller: _hashtagController,
-              decoration: InputDecoration(
-                hintText: "Add hashtags... (e.g. #book #love #story)",
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            ),
+            const SizedBox(height: 40),
+            _buildPostInputSection(),
+            const SizedBox(height: 48),
 
-            const SizedBox(height: 20),
+            // Publish Button
             ElevatedButton(
-              onPressed: () async {
-                await _submitPost();
-              },
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      setState(() => isLoading = true);
+                      await _submitPost();
+                      setState(() => isLoading = false);
+                    },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF800000),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 40,
-                  vertical: 12,
-                ),
+                backgroundColor: brandColor,
+                minimumSize: const Size(double.infinity, 64),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(20),
                 ),
+                elevation: 10,
+                shadowColor: brandColor.withOpacity(0.4),
               ),
-              child: const Text(
-                "Post",
-                style: TextStyle(fontSize: 18, color: Colors.white),
-              ),
+              child: isLoading
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 3,
+                      ),
+                    )
+                  : const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.rocket_launch_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                        SizedBox(width: 12),
+                        Text(
+                          "Publish Story",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
+            const SizedBox(height: 60),
           ],
         ),
       ),
+    );
+  }
+
+  bool isLoading = false;
+
+  Widget _buildCoverPreview() {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (widget.coverImage != null)
+          Image.file(widget.coverImage!, fit: BoxFit.cover)
+        else
+          Container(
+            color: Colors.grey.shade100,
+            child: const Center(
+              child: Icon(Icons.book_outlined, size: 48, color: Colors.grey),
+            ),
+          ),
+
+        // Glossy Shine Overlay
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withOpacity(0.2),
+                Colors.white.withOpacity(0.05),
+                Colors.transparent,
+              ],
+              stops: const [0, 0.2, 0.5],
+            ),
+          ),
+        ),
+
+        if (widget.title != null)
+          Positioned(
+            top: 40,
+            left: 20,
+            right: 20,
+            child: Text(
+              widget.title ?? "",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: (widget.titleFontSize ?? 28) * 0.7,
+                color: widget.titleColor ?? Colors.white,
+                fontFamily: widget.titleFontFamily ?? "Roboto",
+                fontWeight: FontWeight.bold,
+                shadows: [
+                  Shadow(
+                    color: Colors.black.withOpacity(0.6),
+                    blurRadius: 12,
+                    offset: const Offset(2, 2),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPagePreview(int pageIdx) {
+    final page = widget.pages[pageIdx];
+    return Container(
+      padding: const EdgeInsets.fromLTRB(30, 30, 20, 30),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: page.blocks.map<Widget>((block) {
+          if (block.type == "text") {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                block.text ?? "",
+                style: TextStyle(
+                  fontSize: block.isHeadline 
+                      ? (page.fontSize * 0.8) 
+                      : (page.fontSize * 0.6),
+                  fontWeight: block.isHeadline 
+                      ? FontWeight.w900 
+                      : FontWeight.normal,
+                  fontFamily: page.fontFamily,
+                  backgroundColor: block.isHighlighted
+                      ? const Color(0xFFFFF1A1).withOpacity(0.8)
+                      : null,
+                  color: Color(page.fontColor),
+                  height: 1.4,
+                ),
+              ),
+            );
+          }
+          if (block.type == "image") {
+            return Container(
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              height: 100,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: block.image != null
+                    ? Image.file(block.image!, fit: BoxFit.cover)
+                    : (block.imageUrl != null
+                          ? Image.network(block.imageUrl!, fit: BoxFit.cover)
+                          : const SizedBox()),
+              ),
+            );
+          }
+          return const SizedBox();
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildPostInputSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Story Caption",
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 16,
+            color: Color(0xFF1A1A1A),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _captionController,
+          maxLines: 3,
+          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
+          decoration: InputDecoration(
+            hintText: "Give your readers an interesting introduction...",
+            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: const BorderSide(
+                color: Color(0xFFB11226),
+                width: 1.5,
+              ),
+            ),
+            contentPadding: const EdgeInsets.all(20),
+          ),
+        ),
+        const SizedBox(height: 32),
+        const Text(
+          "Relevant Hashtags",
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 16,
+            color: Color(0xFF1A1A1A),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _hashtagController,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+            color: Color(0xFFB11226),
+          ),
+          decoration: InputDecoration(
+            hintText: "#fantasy #romance #adventure",
+            hintStyle: TextStyle(
+              color: Colors.grey.shade400,
+              fontWeight: FontWeight.normal,
+              fontSize: 14,
+            ),
+            filled: true,
+            fillColor: Colors.white,
+            prefixIcon: const Icon(
+              Icons.tag_rounded,
+              color: Color(0xFFB11226),
+              size: 18,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: const BorderSide(
+                color: Color(0xFFB11226),
+                width: 1.5,
+              ),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 18,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

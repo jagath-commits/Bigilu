@@ -1,46 +1,61 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
 import 'package:bigilu/home.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
-
-
-
+import 'package:sms_autofill/sms_autofill.dart'; // New import for zero-tap
 
 class OtpPage extends StatefulWidget {
   final String phone;
   final String verificationId;
 
-  const OtpPage({
-    super.key,
-    required this.phone,
-    required this.verificationId,
-  });
-
+  const OtpPage({super.key, required this.phone, required this.verificationId});
 
   @override
   State<OtpPage> createState() => _OtpPageState();
 }
 
-class _OtpPageState extends State<OtpPage> {
+class _OtpPageState extends State<OtpPage> with CodeAutoFill { // Added CodeAutoFill mixin
   int seconds = 60;
   Timer? timer;
-  final List<TextEditingController> controllers =
-      List.generate(6, (_) => TextEditingController());
-  final List<FocusNode> focusNodes = List.generate(6, (_) => FocusNode());
-
+  final TextEditingController otpController = TextEditingController();
+  final FocusNode focusNode = FocusNode();
   bool isLoading = false;
+  String? appSignature;
+
+  @override
+  void codeUpdated() {
+    // This is called automatically when the SMS arrives!
+    setState(() {
+      if (code != null) {
+        otpController.text = code!;
+        if (otpController.text.length == 6) {
+          verifyOtp(); // Auto-verify once filled
+        }
+      }
+    });
+  }
 
   @override
   void initState() {
     super.initState();
-
     startTimer();
+    listenForCode(); // Start listening for the SMS
+    
+    // Get App Signature (useful for Firebase specialized SMS)
+    SmsAutoFill().getAppSignature.then((signature) {
+      setState(() {
+        appSignature = signature;
+      });
+      print("App Signature => $signature");
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      focusNode.requestFocus();
+    });
   }
 
   void startTimer() {
@@ -57,350 +72,352 @@ class _OtpPageState extends State<OtpPage> {
     });
   }
 
+  Future<void> verifyOtp() async {
+    String otp = otpController.text;
 
-
-Future<void> verifyOtp() async {
-  String otp = controllers.map((e) => e.text).join();
-
-  if (otp.length != 6) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Enter complete 6-digit OTP")),
-    );
-    return;
-  }
-
-  setState(() => isLoading = true);
-
-  try {
-    // ✅ 1. Verify OTP with Firebase
-    final credential = PhoneAuthProvider.credential(
-      verificationId: widget.verificationId,
-      smsCode: otp,
-    );
-
-    await FirebaseAuth.instance.signInWithCredential(credential);
-
-    // ✅ 2. Get Firebase ID token
-    final idToken = await FirebaseAuth.instance.currentUser!.getIdToken();
-
-    // ✅ 3. Call your backend to get JWT
-    final res = await http.post(
-      Uri.parse("https://bigiluu.com/api/login-firebase"),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "idToken": idToken,
-        "phoneno": widget.phone, // already has +91
-      }),
-    );
-
-    if (res.statusCode != 200) {
-      throw Exception("Backend login failed");
+    if (otp.length != 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Enter complete 6-digit OTP")),
+      );
+      return;
     }
 
-    final data = jsonDecode(res.body);
+    setState(() => isLoading = true);
 
-    // ✅ 4. Save JWT locally
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString("token", data["token"]);
-    await prefs.setString("user_id", data["user_id"]);
-    await prefs.setString("user_mobile", widget.phone);
+    try {
+      final credential = PhoneAuthProvider.credential(
+        verificationId: widget.verificationId,
+        smsCode: otp,
+      );
 
-    // ✅ 5. Navigate to Home
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const HomePage()),
-    );
-  }  catch (e) {
-  print("OTP VERIFY ERROR => $e");   // 👈 Console-la exact error varum
+      await FirebaseAuth.instance.signInWithCredential(credential);
 
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(e.toString())),  // 👈 UI-la exact error varum
-  );
-}
+      final idToken = await FirebaseAuth.instance.currentUser!.getIdToken(true);
+      final res = await http.post(
+        Uri.parse("https://bigiluu.com/api/login-firebase"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "idToken": idToken,
+          "phoneno": widget.phone,
+        }),
+      );
 
+      if (res.statusCode != 200) {
+        throw Exception("Backend login failed");
+      }
 
-  setState(() => isLoading = false);
-}
+      final data = jsonDecode(res.body);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString("token", data["token"]);
+      await prefs.setString("user_id", data["user_id"]);
+      await prefs.setString("user_mobile", widget.phone);
 
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const HomePage()),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    }
 
-
-
+    setState(() => isLoading = false);
+  }
 
   @override
   void dispose() {
     timer?.cancel();
-    for (var c in controllers) c.dispose();
-    for (var f in focusNodes) f.dispose();
+    otpController.dispose();
+    focusNode.dispose();
+    unregisterListener(); // Stop listening when page closed
     super.dispose();
   }
-@override
-Widget build(BuildContext context) {
-  final screenHeight = MediaQuery.of(context).size.height;
-  final screenWidth = MediaQuery.of(context).size.width;
-  double boxSize = screenWidth < 350 ? 40 : screenWidth * 0.11;
 
-  return Scaffold(
-    resizeToAvoidBottomInset: true,
-    body: Stack(
-      children: [
-        // Background
-        Positioned.fill(
-          child: Image.asset(
-            "assets/images/vijay1.jpg",
-            fit: BoxFit.cover,
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    double boxSize = (screenWidth - 140) / 6;
+    if (boxSize > 50) boxSize = 50;
+    if (boxSize < 35) boxSize = 35;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
+      resizeToAvoidBottomInset: true,
+      body: Stack(
+        children: [
+          // Top Center Logo
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 30,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Image.asset(
+                "assets/images/bigilu_logo21.png",
+                height: 90,
+                width: 240,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.high,
+              ),
+            ),
           ),
-        ),
 
-        // Dark overlay
-        Positioned.fill(
-          child: Container(
-            color: Colors.black.withOpacity(0.5),
-          ),
-        ),
-
-        SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                child: ConstrainedBox(
-  constraints: BoxConstraints(
-    minHeight: constraints.maxHeight,
-  ),
+          SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-
-                        SizedBox(height: screenHeight * 0.08),
-
-                        const Text(
-                          "Enter OTP",
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
+                        const SizedBox(height: 140),
+                        
+                        // Main OTP Card
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+                          decoration: BoxDecoration(
                             color: Colors.white,
+                            borderRadius: BorderRadius.circular(32),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 30,
+                                offset: const Offset(0, 15),
+                              ),
+                            ],
                           ),
-                        ),
+                          child: Column(
+                            children: [
+                              const Text(
+                                "OTP Verification",
+                                style: TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF1A1A1A),
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              RichText(
+                                textAlign: TextAlign.center,
+                                text: TextSpan(
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.black.withOpacity(0.6),
+                                    height: 1.5,
+                                  ),
+                                  children: [
+                                    const TextSpan(text: "We have sent a 6-digit code to\n"),
+                                    TextSpan(
+                                      text: widget.phone,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 32),
 
-                        const SizedBox(height: 10),
+                              // ZERO-TAP AUTOFILL SECTION
+                              Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // 1. Visible Decorative Boxes
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                    children: List.generate(6, (index) {
+                                      String char = "";
+                                      if (otpController.text.length > index) {
+                                        char = otpController.text[index];
+                                      }
+                                      bool isCurrent = otpController.text.length == index;
+                                      
+                                      return Container(
+                                        height: boxSize,
+                                        width: boxSize,
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          color: char.isNotEmpty ? const Color(0xFFB11226).withOpacity(0.05) : Colors.white,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: isCurrent || char.isNotEmpty 
+                                                ? const Color(0xFFB11226) 
+                                                : Colors.black.withOpacity(0.1),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          char,
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w900,
+                                            color: Color(0xFFB11226),
+                                          ),
+                                        ),
+                                      );
+                                    }),
+                                  ),
 
-                        const Text(
-                          "We have sent a verification code to your mobile",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                          ),
-                        ),
-
-                        SizedBox(height: screenHeight * 0.04),
-
-                        // OTP Boxes
-                       AutofillGroup(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(6, (index) {
-                            return Container(
-
-                          height: boxSize,
-                          width: boxSize,
-                              margin: const EdgeInsets.symmetric(horizontal: 5),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.9),
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 5),
-                                  )
+                                  // 2. Translucent REAL TextField for SMS Auto-fill
+                                  Positioned.fill(
+                                    child: Opacity(
+                                      opacity: 0.01,
+                                      child: TextField(
+                                        controller: otpController,
+                                        focusNode: focusNode,
+                                        keyboardType: TextInputType.number,
+                                        autofillHints: const [AutofillHints.oneTimeCode],
+                                        enableInteractiveSelection: true,
+                                        showCursor: false,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.digitsOnly,
+                                          LengthLimitingTextInputFormatter(6),
+                                        ],
+                                        onChanged: (val) {
+                                          setState(() {});
+                                          if (val.length == 6) {
+                                            verifyOtp();
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                  ),
                                 ],
                               ),
-                              child: TextField(
-  controller: controllers[index],
-  focusNode: focusNodes[index],
-  keyboardType: TextInputType.number,
-  textAlign: TextAlign.center,
-  autofillHints: const [AutofillHints.oneTimeCode],
-  decoration: const InputDecoration(
-    counterText: '',
-    border: InputBorder.none,
-  ),
-  onChanged: (value) {
+                              
+                              const SizedBox(height: 32),
 
-    // 🔥 Handle paste (full OTP)
-    if (value.length > 1) {
-      final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
-
-      for (int i = 0; i < digits.length && i < 6; i++) {
-        controllers[i].text = digits[i];
-      }
-
-      if (digits.length == 6) {
-        FocusScope.of(context).unfocus();
-        verifyOtp();
-      }
-      return;
-    }
-
-    // ✅ Handle typing
-    if (value.isNotEmpty) {
-      controllers[index].text = value[value.length - 1];
-
-      if (index < 5) {
-        focusNodes[index + 1].requestFocus();
-      } else {
-        FocusScope.of(context).unfocus();
-      }
-    }
-
-    // ✅ Handle backspace
-    if (value.isEmpty && index > 0) {
-      focusNodes[index - 1].requestFocus();
-    }
-  },
-),
-                            );
-                          }),
-                        ),
-                       ),
-
-                        SizedBox(height: screenHeight * 0.03),
-
-                        // Timer
-                        Text(
-                          "00:${seconds.toString().padLeft(2, '0')}",
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.yellowAccent,
+                              // Timer
+                              Text(
+                                seconds > 0 
+                                  ? "Resend code in ${seconds.toString().padLeft(2, '0')}s" 
+                                  : "I didn't receive a code",
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black.withOpacity(0.5),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              if (seconds == 0)
+                                TextButton(
+                                  onPressed: () {
+                                    startTimer();
+                                  },
+                                  child: const Text(
+                                    "Resend Code",
+                                    style: TextStyle(
+                                      color: Color(0xFFB11226),
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
 
-                        SizedBox(height: screenHeight * 0.04),
+                        const SizedBox(height: 32),
 
                         // Verify Button
-                        SizedBox(
+                        Container(
                           width: double.infinity,
-                          height: screenHeight * 0.065,
+                          height: 58,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(20),
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFB11226), Color(0xFFD32F2F)],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFB11226).withOpacity(0.3),
+                                blurRadius: 20,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                          ),
                           child: ElevatedButton(
+                            onPressed: isLoading ? null : verifyOtp,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFB11226),
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(20),
                               ),
                             ),
-                            onPressed: isLoading ? null : verifyOtp,
                             child: isLoading
-                                ? const CircularProgressIndicator(
-                                    color: Colors.white,
-                                  )
-                                : Text(
-                                    "Verify OTP",
+                                ? const CircularProgressIndicator(color: Colors.white)
+                                : const Text(
+                                    "Verify & Login",
                                     style: TextStyle(
-                                      fontSize: screenWidth * 0.045,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
                                       color: Colors.white,
                                     ),
                                   ),
                           ),
                         ),
-
-                        SizedBox(height: screenHeight * 0.02),
-
-                        // Resend
-                        TextButton(
-                          onPressed: seconds == 0
-                              ? () async {
-                                  startTimer();
-
-                                  await FirebaseAuth.instance.verifyPhoneNumber(
-                                    phoneNumber: widget.phone,
-                                    verificationCompleted: (credential) {},
-                                    verificationFailed: (e) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                              e.message ?? "Resend failed"),
-                                        ),
-                                      );
-                                    },
-                                    codeSent:
-                                        (newVerificationId, resendToken) {
-                                      Navigator.pushReplacement(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => OtpPage(
-                                            phone: widget.phone,
-                                            verificationId:
-                                                newVerificationId,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                    codeAutoRetrievalTimeout:
-                                        (verificationId) {},
-                                  );
-                                }
-                              : null,
-                          child: Text(
-                            "Resend OTP",
-                            style: TextStyle(
-                              color: seconds == 0
-                                  ? Colors.white
-                                  : Colors.white38,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-
-                         SizedBox(height: screenHeight * 0.02),
-
-Column(
-  children: [
-
-    /// Proud product text
-    const Text(
-      "Proud Product by",
-      style: TextStyle(
-        color: Colors.white,
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        letterSpacing: 1,
-      ),
-    ),
-
-    const SizedBox(height: 6),
-
-    /// Bright logo
-    ColorFiltered(
-      colorFilter: const ColorFilter.matrix([
-        1.5, 0, 0, 0, 0,
-        0, 1.5, 0, 0, 0,
-        0, 0, 1.5, 0, 0,
-        0, 0, 0, 1, 0,
-      ]),
-      child: Image.asset(
-        "assets/images/codereadlogo.png",
-        height: screenHeight < 700 ? 120 : screenHeight * 0.18,
-        width: screenWidth * 0.5,
-        fit: BoxFit.contain,
-      ),
-    ),
-  ],
-),
-
-                          SizedBox(height: screenHeight * 0.05),
                       ],
                     ),
                   ),
-         
-              );
-            },
+                ),
+
+                // Powered by Brand Logo
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 30),
+                  child: Column(
+                    children: [
+                      Text(
+                        "POWERED BY",
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.black.withOpacity(0.4),
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.5,
+                          fontFamily: 'Roboto',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 20,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: Colors.black.withOpacity(0.05),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: Image.asset(
+                          "assets/images/codereadlogo.png",
+                          height: 110,
+                          width: screenWidth * 0.85,
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.high,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 }

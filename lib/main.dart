@@ -3,14 +3,10 @@ import 'package:bigilu/home.dart';
 import 'package:bigilu/otp.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:app_links/app_links.dart';
 import 'dart:async';
 
@@ -97,6 +93,14 @@ class _MyAppState extends State<MyApp> {
     }
 
     return MaterialApp(
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(1.0)),
+          child: child!,
+        );
+      },
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       home: widget.token != null ? const HomePage() : const LoginPage(),
@@ -123,6 +127,7 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => isLoading = true);
 
     await FirebaseAuth.instance.verifyPhoneNumber(
+      timeout: const Duration(seconds: 30),
       phoneNumber: "+91${phoneController.text.trim()}",
       verificationCompleted: (credential) async {
         // Auto-verification (sometimes happens on Android)
@@ -179,161 +184,301 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   @override
-  @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
-          // Background Image
-          Positioned.fill(
-            child: Image.asset(
-              "assets/images/vijay1.jpg",
-              fit: BoxFit.cover,
-              cacheWidth: 720,
-              filterQuality: FilterQuality.low,
+          // Light theme background
+          Container(color: const Color(0xFFF8F9FA)),
+
+
+
+          // Top Center Logo - Bigger and Lower
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 30, // Moved lower
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Image.asset(
+                "assets/images/bigilu_logo21.png",
+                height: 90, // Increased size
+                width: 240, // Increased size
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.high,
+              ),
             ),
           ),
 
-          // Dark Overlay
-          Positioned.fill(
-            child: Container(color: Colors.black.withOpacity(0.6)),
-          ),
-
+          // SafeArea starts here
           SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.08),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight,
-                    ),
-                    child: IntrinsicHeight(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Spacer(),
+            child: SingleChildScrollView(
+              physics: const ClampingScrollPhysics(), // Remove bounce animation
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 24 : 48,
+                vertical: 20,
+              ),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight:
+                      MediaQuery.of(context).size.height -
+                      MediaQuery.of(context).padding.top -
+                      MediaQuery.of(context).padding.bottom -
+                      40,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      children: [
+                        // Premium header with logo
+                        const SizedBox(height: 20),
 
-                          Text(
-                            "என் நெஞ்சில் குடியிருக்கும் !",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: screenWidth * 0.055,
-                            ),
-                            textAlign: TextAlign.center,
+                        // Vertical Space to maintain phone field position
+                        SizedBox(
+                          height: screenHeight * 0.18,
+                        ), // Increased from 0.15 to move field lower
+
+                        SizedBox(
+                          height: screenHeight * 0.05,
+                        ), // Increased from 0.04 for more shift
+                        // Features cards (optional)
+                        SizedBox(height: screenHeight * 0.04),
+
+                        // Phone Input Field - Reduced Size
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 12,
                           ),
-
-                          SizedBox(height: screenHeight * 0.05),
-
-                          // Phone Field
-                          TextField(
-                            controller: phoneController,
-                            keyboardType: TextInputType.phone,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(10),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: Colors.black.withOpacity(0.08),
+                              width: 1.5,
+                            ),
+                            color: Colors.white,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 20,
+                                offset: const Offset(0, 10),
+                              ),
                             ],
-                            decoration: InputDecoration(
-                              hintText: "Enter 10-digit mobile number",
-                              filled: true,
-                              fillColor: Colors.yellow,
-                              contentPadding: EdgeInsets.symmetric(
-                                vertical: screenHeight * 0.02,
-                                horizontal: 20,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
-                              prefixText: "+91 ",
-                              prefixStyle: const TextStyle(
-                                color: Colors.black,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
                           ),
-
-                          SizedBox(height: screenHeight * 0.04),
-
-                          // Login Button
-                          SizedBox(
-                            width: double.infinity,
-                            height: screenHeight * 0.065,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFB11226),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Mobile Number",
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.black.withOpacity(0.7),
+                                  letterSpacing: 0.5,
                                 ),
                               ),
-                              onPressed: isLoading
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: phoneController,
+                                keyboardType: TextInputType.phone,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(10),
+                                ],
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.black87,
+                                  letterSpacing: 1.0,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: "9876543210",
+                                  hintStyle: TextStyle(
+                                    color: Colors.black.withOpacity(0.2),
+                                    fontSize: 16,
+                                  ),
+                                  filled: false,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  prefixText: "+91  ",
+                                  prefixStyle: const TextStyle(
+                                    color: Color(0xFFB11226),
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        SizedBox(height: screenHeight * 0.04),
+
+                        // Send OTP Button - Hero Button
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFB11226).withOpacity(0.5),
+                                blurRadius: 24,
+                                offset: const Offset(0, 12),
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: isLoading
                                   ? null
                                   : () {
                                       if (validateInput()) {
                                         sendOtpFirebase();
                                       }
                                     },
-                              child: isLoading
-                                  ? const CircularProgressIndicator(
-                                      color: Colors.white,
-                                    )
-                                  : Text(
-                                      "Send OTP",
-                                      style: TextStyle(
-                                        fontSize: screenWidth * 0.045,
-                                        color: Colors.white,
-                                      ),
-                                    ),
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  gradient: const LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      Color(0xFFB11226),
+                                      Color(0xFF8A0C20),
+                                    ],
+                                  ),
+                                ),
+                                child: Center(
+                                  child: isLoading
+                                      ? SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                  Colors.white.withOpacity(0.9),
+                                                ),
+                                            strokeWidth: 2.5,
+                                          ),
+                                        )
+                                      : Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            const Text(
+                                              "Send OTP",
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w700,
+                                                color: Colors.white,
+                                                letterSpacing: 0.5,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Icon(
+                                              Icons.arrow_forward,
+                                              color: Colors.white.withOpacity(
+                                                0.9,
+                                              ),
+                                              size: 18,
+                                            ),
+                                          ],
+                                        ),
+                                ),
+                              ),
                             ),
                           ),
+                        ),
 
-                          SizedBox(height: screenHeight * 0.02),
+                        SizedBox(height: screenHeight * 0.03),
 
-Column(
-  children: [
-
-    /// Proud product text
-    const Text(
-      "Proud Product by",
-      style: TextStyle(
-        color: Colors.white,
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        letterSpacing: 1,
-      ),
-    ),
-
-    const SizedBox(height: 6),
-
-    /// Bright logo
-    ColorFiltered(
-      colorFilter: const ColorFilter.matrix([
-        1.5, 0, 0, 0, 0,
-        0, 1.5, 0, 0, 0,
-        0, 0, 1.5, 0, 0,
-        0, 0, 0, 1, 0,
-      ]),
-      child: Image.asset(
-        "assets/images/codereadlogo.png",
-        height: screenHeight < 700 ? 120 : screenHeight * 0.18,
-        width: screenWidth * 0.5,
-        fit: BoxFit.contain,
-      ),
-    ),
-  ],
-),
-
-                          const Spacer(),
-                        ],
-                      ),
+                        // Privacy notice
+                        Text(
+                          "We'll send you a one-time code",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.black.withOpacity(0.5),
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                );
-              },
+
+                    // Footer
+                    Column(
+                      children: [
+                        Container(
+                          height: 1,
+                          color: Colors.black.withOpacity(0.05),
+                          margin: EdgeInsets.symmetric(
+                            vertical: screenHeight * 0.03,
+                          ),
+                        ),
+                        Column(
+                          children: [
+                            Text(
+                              "Powered by",
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.black.withOpacity(0.4),
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.5,
+                                fontFamily: 'Roboto',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 20,
+                              ),
+                              margin: const EdgeInsets.only(
+                                bottom: 30,
+                              ), // Move slightly upper
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: Colors.black.withOpacity(0.05),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                              child: Image.asset(
+                                "assets/images/codereadlogo.png",
+                                height: 110, // Even bigger watermark size
+                                width:
+                                    screenWidth * 0.85, // Occupies more width
+                                fit: BoxFit.contain,
+                                filterQuality: FilterQuality.high,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],

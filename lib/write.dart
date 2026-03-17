@@ -1085,13 +1085,12 @@ class _WritePageState extends State<WritePage> {
                                                   width: double.infinity,
                                                   fit: BoxFit.contain,
                                                 );
-                                              } else if (block.imageUrl !=
-                                                      null &&
-                                                  block.imageUrl!.isNotEmpty) {
+                                              } else if (block.imageUrl != null && block.imageUrl!.isNotEmpty) {
                                                 imageWidget = Image.network(
                                                   block.imageUrl!,
                                                   width: double.infinity,
                                                   fit: BoxFit.contain,
+                                                  errorBuilder: (c, e, s) => const Icon(Icons.broken_image),
                                                 );
                                               } else {
                                                 return const SizedBox();

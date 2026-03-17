@@ -183,6 +183,7 @@ class _OtpPageState extends State<OtpPage> with CodeAutoFill { // Added CodeAuto
                             borderRadius: BorderRadius.circular(32),
                             boxShadow: [
                               BoxShadow(
+                                // ignore: deprecated_member_use
                                 color: Colors.black.withOpacity(0.05),
                                 blurRadius: 30,
                                 offset: const Offset(0, 15),
@@ -206,6 +207,7 @@ class _OtpPageState extends State<OtpPage> with CodeAutoFill { // Added CodeAuto
                                 text: TextSpan(
                                   style: TextStyle(
                                     fontSize: 14,
+                                    // ignore: deprecated_member_use
                                     color: Colors.black.withOpacity(0.6),
                                     height: 1.5,
                                   ),
@@ -242,11 +244,13 @@ class _OtpPageState extends State<OtpPage> with CodeAutoFill { // Added CodeAuto
                                         width: boxSize,
                                         alignment: Alignment.center,
                                         decoration: BoxDecoration(
+                                          // ignore: deprecated_member_use
                                           color: char.isNotEmpty ? const Color(0xFFB11226).withOpacity(0.05) : Colors.white,
                                           borderRadius: BorderRadius.circular(12),
                                           border: Border.all(
                                             color: isCurrent || char.isNotEmpty 
                                                 ? const Color(0xFFB11226) 
+                                                // ignore: deprecated_member_use
                                                 : Colors.black.withOpacity(0.1),
                                             width: 2,
                                           ),
@@ -300,6 +304,7 @@ class _OtpPageState extends State<OtpPage> with CodeAutoFill { // Added CodeAuto
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
+                                  // ignore: deprecated_member_use
                                   color: Colors.black.withOpacity(0.5),
                                 ),
                               ),
@@ -335,6 +340,7 @@ class _OtpPageState extends State<OtpPage> with CodeAutoFill { // Added CodeAuto
                             ),
                             boxShadow: [
                               BoxShadow(
+                                // ignore: deprecated_member_use
                                 color: const Color(0xFFB11226).withOpacity(0.3),
                                 blurRadius: 20,
                                 offset: const Offset(0, 10),

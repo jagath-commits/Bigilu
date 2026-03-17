@@ -8,6 +8,24 @@ import 'package:bigilu/home.dart';
 import 'package:bigilu/hashtag.dart';
 import 'package:bigilu/profile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+List<dynamic> extractPages(dynamic rawContent) {
+  if (rawContent == null) return [];
+  if (rawContent is List) return rawContent;
+  if (rawContent is String) {
+    try {
+      final decoded = jsonDecode(rawContent);
+      if (decoded is List) return decoded;
+      if (decoded is Map && decoded.containsKey('pages')) {
+        return decoded['pages'] ?? [];
+      }
+    } catch (e) {
+      print("Error decoding content: $e");
+    }
+  }
+  return [];
+}
+
 // 🔹 Import the updated EditProfilePage
 
 class ProfilePage extends StatefulWidget {
@@ -90,9 +108,13 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _loadUserPosts() async {
     try {
-      final response = await http.get(
-        Uri.parse("https://bigiluu.com/api/posts/userPosts/${widget.userId}"),
-      );
+      final response = await http
+          .get(
+            Uri.parse(
+              "https://bigiluu.com/api/posts/userPosts/${widget.userId}",
+            ),
+          )
+          .timeout(const Duration(seconds: 25));
 
       print("USER POSTS RAW RESPONSE: ${response.body}");
 
@@ -127,9 +149,13 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _loadUserDrafts() async {
     try {
-      final response = await http.get(
-        Uri.parse("https://bigiluu.com/api/posts/userDrafts/${widget.userId}"),
-      );
+      final response = await http
+          .get(
+            Uri.parse(
+              "https://bigiluu.com/api/posts/userDrafts/${widget.userId}",
+            ),
+          )
+          .timeout(const Duration(seconds: 25));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -210,9 +236,13 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _loadSavedPosts() async {
     try {
-      final response = await http.get(
-        Uri.parse("https://bigiluu.com/api/posts/savedPosts/${widget.userId}"),
-      );
+      final response = await http
+          .get(
+            Uri.parse(
+              "https://bigiluu.com/api/posts/savedPosts/${widget.userId}",
+            ),
+          )
+          .timeout(const Duration(seconds: 25));
 
       print("SAVED POSTS RAW RESPONSE: ${response.body}");
 
@@ -246,7 +276,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _loadProfileFromBackend() async {
     try {
-      final response = await http.get(Uri.parse("$baseUrl${widget.userId}"));
+      final response = await http
+          .get(Uri.parse("$baseUrl${widget.userId}"))
+          .timeout(const Duration(seconds: 25));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -355,10 +387,6 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
-
-
-
-
 
   Widget _buildGridSection() {
     final list = _getSelectedList();
@@ -517,7 +545,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               if (progress == null) return child;
                               return Container(color: Colors.grey.shade100);
                             },
-                            errorBuilder: (_, __, ___) => Container(
+                            errorBuilder: (_, _, _) => Container(
                               color: Colors.grey.shade200,
                               child: const Icon(
                                 Icons.book_rounded,
@@ -1265,7 +1293,7 @@ class _FullPostPageState extends State<FullPostPage> {
                                       child: Image.network(
                                         "https://www.transparenttextures.com/patterns/paper-fibers.png",
                                         repeat: ImageRepeat.repeat,
-                                        errorBuilder: (_, __, ___) =>
+                                        errorBuilder: (_, _, _) =>
                                             const SizedBox(),
                                       ),
                                     ),
@@ -1294,8 +1322,9 @@ class _FullPostPageState extends State<FullPostPage> {
                                                 fit: BoxFit.contain,
                                                 loadingBuilder:
                                                     (context, child, progress) {
-                                                      if (progress == null)
+                                                      if (progress == null) {
                                                         return child;
+                                                      }
                                                       return Container(
                                                         height: 200,
                                                         color: Colors
@@ -1442,8 +1471,9 @@ class _FullPostPageState extends State<FullPostPage> {
                                                               progress,
                                                             ) {
                                                               if (progress ==
-                                                                  null)
+                                                                  null) {
                                                                 return child;
+                                                              }
                                                               return Container(
                                                                 height: 200,
                                                                 color: Colors
@@ -1460,8 +1490,8 @@ class _FullPostPageState extends State<FullPostPage> {
                                                         errorBuilder:
                                                             (
                                                               _,
-                                                              __,
-                                                              ___,
+                                                              _,
+                                                              _,
                                                             ) => Container(
                                                               height: 100,
                                                               color: Colors
@@ -1769,7 +1799,7 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                                     context,
                                     MaterialPageRoute(
                                       builder: (_) => FullScreenPostViewer(
-                                        pages: post['content'] ?? [],
+                                        pages: extractPages(post['content']),
                                         username: post['username'] ?? "",
                                         profileImage:
                                             post['profile_image'] ?? "",
@@ -1847,8 +1877,9 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                                                               progress,
                                                             ) {
                                                               if (progress ==
-                                                                  null)
+                                                                  null) {
                                                                 return child;
+                                                              }
                                                               return Container(
                                                                 color: Colors
                                                                     .grey
@@ -1858,8 +1889,8 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                                                         errorBuilder:
                                                             (
                                                               _,
-                                                              __,
-                                                              ___,
+                                                              _,
+                                                              _,
                                                             ) => Container(
                                                               color: Colors
                                                                   .grey
@@ -2009,7 +2040,7 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                                           MaterialPageRoute(
                                             builder: (_) =>
                                                 FullScreenPostViewer(
-                                                  pages: post['content'] ?? [],
+                                                  pages: extractPages(post['content']),
                                                   username:
                                                       post['username'] ?? "",
                                                   profileImage:

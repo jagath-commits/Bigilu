@@ -58,7 +58,11 @@ class _HashtagPageState extends State<HashtagPage> {
       appBar: AppBar(
         title: const Text(
           "Explore Hashtags",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 20),
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w800,
+            fontSize: 20,
+          ),
         ),
         backgroundColor: brandColor,
         elevation: 0,
@@ -91,10 +95,16 @@ class _HashtagPageState extends State<HashtagPage> {
                 style: const TextStyle(fontWeight: FontWeight.w600),
                 decoration: InputDecoration(
                   hintText: "Search hashtags...",
-                  hintStyle: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.w500),
+                  hintStyle: TextStyle(
+                    color: Colors.grey.shade400,
+                    fontWeight: FontWeight.w500,
+                  ),
                   prefixIcon: const Icon(Icons.search, color: brandColor),
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 15,
+                  ),
                 ),
               ),
             ),
@@ -108,85 +118,100 @@ class _HashtagPageState extends State<HashtagPage> {
                   )
                 : ListView(
                     physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
                     children: hashtags
                         .where(
                           (i) => i["hashtag"].toLowerCase().contains(
-                                searchText.toLowerCase(),
-                              ),
+                            searchText.toLowerCase(),
+                          ),
                         )
                         .map((item) {
-                      return GestureDetector(
-                        onTap: () {
-                          final route = Platform.isIOS
-                              ? CupertinoPageRoute(
-                                  builder: (_) => HashtagPostsPage(
-                                    tag: item["hashtag"],
-                                  ),
-                                )
-                              : MaterialPageRoute(
-                                  builder: (_) => HashtagPostsPage(
-                                    tag: item["hashtag"],
-                                  ),
-                                );
-                          Navigator.push(context, route);
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.03),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                            border: Border.all(color: Colors.black.withOpacity(0.02)),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: brandColor.withOpacity(0.08),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.tag_rounded, color: brandColor, size: 22),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      item["hashtag"],
-                                      style: const TextStyle(
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.w800,
-                                        color: Color(0xFF1A1A1A),
+                          return GestureDetector(
+                            onTap: () {
+                              final route = Platform.isIOS
+                                  ? CupertinoPageRoute(
+                                      builder: (_) => HashtagPostsPage(
+                                        tag: item["hashtag"],
                                       ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      "${item["count"]} stories published",
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey.shade500,
-                                        fontWeight: FontWeight.w600,
+                                    )
+                                  : MaterialPageRoute(
+                                      builder: (_) => HashtagPostsPage(
+                                        tag: item["hashtag"],
                                       ),
-                                    ),
-                                  ],
+                                    );
+                              Navigator.push(context, route);
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.03),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                                border: Border.all(
+                                  color: Colors.black.withOpacity(0.02),
                                 ),
                               ),
-                              Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey.shade300, size: 16),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: brandColor.withOpacity(0.08),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.tag_rounded,
+                                      color: brandColor,
+                                      size: 22,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item["hashtag"],
+                                          style: const TextStyle(
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.w800,
+                                            color: Color(0xFF1A1A1A),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          "${item["count"]} stories published",
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.grey.shade500,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.arrow_forward_ios_rounded,
+                                    color: Colors.grey.shade300,
+                                    size: 16,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        })
+                        .toList(),
                   ),
           ),
         ],
@@ -213,19 +238,13 @@ class _HashtagPageState extends State<HashtagPage> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _build3DNavItem(
-                context,
-                Icons.home_rounded,
-                "Home",
-                () {
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (_) => const HomePage()),
-                    (route) => false,
-                  );
-                },
-                isActive: false,
-              ),
+              _build3DNavItem(context, Icons.home_rounded, "Home", () {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HomePage()),
+                  (route) => false,
+                );
+              }, isActive: false),
               _build3DNavItem(
                 context,
                 Icons.explore_rounded,
@@ -233,18 +252,12 @@ class _HashtagPageState extends State<HashtagPage> {
                 () {},
                 isActive: true,
               ),
-              _build3DNavItem(
-                context,
-                Icons.edit_rounded,
-                "Write",
-                () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const WritePage()),
-                  );
-                },
-                isActive: false,
-              ),
+              _build3DNavItem(context, Icons.edit_rounded, "Write", () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const WritePage()),
+                );
+              }, isActive: false),
               _build3DNavItem(
                 context,
                 Icons.person_rounded,
@@ -388,7 +401,9 @@ class _HashtagPostsPageState extends State<HashtagPostsPage> {
 
   void toggleLike(String postId) {
     setState(() {
-      likedPosts.contains(postId) ? likedPosts.remove(postId) : likedPosts.add(postId);
+      likedPosts.contains(postId)
+          ? likedPosts.remove(postId)
+          : likedPosts.add(postId);
     });
   }
 
@@ -407,7 +422,9 @@ class _HashtagPostsPageState extends State<HashtagPostsPage> {
 
       if (response.statusCode == 200 && mounted) {
         setState(() {
-          savedPosts.contains(postId) ? savedPosts.remove(postId) : savedPosts.add(postId);
+          savedPosts.contains(postId)
+              ? savedPosts.remove(postId)
+              : savedPosts.add(postId);
         });
       }
     } catch (e) {
@@ -424,13 +441,21 @@ class _HashtagPostsPageState extends State<HashtagPostsPage> {
       appBar: AppBar(
         title: Text(
           widget.tag,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+          ),
         ),
         backgroundColor: brandColor,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            color: Colors.white,
+            size: 20,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         shape: const RoundedRectangleBorder(
@@ -440,34 +465,44 @@ class _HashtagPostsPageState extends State<HashtagPostsPage> {
       body: isLoading
           ? const Center(child: CircularProgressIndicator(color: brandColor))
           : posts.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.auto_stories_outlined, size: 64, color: Colors.grey.shade300),
-                      const SizedBox(height: 16),
-                      Text(
-                        "No stories found for ${widget.tag}",
-                        style: TextStyle(color: Colors.grey.shade500, fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.auto_stories_outlined,
+                    size: 64,
+                    color: Colors.grey.shade300,
                   ),
-                )
-              : ListView.builder(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  itemCount: posts.length,
-                  itemBuilder: (context, index) {
-                    final post = posts[index];
-                    final postId = post['post_id'].toString();
+                  const SizedBox(height: 16),
+                  Text(
+                    "No stories found for ${widget.tag}",
+                    style: TextStyle(
+                      color: Colors.grey.shade500,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              itemCount: posts.length,
+              itemBuilder: (context, index) {
+                final post = posts[index];
+                final postId = post['post_id'].toString();
 
-                    return PostContainer(
-                      post: post,
-                      isSaved: savedPosts.contains(postId),
-                      onSave: () => toggleSave(postId),
-                    );
-                  },
-                ),
+                return PostContainer(
+                  post: post,
+                  isLiked: likedPosts.contains(postId),
+                  onLike: () => toggleLike(postId),
+                  isSaved: savedPosts.contains(postId),
+                  onSave: () => toggleSave(postId),
+                );
+              },
+            ),
     );
   }
 }
@@ -581,142 +616,184 @@ class _PostDetailPageState extends State<PostDetailPage> {
                     controller: _pageController,
                     physics: const BouncingScrollPhysics(),
                     itemCount: totalPages,
-                  onPageChanged: (index) {
-                    setState(() => currentPage = index);
-                  },
-                  itemBuilder: (context, index) {
-                    final page = pages[index];
-                    final fontSize = (page['fontSize'] ?? 18).toDouble();
-                    final fontFamily = page['fontFamily'] ?? 'Roboto';
-                    final fontColor = _parseColor(page['fontColor']);
+                    onPageChanged: (index) {
+                      setState(() => currentPage = index);
+                    },
+                    itemBuilder: (context, index) {
+                      final page = pages[index];
+                      final fontSize = (page['fontSize'] ?? 18).toDouble();
+                      final fontFamily = page['fontFamily'] ?? 'Roboto';
+                      final fontColor = _parseColor(page['fontColor']);
 
-                    return SizedBox.expand(
-                      child: Container(
-                        margin: const EdgeInsets.fromLTRB(16, 8, 16, 75),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFDFBF7),
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.4),
-                              blurRadius: 25,
-                              offset: const Offset(0, 12),
-                            ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(24),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              Positioned(
-                                left: 0,
-                                top: 0,
-                                bottom: 0,
-                                width: 35,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.centerLeft,
-                                      end: Alignment.centerRight,
-                                      colors: [
-                                        Colors.black.withOpacity(0.18),
-                                        Colors.black.withOpacity(0.08),
-                                        Colors.transparent,
+                      return SizedBox.expand(
+                        child: Container(
+                          margin: const EdgeInsets.fromLTRB(16, 8, 16, 75),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFDFBF7),
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.4),
+                                blurRadius: 25,
+                                offset: const Offset(0, 12),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(24),
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                Positioned(
+                                  left: 0,
+                                  top: 0,
+                                  bottom: 0,
+                                  width: 35,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.centerLeft,
+                                        end: Alignment.centerRight,
+                                        colors: [
+                                          Colors.black.withOpacity(0.18),
+                                          Colors.black.withOpacity(0.08),
+                                          Colors.transparent,
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Positioned.fill(
+                                  child: Opacity(
+                                    opacity: 0.02,
+                                    child: Image.network(
+                                      "https://www.transparenttextures.com/patterns/paper-fibers.png",
+                                      repeat: ImageRepeat.repeat,
+                                      errorBuilder: (_, _, _) =>
+                                          const SizedBox(),
+                                    ),
+                                  ),
+                                ),
+                                SingleChildScrollView(
+                                  physics: const BouncingScrollPhysics(),
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      55,
+                                      50,
+                                      40,
+                                      70,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        ...(page['blocks'] as List? ?? []).map<
+                                          Widget
+                                        >((block) {
+                                          if (block['type'] == "text") {
+                                            return Padding(
+                                              padding: const EdgeInsets.only(
+                                                bottom: 20,
+                                              ),
+                                              child: Text(
+                                                block['text'] ?? "",
+                                                style: TextStyle(
+                                                  fontSize: fontSize,
+                                                  fontFamily: fontFamily,
+                                                  color: fontColor.withOpacity(
+                                                    0.9,
+                                                  ),
+                                                  height: 1.7,
+                                                  letterSpacing: 0.4,
+                                                  fontWeight: FontWeight.w400,
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                          if (block['type'] == "image" &&
+                                              block['image'] != null &&
+                                              block['image']
+                                                  .toString()
+                                                  .isNotEmpty) {
+                                            return Container(
+                                              margin: const EdgeInsets.only(
+                                                bottom: 24,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black
+                                                        .withOpacity(0.12),
+                                                    blurRadius: 10,
+                                                    offset: const Offset(0, 5),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
+                                                child: Image.network(
+                                                  "https://bigiluu.com/${block['image']}",
+                                                  fit: BoxFit.cover,
+                                                  loadingBuilder:
+                                                      (
+                                                        context,
+                                                        child,
+                                                        progress,
+                                                      ) {
+                                                        if (progress == null)
+                                                          return child;
+                                                        return Container(
+                                                          height: 200,
+                                                          color: Colors
+                                                              .grey
+                                                              .shade50,
+                                                          child: const Center(
+                                                            child:
+                                                                CircularProgressIndicator(
+                                                                  strokeWidth:
+                                                                      2,
+                                                                  color:
+                                                                      brandColor,
+                                                                ),
+                                                          ),
+                                                        );
+                                                      },
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                          return const SizedBox();
+                                        }),
                                       ],
                                     ),
                                   ),
                                 ),
-                              ),
-                              Positioned.fill(
-                                child: Opacity(
-                                  opacity: 0.02,
-                                  child: Image.network(
-                                    "https://www.transparenttextures.com/patterns/paper-fibers.png",
-                                    repeat: ImageRepeat.repeat,
-                                    errorBuilder: (_, __, ___) => const SizedBox(),
-                                  ),
-                                ),
-                              ),
-                              SingleChildScrollView(
-                                physics: const BouncingScrollPhysics(),
-                                child: Padding(
-                                  padding: const EdgeInsets.fromLTRB(55, 50, 40, 70),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      ...(page['blocks'] as List? ?? []).map<Widget>((block) {
-                                        if (block['type'] == "text") {
-                                          return Padding(
-                                            padding: const EdgeInsets.only(bottom: 20),
-                                            child: Text(
-                                              block['text'] ?? "",
-                                              style: TextStyle(
-                                                fontSize: fontSize,
-                                                fontFamily: fontFamily,
-                                                color: fontColor.withOpacity(0.9),
-                                                height: 1.7,
-                                                letterSpacing: 0.4,
-                                                fontWeight: FontWeight.w400,
-                                              ),
-                                            ),
-                                          );
-                                        }
-                                        if (block['type'] == "image" && block['image'] != null && block['image'].toString().isNotEmpty) {
-                                          return Container(
-                                            margin: const EdgeInsets.only(bottom: 24),
-                                            decoration: BoxDecoration(
-                                              borderRadius: BorderRadius.circular(16),
-                                              boxShadow: [
-                                                BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 10, offset: const Offset(0, 5)),
-                                              ],
-                                            ),
-                                            child: ClipRRect(
-                                              borderRadius: BorderRadius.circular(16),
-                                              child: Image.network(
-                                                "https://bigiluu.com/${block['image']}",
-                                                fit: BoxFit.cover,
-                                                loadingBuilder: (context, child, progress) {
-                                                  if (progress == null) return child;
-                                                  return Container(
-                                                    height: 200,
-                                                    color: Colors.grey.shade50,
-                                                    child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: brandColor)),
-                                                  );
-                                                },
-                                              ),
-                                            ),
-                                          );
-                                        }
-                                        return const SizedBox();
-                                      }),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                bottom: 24,
-                                left: 0,
-                                right: 0,
-                                child: Center(
-                                  child: Text(
-                                    "— ${index + 1} of $totalPages —",
-                                    style: TextStyle(
-                                      color: Colors.grey.shade400,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 12,
-                                      letterSpacing: 1.2,
-                                      fontFamily: 'serif',
+                                Positioned(
+                                  bottom: 24,
+                                  left: 0,
+                                  right: 0,
+                                  child: Center(
+                                    child: Text(
+                                      "— ${index + 1} of $totalPages —",
+                                      style: TextStyle(
+                                        color: Colors.grey.shade400,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                        letterSpacing: 1.2,
+                                        fontFamily: 'serif',
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
                   ),
                 ),
               ],

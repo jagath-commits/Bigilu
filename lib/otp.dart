@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:bigilu/home.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
+import 'package:bigilu/profile.dart';
 import 'package:sms_autofill/sms_autofill.dart'; // New import for zero-tap
 
 class OtpPage extends StatefulWidget {
@@ -114,7 +114,9 @@ class _OtpPageState extends State<OtpPage> with CodeAutoFill { // Added CodeAuto
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const HomePage()),
+        MaterialPageRoute(
+          builder: (_) => EditProfilePage(userId: data["user_id"]),
+        ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

@@ -945,66 +945,70 @@ class PostContainer extends StatelessWidget {
                               fit: StackFit.expand,
                               children: [
                                 // Cover Image — guard against empty/null URL
-                                Builder(builder: (context) {
-                                  final coverUrl = fullUrl(post['cover_img']);
-                                  if (coverUrl.isEmpty) {
-                                    // No cover image — show nice placeholder
-                                    return Container(
-                                      decoration: const BoxDecoration(
-                                        gradient: LinearGradient(
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                          colors: [
-                                            Color(0xFF2D1B69),
-                                            Color(0xFF11998E),
-                                          ],
-                                        ),
-                                      ),
-                                      child: const Center(
-                                        child: Icon(
-                                          Icons.book_rounded,
-                                          color: Colors.white54,
-                                          size: 64,
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                  return Image.network(
-                                    coverUrl,
-                                    fit: BoxFit.cover,
-                                    loadingBuilder: (context, child, progress) {
-                                      if (progress == null) return child;
+                                Builder(
+                                  builder: (context) {
+                                    final coverUrl = fullUrl(post['cover_img']);
+                                    if (coverUrl.isEmpty) {
+                                      // No cover image — show nice placeholder
                                       return Container(
-                                        color: const Color(0xFFF8F8F8),
+                                        decoration: const BoxDecoration(
+                                          gradient: LinearGradient(
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                            colors: [
+                                              Color(0xFF2D1B69),
+                                              Color(0xFF11998E),
+                                            ],
+                                          ),
+                                        ),
                                         child: const Center(
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: brandColor,
+                                          child: Icon(
+                                            Icons.book_rounded,
+                                            color: Colors.white54,
+                                            size: 64,
                                           ),
                                         ),
                                       );
-                                    },
-                                    errorBuilder: (_, __, ___) => Container(
-                                      decoration: const BoxDecoration(
-                                        gradient: LinearGradient(
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                          colors: [
-                                            Color(0xFF2D1B69),
-                                            Color(0xFF11998E),
-                                          ],
+                                    }
+                                    return Image.network(
+                                      coverUrl,
+                                      fit: BoxFit.cover,
+                                      loadingBuilder:
+                                          (context, child, progress) {
+                                            if (progress == null) return child;
+                                            return Container(
+                                              color: const Color(0xFFF8F8F8),
+                                              child: const Center(
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      color: brandColor,
+                                                    ),
+                                              ),
+                                            );
+                                          },
+                                      errorBuilder: (_, __, ___) => Container(
+                                        decoration: const BoxDecoration(
+                                          gradient: LinearGradient(
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                            colors: [
+                                              Color(0xFF2D1B69),
+                                              Color(0xFF11998E),
+                                            ],
+                                          ),
+                                        ),
+                                        child: const Center(
+                                          child: Icon(
+                                            Icons.book_rounded,
+                                            color: Colors.white54,
+                                            size: 64,
+                                          ),
                                         ),
                                       ),
-                                      child: const Center(
-                                        child: Icon(
-                                          Icons.book_rounded,
-                                          color: Colors.white54,
-                                          size: 64,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                }),
+                                    );
+                                  },
+                                ),
 
                                 // Premium Overlay (Subtle gradient and leather texture look)
                                 Container(
@@ -1055,67 +1059,126 @@ class PostContainer extends StatelessWidget {
                                   child: Container(color: themeSpineColor),
                                 ),
 
-                                // 📖 Book Title — bottom of cover
-                                if ((post['title']?.toString() ?? '').isNotEmpty)
+                                // 📖 Book Title — matching Cover Design exactly
+                                if ((post['title']?.toString() ?? '')
+                                    .isNotEmpty)
                                   Positioned(
-                                    bottom: 0,
-                                    left: 0,
-                                    right: 0,
-                                    child: Builder(builder: (context) {
-                                      // Parse title style from content JSON
-                                      double fs = 13.0;
-                                      String? ff;
-                                      Color tc = Colors.white;
-                                      try {
-                                        final raw = post['content'];
-                                        if (raw != null) {
-                                          dynamic dec = raw is String ? jsonDecode(raw) : raw;
-                                          if (dec is Map) {
-                                            final s = double.tryParse(dec['titleFontSize']?.toString() ?? '');
-                                            if (s != null) fs = (s * 0.38).clamp(9.0, 17.0);
-                                            ff = dec['titleFontFamily']?.toString();
-                                            final c = int.tryParse(dec['titleColor']?.toString() ?? '');
-                                            if (c != null) tc = Color(c);
+                                    top: 15,
+                                    left: 10,
+                                    right: 10,
+                                    child: Builder(
+                                      builder: (context) {
+                                        // Parse title style from top-level and content JSON
+                                        double fs = 15.0;
+                                        String? ff;
+                                        Color tc = Colors.white;
+                                        try {
+                                          double? parsedFs;
+                                          Color? parsedTc;
+                                          String? parsedFf;
+
+                                          // 1. Try top-level post fields (stored by API)
+                                          if (post['titleFontSize'] != null &&
+                                              post['titleFontSize']
+                                                  .toString()
+                                                  .isNotEmpty) {
+                                            parsedFs = double.tryParse(
+                                              post['titleFontSize'].toString(),
+                                            );
                                           }
-                                        }
-                                      } catch (_) {}
-                                      return Container(
-                                        padding: const EdgeInsets.fromLTRB(10, 24, 10, 10),
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            begin: Alignment.bottomCenter,
-                                            end: Alignment.topCenter,
-                                            colors: [
-                                              Colors.black.withOpacity(0.85),
-                                              Colors.black.withOpacity(0.4),
-                                              Colors.transparent,
-                                            ],
-                                            stops: const [0.0, 0.6, 1.0],
-                                          ),
-                                        ),
-                                        child: Text(
+                                          if (post['titleColor'] != null &&
+                                              post['titleColor']
+                                                  .toString()
+                                                  .isNotEmpty) {
+                                            int? cv = int.tryParse(
+                                              post['titleColor'].toString(),
+                                            );
+                                            if (cv != null)
+                                              parsedTc = Color(cv);
+                                          }
+                                          if (post['titleFontFamily'] != null &&
+                                              post['titleFontFamily']
+                                                  .toString()
+                                                  .isNotEmpty) {
+                                            parsedFf = post['titleFontFamily']
+                                                .toString();
+                                          }
+
+                                          // 2. Fallback to Content JSON
+                                          dynamic raw = post['content'];
+                                          if (raw != null) {
+                                            dynamic dec = raw;
+                                            if (dec is String) {
+                                              try {
+                                                dec = jsonDecode(dec);
+                                              } catch (_) {}
+                                            }
+                                            if (dec is String) {
+                                              try {
+                                                dec = jsonDecode(dec);
+                                              } catch (_) {}
+                                            }
+
+                                            if (dec is Map) {
+                                              if (parsedFs == null &&
+                                                  dec['titleFontSize'] !=
+                                                      null) {
+                                                parsedFs = double.tryParse(
+                                                  dec['titleFontSize']
+                                                      .toString(),
+                                                );
+                                              }
+                                              if (parsedTc == null &&
+                                                  dec['titleColor'] != null) {
+                                                int? cv = int.tryParse(
+                                                  dec['titleColor'].toString(),
+                                                );
+                                                if (cv != null)
+                                                  parsedTc = Color(cv);
+                                              }
+                                              if (parsedFf == null &&
+                                                  dec['titleFontFamily'] !=
+                                                      null) {
+                                                parsedFf =
+                                                    dec['titleFontFamily']
+                                                        .toString();
+                                              }
+                                            }
+                                          }
+
+                                          if (parsedFs != null)
+                                            fs = (parsedFs * 0.6).clamp(
+                                              12.0,
+                                              45.0,
+                                            );
+                                          if (parsedTc != null) tc = parsedTc;
+                                          if (parsedFf != null &&
+                                              parsedFf.isNotEmpty)
+                                            ff = parsedFf;
+                                        } catch (_) {}
+                                        return Text(
                                           post['title']?.toString() ?? '',
                                           textAlign: TextAlign.center,
-                                          maxLines: 2,
+                                          maxLines: 3,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
                                             color: tc,
                                             fontSize: fs,
                                             fontFamily: ff,
-                                            fontWeight: FontWeight.w800,
-                                            letterSpacing: 0.2,
-                                            height: 1.3,
-                                            shadows: const [
+                                            fontWeight: FontWeight.bold,
+                                            shadows: [
                                               Shadow(
-                                                color: Colors.black,
+                                                color: Colors.black.withOpacity(
+                                                  0.6,
+                                                ),
                                                 blurRadius: 10,
-                                                offset: Offset(0, 2),
+                                                offset: const Offset(1, 1),
                                               ),
                                             ],
                                           ),
-                                        ),
-                                      );
-                                    }),
+                                        );
+                                      },
+                                    ),
                                   ),
                               ],
                             ),
@@ -1964,7 +2027,7 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
                           ),
                           const SizedBox(width: 12),
                           Text(
-                            "${currentPage + 1} of ${widget.pages.length}",
+                            "${currentPage + 1} of ${widget.pages.length + 1}",
                             style: TextStyle(
                               color: textColor.withOpacity(0.8),
                               fontSize: 13,
@@ -2529,7 +2592,7 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
                   ),
-                  itemCount: widget.pages.length,
+                  itemCount: widget.pages.length + 1,
                   itemBuilder: (context, index) {
                     final isCurrent = index == currentPage;
                     return GestureDetector(

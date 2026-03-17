@@ -30,7 +30,58 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _mobileController = TextEditingController();
-  final _idController = TextEditingController();
+
+  String? _selectedConstituency;
+
+  final List<String> _constituencies = [
+    "Gummidipoondi", "Ponneri", "Tiruttani", "Tiruvallur", "Poonamallee",
+    "Avadi", "Maduravoyal", "Ambattur", "Madavaram", "Thiruvottiyur",
+    "Dr. Radhakrishnan Nagar", "Perambur", "Kolathur", "Villivakkam", "Thiru-Vi-Ka-Nagar",
+    "Egmore", "Royapuram", "Harbour", "Chepauk-Thiruvallikeni", "Thousand Lights",
+    "Anna Nagar", "Virugampakkam", "Saidapet", "T. Nagar", "Mylapore",
+    "Velachery", "Sholinganallur", "Alandur", "Sriperumbudur", "Pallavaram",
+    "Tambaram", "Chengalpattu", "Thiruporur", "Cheyyur", "Madurantakam",
+    "Uthiramerur", "Kancheepuram", "Arakkonam", "Sholingur", "Katpadi",
+    "Ranipet", "Arcot", "Vellore", "Anaikattu", "K. V. Kuppam",
+    "Gudiyattam", "Vaniyambadi", "Ambur", "Jolarpet", "Tirupattur",
+    "Uthangarai", "Bargur", "Krishnagiri", "Veppanahalli", "Hosur",
+    "Thalli", "Palacode", "Pennagaram", "Dharmapuri", "Pappireddippatti",
+    "Harur", "Chengam", "Tiruvannamalai", "Kilpennathur", "Kalasapakkam",
+    "Polur", "Arani", "Cheyyar", "Vandavasi", "Gingee", "Mailam",
+    "Tindivanam", "Vanur", "Villupuram", "Vikravandi", "Tirukoilur",
+    "Ulundurpettai", "Rishivandiyam", "Sankarapuram", "Kallakurichi",
+    "Gangavalli", "Attur", "Yercaud", "Omalur", "Mettur", "Edappadi",
+    "Sankagiri", "Salem West", "Salem North", "Salem South", "Veerapandi",
+    "Rasipuram", "Senthamangalam", "Namakkal", "Paramathi Velur", "Tiruchengode",
+    "Kumarapalayam", "Erode East", "Erode West", "Modakurichi", "Perundurai",
+    "Bhavani", "Anthiyur", "Gobichettipalayam", "Bhavanisagar", "Dharapuram",
+    "Kangeyam", "Avinashi", "Tiruppur North", "Tiruppur South", "Palladam",
+    "Udumalpet", "Madathukulam", "Udhagamandalam", "Gudalur", "Coonoor",
+    "Mettuppalayam", "Sulur", "Kavundampalayam", "Coimbatore North", "Thondamuthur",
+    "Coimbatore South", "Singanallur", "Kinathukadavu", "Pollachi", "Valparai",
+    "Palani", "Oddanchatram", "Athoor", "Nilakkottai", "Natham", "Dindigul",
+    "Vedasandur", "Aravakurichi", "Karur", "Krishnarayapuram", "Kulithalai",
+    "Manapparai", "Srirangam", "Tiruchirappalli West", "Tiruchirappalli East",
+    "Thiruverumbur", "Lalgudi", "Mannachanallur", "Musiri", "Thuraiyur",
+    "Perambalur", "Kunnam", "Ariyalur", "Jayankondam", "Chidambaram",
+    "Kattumannarkoil", "Cuddalore", "Panruti", "Kurinjipadi", "Bhuvanagiri",
+    "Neyveli", "Vridhachalam", "Tittakudi", "Sirkazhi", "Mayiladuthurai",
+    "Poompuhar", "Nagapattinam", "Kilvelur", "Vedaranyam", "Thiruthuraipoondi",
+    "Mannargudi", "Thiruvarur", "Nannilam", "Thiruvidaimarudur",
+    "Kumbakonam", "Papanasam", "Thiruvaiyaru", "Thanjavur", "Orathanadu",
+    "Pattukkottai", "Peravurani", "Gandharvakottai", "Viralimalai", "Pudukkottai",
+    "Thirumayam", "Alangudi", "Aranthangi", "Karaikudi", "Tiruppattur (Sivaganga)",
+    "Sivaganga", "Manamadurai", "Melur", "Madurai East", "Madurai North",
+    "Madurai Central", "Madurai West", "Madurai South", "Thirupparankundram",
+    "Thirumangalam", "Usilampatti", "Andipatti", "Periyakulam", "Bodinayakanur",
+    "Cumbum", "Theni", "Rajapalayam", "Srivilliputhur", "Sattur", "Sivakasi",
+    "Virudhunagar", "Aruppukkottai", "Tiruchuli", "Paramakudi", "Tiruvadanai",
+    "Ramanathapuram", "Mudukulathur", "Vilathikulam", "Thoothukkudi", "Tiruchendur",
+    "Srivaikuntam", "Ottapidaram", "Kovilpatti", "Sankarankovil", "Vasudevanallur",
+    "Kadayanallur", "Tenkasi", "Alangulam", "Tirunelveli", "Ambasamudram",
+    "Palayamkottai", "Nanguneri", "Radhapuram", "Kanniyakumari", "Nagercoil",
+    "Colachel", "Padmanabhapuram", "Vilavancode", "Killiyoor"
+  ];
 
   File? _image;
   String? _networkImageUrl;
@@ -88,6 +139,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   void initState() {
     super.initState();
+    _constituencies.sort(); // 🔥 Ensure alphabetical order
     print("🔍 DEBUG: EditProfilePage init with userId: ${widget.userId}");
     _refreshProfile();
   }
@@ -114,7 +166,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
           _nameController.text = data['username'] ?? "";
           _mobileController.text = data['phoneno']?.toString() ?? "";
           _emailController.text = data['mail_id'] ?? "";
-          _idController.text = data['membership_id'] ?? "";
+          
+          // Try both keys for backward compatibility
+          String backendConstituency = data['constituency'] ?? data['membership_id'] ?? "";
+          if (_constituencies.contains(backendConstituency)) {
+            _selectedConstituency = backendConstituency;
+          }
 
           // ✅ Use fullUrl() to normalize image paths
           if (data['profile_image'] != null &&
@@ -140,6 +197,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
   // SAVE PROFILE & RETURN DATA
   // ===============================
   Future<void> saveProfile() async {
+    // Check mandatory fields
+    if (_nameController.text.trim().isEmpty ||
+        _emailController.text.trim().isEmpty ||
+        _selectedConstituency == null ||
+        _selectedConstituency!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please fill all mandatory fields (*)"),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -152,7 +223,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
       request.fields["phoneno"] = _mobileController.text;
       request.fields["username"] = _nameController.text;
       request.fields["mail_id"] = _emailController.text;
-      request.fields["membership_id"] = _idController.text;
+      // Send to both keys to ensure backend receives it correctly
+      request.fields["constituency"] = _selectedConstituency ?? "";
+      request.fields["membership_id"] = _selectedConstituency ?? "";
 
       if (_image != null) {
         final mimeType = lookupMimeType(_image!.path);
@@ -192,12 +265,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
         await _saveLocally(updatedName, _image, imageUrl);
 
-        // 🔥 POP AND RETURN UPDATED USERNAME
+        // 🔥 GO TO HOME PAGE
         if (mounted) {
-          Navigator.pop(context, {
-            "username": updatedName,
-            "profile_image": imageUrl,
-          });
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const HomePage()),
+            (route) => false,
+          );
         }
       } else {
         ScaffoldMessenger.of(
@@ -280,7 +354,17 @@ class _EditProfilePageState extends State<EditProfilePage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 2,
-        automaticallyImplyLeading: true,
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => const HomePage()),
+              (route) => false,
+            );
+          },
+        ),
         systemOverlayStyle: const SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
           statusBarIconBrightness: Brightness.dark,
@@ -337,22 +421,22 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         child: Column(
                           children: [
                             _buildProfessionalInput(
-                              'Full Name',
+                              'Full Name *',
                               _nameController,
                             ),
                             const SizedBox(height: 16),
                             _buildProfessionalInput(
-                              'Mobile Number',
+                              'Mobile Number *',
                               _mobileController,
                               readOnly: true,
                             ),
                             const SizedBox(height: 16),
-                            _buildProfessionalInput('Email', _emailController),
-                            const SizedBox(height: 16),
                             _buildProfessionalInput(
-                              'Membership ID',
-                              _idController,
+                              'Email *',
+                              _emailController,
                             ),
+                            const SizedBox(height: 16),
+                            _buildConstituencyDropdown(),
                           ],
                         ),
                       ),
@@ -522,6 +606,70 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   color: Colors.white,
                 ),
               ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Professional Constituency Dropdown
+  Widget _buildConstituencyDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Constituency *',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: Colors.black87,
+            fontFamily: 'Roboto',
+            letterSpacing: 0.2,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: const Color(0xFF2196F3).withOpacity(0.3),
+              width: 1.3,
+            ),
+            color: Colors.white,
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _selectedConstituency,
+              hint: Text(
+                'Select Constituency',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  fontFamily: 'Roboto',
+                  color: Colors.grey.shade400,
+                ),
+              ),
+              isExpanded: true,
+              icon: Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey.shade600),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                fontFamily: 'Roboto',
+                color: Colors.black87,
+              ),
+              items: _constituencies.map((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value),
+                );
+              }).toList(),
+              onChanged: (newValue) {
+                setState(() {
+                  _selectedConstituency = newValue;
+                });
+              },
             ),
           ),
         ),

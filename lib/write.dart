@@ -20,12 +20,15 @@ class PageBlock {
   bool isHeadline;
   bool isHighlighted; // 🔥 NEW
 
-  PageBlock.text(this.text, {this.isHeadline = false, this.isHighlighted = false})
-    : type = "text",
-      image = null,
-      imageUrl = null,
-      imageWidth = null,
-      previousText = text;
+  PageBlock.text(
+    this.text, {
+    this.isHeadline = false,
+    this.isHighlighted = false,
+  }) : type = "text",
+       image = null,
+       imageUrl = null,
+       imageWidth = null,
+       previousText = text;
 
   PageBlock.image(this.image)
     : type = "image",
@@ -96,14 +99,10 @@ class _WritePageState extends State<WritePage> {
   final Map<String, TextEditingController> _controllers = {};
   final Map<String, FocusNode> _focusNodes = {};
   int? _focusedBlockIndex;
-  
+
   // State variables consolidated at top
   List<PageData> _pages = [
-    PageData(
-      fontSize: 22,
-      fontFamily: "Roboto",
-      fontColor: 0xFF000000,
-    )
+    PageData(fontSize: 22, fontFamily: "Roboto", fontColor: 0xFF000000),
   ];
   int _currentPage = 0;
   final PageController _pageController = PageController();
@@ -295,7 +294,8 @@ class _WritePageState extends State<WritePage> {
   /// new pages as needed.  Guarantees no page ends up overflowing the visible
   /// area, even when [text] is very large (e.g. from a paste).
   void _distributeTextToPages(int startPage, String text) {
-    double maxWidth = MediaQuery.of(context).size.width - (_pages[0].pageMargin * 2);
+    double maxWidth =
+        MediaQuery.of(context).size.width - (_pages[0].pageMargin * 2);
     String remaining = text;
     int pageIdx = startPage;
 
@@ -340,7 +340,12 @@ class _WritePageState extends State<WritePage> {
       // This assumes that if the lastBlock is a headline, the text being added to it should also be treated as such for overflow calculation.
       bool isHeadlineBlock = lastBlock.isHeadline;
 
-      if (!_doesTextOverflow(candidate, page, maxWidth, isHeadline: isHeadlineBlock)) {
+      if (!_doesTextOverflow(
+        candidate,
+        page,
+        maxWidth,
+        isHeadline: isHeadlineBlock,
+      )) {
         // whole remainder fits on this page
         lastBlock.text = candidate;
         remaining = "";
@@ -350,7 +355,13 @@ class _WritePageState extends State<WritePage> {
         while (low < high) {
           int mid = (low + high + 1) ~/ 2;
           String prefix = existing + remaining.substring(0, mid);
-          if (_doesTextOverflow(prefix, page, maxWidth, isHeadline: isHeadlineBlock)) { // ✅ PASS HEADLINE STATUS
+          if (_doesTextOverflow(
+            prefix,
+            page,
+            maxWidth,
+            isHeadline: isHeadlineBlock,
+          )) {
+            // ✅ PASS HEADLINE STATUS
             high = mid - 1;
           } else {
             low = mid;
@@ -454,7 +465,8 @@ class _WritePageState extends State<WritePage> {
     if (pageIndex >= _pages.length - 1) return; // No next page
 
     var currentPage = _pages[pageIndex];
-    double maxWidth = MediaQuery.of(context).size.width - (currentPage.pageMargin * 2);
+    double maxWidth =
+        MediaQuery.of(context).size.width - (currentPage.pageMargin * 2);
     var nextPage = _pages[pageIndex + 1];
 
     // Calculate current page usage
@@ -533,11 +545,14 @@ class _WritePageState extends State<WritePage> {
         if (page['blocks'] != null) {
           for (var block in page['blocks']) {
             if (block['type'] == "text") {
-              pageData.blocks.add(PageBlock.text(
-                block['text'] ?? "",
-                isHeadline: block['isHeadline'] ?? false,
-                isHighlighted: block['isHighlighted'] ?? false, // ✅ LOAD HIGHLIGHT
-              ));
+              pageData.blocks.add(
+                PageBlock.text(
+                  block['text'] ?? "",
+                  isHeadline: block['isHeadline'] ?? false,
+                  isHighlighted:
+                      block['isHighlighted'] ?? false, // ✅ LOAD HIGHLIGHT
+                ),
+              );
             }
 
             if (block['type'] == "image") {
@@ -693,46 +708,54 @@ class _WritePageState extends State<WritePage> {
 
     if (image != null) {
       setState(() {
-        // before inserting, make sure current page can fit the image
-        double maxWidth = MediaQuery.of(context).size.width - (_pages[index].pageMargin * 2);
-        // combine all existing text in the page
-        String combinedText = _pages[index].blocks
+        final page = _pages[index];
+
+        bool hasImage = page.blocks.any((b) => b.type == "image");
+        String combinedText = page.blocks
             .where((b) => b.type == "text")
             .map((b) => b.text ?? "")
-            .join("\n");
+            .join("\n")
+            .trim();
 
-        bool willOverflow = _doesTextOverflow(
-          combinedText,
-          _pages[index],
-          maxWidth,
-          assumeImage: true,
-        );
+        // Rule: If page has ANY text or an image, move this image to the next page
+        bool shouldMoveToNextPage = hasImage || combinedText.isNotEmpty;
+
         int targetPage = index;
-        if (willOverflow) {
+        if (shouldMoveToNextPage) {
           targetPage = index + 1;
           if (targetPage >= _pages.length) {
             _pages.add(
               PageData(
-                fontSize: _pages[index].fontSize,
-                fontFamily: _pages[index].fontFamily,
-                fontColor: _pages[index].fontColor,
+                fontSize: page.fontSize,
+                fontFamily: page.fontFamily,
+                fontColor: page.fontColor,
+                lineSpacing: page.lineSpacing,
+                letterSpacing: page.letterSpacing,
+                pageMargin: page.pageMargin,
+                textAlign: page.textAlign,
               ),
             );
           }
         }
 
+        // Clean up target page to ensure it's fresh for the image
+        if (_pages[targetPage].blocks.length == 1 &&
+            _pages[targetPage].blocks[0].type == "text" &&
+            (_pages[targetPage].blocks[0].text ?? "").isEmpty) {
+          _pages[targetPage].blocks.clear();
+        } else if (shouldMoveToNextPage) {
+          // If we're moving to an existing next page, we don't want to clear it
+          // but we'll insert the image at the top if it was chosen while on a previous page
+          // However, based on the flow, it's safer to always add it to a fresh spot
+        }
+
         _pages[targetPage].blocks.add(PageBlock.image(File(image.path)));
-        // Add new text block after image
         _pages[targetPage].blocks.add(PageBlock.text(""));
 
-        if (willOverflow) {
-          // navigate to new page
-          Future.microtask(() {
-            _pageController.animateToPage(
-              targetPage,
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeInOut,
-            );
+        if (shouldMoveToNextPage) {
+          _currentPage = targetPage;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _pageController.jumpToPage(targetPage); // Instant jump
           });
         }
       });
@@ -1037,7 +1060,10 @@ class _WritePageState extends State<WritePage> {
                                                   controller: _controllers[key],
                                                   focusNode: _focusNodes[key],
                                                   onTap: () {
-                                                    _onFocusChanged(blockIndex, true);
+                                                    _onFocusChanged(
+                                                      blockIndex,
+                                                      true,
+                                                    );
                                                   },
                                                   keyboardType:
                                                       TextInputType.multiline,
@@ -1051,15 +1077,34 @@ class _WritePageState extends State<WritePage> {
                                                       blockIndex,
                                                     );
                                                   },
-                                                  textAlign: _pages[index].textAlign,
+                                                  textAlign:
+                                                      _pages[index].textAlign,
                                                   style: TextStyle(
-                                                    fontSize: block.isHeadline ? 28 : _pages[index].fontSize,
-                                                    fontWeight: block.isHeadline ? FontWeight.w900 : FontWeight.w400,
-                                                    fontFamily: _pages[index].fontFamily,
-                                                    color: Color(_pages[index].fontColor),
-                                                    height: _pages[index].lineSpacing,
-                                                    letterSpacing: block.isHeadline ? -0.5 : _pages[index].letterSpacing,
-                                                    backgroundColor: block.isHighlighted ? const Color(0xFFFFF1A1).withOpacity(0.8) : null,
+                                                    fontSize: block.isHeadline
+                                                        ? 28
+                                                        : _pages[index]
+                                                              .fontSize,
+                                                    fontWeight: block.isHeadline
+                                                        ? FontWeight.w900
+                                                        : FontWeight.w400,
+                                                    fontFamily: _pages[index]
+                                                        .fontFamily,
+                                                    color: Color(
+                                                      _pages[index].fontColor,
+                                                    ),
+                                                    height: _pages[index]
+                                                        .lineSpacing,
+                                                    letterSpacing:
+                                                        block.isHeadline
+                                                        ? -0.5
+                                                        : _pages[index]
+                                                              .letterSpacing,
+                                                    backgroundColor:
+                                                        block.isHighlighted
+                                                        ? const Color(
+                                                            0xFFFFF1A1,
+                                                          ).withOpacity(0.8)
+                                                        : null,
                                                   ),
                                                   decoration: InputDecoration(
                                                     hintText: blockIndex == 0
@@ -1085,12 +1130,17 @@ class _WritePageState extends State<WritePage> {
                                                   width: double.infinity,
                                                   fit: BoxFit.contain,
                                                 );
-                                              } else if (block.imageUrl != null && block.imageUrl!.isNotEmpty) {
+                                              } else if (block.imageUrl !=
+                                                      null &&
+                                                  block.imageUrl!.isNotEmpty) {
                                                 imageWidget = Image.network(
                                                   block.imageUrl!,
                                                   width: double.infinity,
                                                   fit: BoxFit.contain,
-                                                  errorBuilder: (c, e, s) => const Icon(Icons.broken_image),
+                                                  errorBuilder: (c, e, s) =>
+                                                      const Icon(
+                                                        Icons.broken_image,
+                                                      ),
                                                 );
                                               } else {
                                                 return const SizedBox();
@@ -1291,7 +1341,7 @@ class _WritePageState extends State<WritePage> {
                 ],
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   _buildToolbarButton(
                     context,
@@ -1300,15 +1350,6 @@ class _WritePageState extends State<WritePage> {
                     () {
                       HapticFeedback.lightImpact();
                       _showStylePicker();
-                    },
-                  ),
-                  _buildToolbarButton(
-                    context,
-                    Icons.add_photo_alternate_rounded,
-                    "Add Photo",
-                    () {
-                      HapticFeedback.lightImpact();
-                      _pickImageForPage(_currentPage);
                     },
                   ),
                 ],
@@ -1350,8 +1391,9 @@ class _WritePageState extends State<WritePage> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
-                color:
-                    isActive ? const Color(0xFFB11226) : Colors.grey.shade700,
+                color: isActive
+                    ? const Color(0xFFB11226)
+                    : Colors.grey.shade700,
               ),
             ),
           ],
@@ -1370,9 +1412,10 @@ class _WritePageState extends State<WritePage> {
           builder: (context, setModalState) {
             if (_currentPage >= _pages.length) return const SizedBox();
             final page = _pages[_currentPage];
-            final focusedBlock = (_focusedBlockIndex != null &&
-                                  _focusedBlockIndex! < page.blocks.length &&
-                                  page.blocks[_focusedBlockIndex!].type == "text")
+            final focusedBlock =
+                (_focusedBlockIndex != null &&
+                    _focusedBlockIndex! < page.blocks.length &&
+                    page.blocks[_focusedBlockIndex!].type == "text")
                 ? page.blocks[_focusedBlockIndex!]
                 : null;
 
@@ -1394,10 +1437,13 @@ class _WritePageState extends State<WritePage> {
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  
+
                   // Header
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 8,
+                    ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -1459,7 +1505,7 @@ class _WritePageState extends State<WritePage> {
                         ),
 
                         const SizedBox(height: 32),
-                        
+
                         // --- FONT FAMILY ---
                         _buildSectionHeaderLabel("FONT FAMILY"),
                         const SizedBox(height: 16),
@@ -1481,19 +1527,36 @@ class _WritePageState extends State<WritePage> {
                                   },
                                   child: Container(
                                     height: 46,
-                                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                                    margin: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: isSelected ? Colors.white : Colors.transparent,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : Colors.transparent,
                                       borderRadius: BorderRadius.circular(12),
-                                      boxShadow: isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)] : null,
+                                      boxShadow: isSelected
+                                          ? [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(
+                                                  0.05,
+                                                ),
+                                                blurRadius: 10,
+                                              ),
+                                            ]
+                                          : null,
                                     ),
                                     alignment: Alignment.center,
                                     child: Text(
                                       font,
                                       style: TextStyle(
                                         fontFamily: font,
-                                        fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
-                                        color: isSelected ? Colors.black : Colors.grey.shade500,
+                                        fontWeight: isSelected
+                                            ? FontWeight.w900
+                                            : FontWeight.w600,
+                                        color: isSelected
+                                            ? Colors.black
+                                            : Colors.grey.shade500,
                                       ),
                                     ),
                                   ),
@@ -1549,12 +1612,12 @@ class _WritePageState extends State<WritePage> {
                             ),
                           ],
                         ),
-                        
+
                         const SizedBox(height: 24),
-                        
+
                         Row(
                           children: [
-                             Expanded(
+                            Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -1569,18 +1632,39 @@ class _WritePageState extends State<WritePage> {
                                     ),
                                     child: Row(
                                       children: [
-                                        _buildAlignButton(TextAlign.left, page.textAlign, (val) {
-                                          setState(() => page.textAlign = val);
-                                          setModalState(() {});
-                                        }, Icons.format_align_left_rounded),
-                                        _buildAlignButton(TextAlign.center, page.textAlign, (val) {
-                                          setState(() => page.textAlign = val);
-                                          setModalState(() {});
-                                        }, Icons.format_align_center_rounded),
-                                        _buildAlignButton(TextAlign.right, page.textAlign, (val) {
-                                          setState(() => page.textAlign = val);
-                                          setModalState(() {});
-                                        }, Icons.format_align_right_rounded),
+                                        _buildAlignButton(
+                                          TextAlign.left,
+                                          page.textAlign,
+                                          (val) {
+                                            setState(
+                                              () => page.textAlign = val,
+                                            );
+                                            setModalState(() {});
+                                          },
+                                          Icons.format_align_left_rounded,
+                                        ),
+                                        _buildAlignButton(
+                                          TextAlign.center,
+                                          page.textAlign,
+                                          (val) {
+                                            setState(
+                                              () => page.textAlign = val,
+                                            );
+                                            setModalState(() {});
+                                          },
+                                          Icons.format_align_center_rounded,
+                                        ),
+                                        _buildAlignButton(
+                                          TextAlign.right,
+                                          page.textAlign,
+                                          (val) {
+                                            setState(
+                                              () => page.textAlign = val,
+                                            );
+                                            setModalState(() {});
+                                          },
+                                          Icons.format_align_right_rounded,
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -1620,22 +1704,32 @@ class _WritePageState extends State<WritePage> {
                               "Headline",
                               Icons.title_rounded,
                               focusedBlock?.isHeadline ?? false,
-                              focusedBlock == null ? null : () {
-                                HapticFeedback.mediumImpact();
-                                setState(() => focusedBlock.isHeadline = !focusedBlock.isHeadline);
-                                setModalState(() {});
-                              },
+                              focusedBlock == null
+                                  ? null
+                                  : () {
+                                      HapticFeedback.mediumImpact();
+                                      setState(
+                                        () => focusedBlock.isHeadline =
+                                            !focusedBlock.isHeadline,
+                                      );
+                                      setModalState(() {});
+                                    },
                             ),
                             const SizedBox(width: 12),
                             _buildBlockStyleButton(
                               "Highlight",
                               Icons.auto_fix_high_rounded,
                               focusedBlock?.isHighlighted ?? false,
-                              focusedBlock == null ? null : () {
-                                HapticFeedback.mediumImpact();
-                                setState(() => focusedBlock.isHighlighted = !focusedBlock.isHighlighted);
-                                setModalState(() {});
-                              },
+                              focusedBlock == null
+                                  ? null
+                                  : () {
+                                      HapticFeedback.mediumImpact();
+                                      setState(
+                                        () => focusedBlock.isHighlighted =
+                                            !focusedBlock.isHighlighted,
+                                      );
+                                      setModalState(() {});
+                                    },
                             ),
                           ],
                         ),
@@ -1644,7 +1738,11 @@ class _WritePageState extends State<WritePage> {
                             padding: const EdgeInsets.only(top: 12),
                             child: Text(
                               "Tap on text to enable block styles",
-                              style: TextStyle(color: Colors.grey.shade500, fontSize: 11, fontStyle: FontStyle.italic),
+                              style: TextStyle(
+                                color: Colors.grey.shade500,
+                                fontSize: 11,
+                                fontStyle: FontStyle.italic,
+                              ),
                             ),
                           ),
 
@@ -1668,12 +1766,29 @@ class _WritePageState extends State<WritePage> {
                                   color: Color(colorValue),
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: isSelected ? const Color(0xFFB11226) : Colors.transparent,
+                                    color: isSelected
+                                        ? const Color(0xFFB11226)
+                                        : Colors.transparent,
                                     width: 2,
                                   ),
-                                  boxShadow: isSelected ? [BoxShadow(color: const Color(0xFFB11226).withOpacity(0.4), blurRadius: 8)] : null,
+                                  boxShadow: isSelected
+                                      ? [
+                                          BoxShadow(
+                                            color: const Color(
+                                              0xFFB11226,
+                                            ).withOpacity(0.4),
+                                            blurRadius: 8,
+                                          ),
+                                        ]
+                                      : null,
                                 ),
-                                child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 18) : null,
+                                child: isSelected
+                                    ? const Icon(
+                                        Icons.check,
+                                        color: Colors.white,
+                                        size: 18,
+                                      )
+                                    : null,
                               ),
                             );
                           }).toList(),
@@ -1703,7 +1818,11 @@ class _WritePageState extends State<WritePage> {
     );
   }
 
-  Widget _buildStepper({required String value, required VoidCallback onDecrement, required VoidCallback onIncrement}) {
+  Widget _buildStepper({
+    required String value,
+    required VoidCallback onDecrement,
+    required VoidCallback onIncrement,
+  }) {
     return Container(
       height: 68,
       decoration: BoxDecoration(
@@ -1721,7 +1840,7 @@ class _WritePageState extends State<WritePage> {
                 fontSize: 22,
                 fontWeight: FontWeight.w900,
                 color: Colors.black,
-                fontFamily: "Lora", 
+                fontFamily: "Lora",
               ),
             ),
           ),
@@ -1756,11 +1875,24 @@ class _WritePageState extends State<WritePage> {
     );
   }
 
-  Widget _buildTypographyStepper({required String label, required String value, required VoidCallback onDecrement, required VoidCallback onIncrement}) {
+  Widget _buildTypographyStepper({
+    required String label,
+    required String value,
+    required VoidCallback onDecrement,
+    required VoidCallback onIncrement,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.grey.shade500, letterSpacing: 0.8)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            color: Colors.grey.shade500,
+            letterSpacing: 0.8,
+          ),
+        ),
         const SizedBox(height: 10),
         Container(
           height: 54,
@@ -1775,7 +1907,10 @@ class _WritePageState extends State<WritePage> {
                 child: Text(
                   value,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                  ),
                 ),
               ),
               _buildSmallStepButton(Icons.add, onIncrement),
@@ -1796,7 +1931,12 @@ class _WritePageState extends State<WritePage> {
     );
   }
 
-  Widget _buildAlignButton(TextAlign value, TextAlign current, Function(TextAlign) onChanged, IconData icon) {
+  Widget _buildAlignButton(
+    TextAlign value,
+    TextAlign current,
+    Function(TextAlign) onChanged,
+    IconData icon,
+  ) {
     bool isSelected = value == current;
     return Expanded(
       child: GestureDetector(
@@ -1807,15 +1947,31 @@ class _WritePageState extends State<WritePage> {
           decoration: BoxDecoration(
             color: isSelected ? Colors.white : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
-            boxShadow: isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)] : null,
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                    ),
+                  ]
+                : null,
           ),
-          child: Icon(icon, color: isSelected ? Colors.black : Colors.grey.shade400, size: 22),
+          child: Icon(
+            icon,
+            color: isSelected ? Colors.black : Colors.grey.shade400,
+            size: 22,
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildBlockStyleButton(String label, IconData icon, bool isActive, VoidCallback? onTap) {
+  Widget _buildBlockStyleButton(
+    String label,
+    IconData icon,
+    bool isActive,
+    VoidCallback? onTap,
+  ) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -1829,19 +1985,34 @@ class _WritePageState extends State<WritePage> {
               color: isActive ? const Color(0xFFB11226) : Colors.transparent,
               width: 1.5,
             ),
-            boxShadow: isActive ? [BoxShadow(color: const Color(0xFFB11226).withOpacity(0.1), blurRadius: 10)] : null,
+            boxShadow: isActive
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFFB11226).withOpacity(0.1),
+                      blurRadius: 10,
+                    ),
+                  ]
+                : null,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 20, color: isActive ? const Color(0xFFB11226) : Colors.grey.shade600),
+              Icon(
+                icon,
+                size: 20,
+                color: isActive
+                    ? const Color(0xFFB11226)
+                    : Colors.grey.shade600,
+              ),
               const SizedBox(width: 8),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
-                  color: isActive ? const Color(0xFFB11226) : Colors.grey.shade700,
+                  color: isActive
+                      ? const Color(0xFFB11226)
+                      : Colors.grey.shade700,
                 ),
               ),
             ],
@@ -2615,57 +2786,60 @@ class _PostPageState extends State<PostPage> {
     final page = widget.pages[pageIdx];
     return Container(
       padding: const EdgeInsets.fromLTRB(30, 30, 20, 30),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: page.blocks.map<Widget>((block) {
-          if (block.type == "text") {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(
-                block.text ?? "",
-                style: TextStyle(
-                  fontSize: block.isHeadline 
-                      ? (page.fontSize * 0.8) 
-                      : (page.fontSize * 0.6),
-                  fontWeight: block.isHeadline 
-                      ? FontWeight.w900 
-                      : FontWeight.normal,
-                  fontFamily: page.fontFamily,
-                  backgroundColor: block.isHighlighted
-                      ? const Color(0xFFFFF1A1).withOpacity(0.8)
-                      : null,
-                  color: Color(page.fontColor),
-                  height: 1.4,
-                ),
-              ),
-            );
-          }
-          if (block.type == "image") {
-            return Container(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              height: 100,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 6,
-                    offset: const Offset(0, 3),
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: page.blocks.map<Widget>((block) {
+            if (block.type == "text") {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  block.text ?? "",
+                  style: TextStyle(
+                    fontSize: block.isHeadline
+                        ? (page.fontSize * 0.8)
+                        : (page.fontSize * 0.6),
+                    fontWeight: block.isHeadline
+                        ? FontWeight.w900
+                        : FontWeight.normal,
+                    fontFamily: page.fontFamily,
+                    backgroundColor: block.isHighlighted
+                        ? const Color(0xFFFFF1A1).withOpacity(0.8)
+                        : null,
+                    color: Color(page.fontColor),
+                    height: 1.4,
                   ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: block.image != null
-                    ? Image.file(block.image!, fit: BoxFit.cover)
-                    : (block.imageUrl != null
-                          ? Image.network(block.imageUrl!, fit: BoxFit.cover)
-                          : const SizedBox()),
-              ),
-            );
-          }
-          return const SizedBox();
-        }).toList(),
+                ),
+              );
+            }
+            if (block.type == "image") {
+              return Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                height: 100,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 6,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: block.image != null
+                      ? Image.file(block.image!, fit: BoxFit.cover)
+                      : (block.imageUrl != null
+                            ? Image.network(block.imageUrl!, fit: BoxFit.cover)
+                            : const SizedBox()),
+                ),
+              );
+            }
+            return const SizedBox();
+          }).toList(),
+        ),
       ),
     );
   }

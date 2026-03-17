@@ -2040,7 +2040,9 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                                           MaterialPageRoute(
                                             builder: (_) =>
                                                 FullScreenPostViewer(
-                                                  pages: extractPages(post['content']),
+                                                  pages: extractPages(
+                                                    post['content'],
+                                                  ),
                                                   username:
                                                       post['username'] ?? "",
                                                   profileImage:

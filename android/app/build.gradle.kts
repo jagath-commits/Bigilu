@@ -24,6 +24,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -73,6 +74,8 @@ dependencies {
 
     // Play Integrity (important for phone auth verification)
     implementation("com.google.android.play:integrity:1.3.0")
+
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }
 
 flutter {

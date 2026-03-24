@@ -374,24 +374,93 @@ class _HashtagPostsPageState extends State<HashtagPostsPage> {
   @override
   void initState() {
     super.initState();
+    _loadInteractionsLocal(); // 🔥 Load from cache immediately
     fetchPosts();
+    fetchUserInteractions();
+  }
+
+  Future<void> fetchUserInteractions() async {
+    String? userId = await getUserId();
+    if (userId == null) return;
+
+    // 1. Fetch Saved Posts
+    try {
+      final response = await http
+          .get(Uri.parse("https://bigiluu.com/api/posts/savedPosts/$userId"))
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List savedData = data['data'] ?? [];
+        if (mounted) {
+          setState(() {
+            savedPosts = savedData.map((e) => e['post_id'].toString()).toSet();
+          });
+        }
+      }
+    } catch (_) {}
+
+    // 2. Fetch Supported Posts
+    try {
+      final response = await http
+          .get(
+            Uri.parse("https://bigiluu.com/api/posts/supportedPosts/$userId"),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List supportedData = data['data'] ?? [];
+        if (mounted) {
+          setState(() {
+            likedPosts = supportedData
+                .map((e) => e['post_id'].toString())
+                .toSet();
+          });
+          _saveInteractionsLocal(); // ✅ Update cache
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadInteractionsLocal() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      likedPosts = (prefs.getStringList('cached_liked_posts') ?? []).toSet();
+      savedPosts = (prefs.getStringList('cached_saved_posts') ?? []).toSet();
+    });
+  }
+
+  Future<void> _saveInteractionsLocal() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('cached_liked_posts', likedPosts.toList());
+    await prefs.setStringList('cached_saved_posts', savedPosts.toList());
   }
 
   Future<void> fetchPosts() async {
     try {
-      final cleanTag = widget.tag.replaceAll("#", "");
-      final response = await http.get(
-        Uri.parse("https://bigiluu.com/api/posts/hashtags/$cleanTag/posts"),
-      );
+      final cleanTag = Uri.encodeComponent(widget.tag);
+
+      final url = "https://bigiluu.com/api/posts/hashtags/$cleanTag/posts";
+      print("URL: $url");
+
+      final response = await http.get(Uri.parse(url));
+
+      print("STATUS: ${response.statusCode}");
+      print("BODY: ${response.body}");
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (mounted) {
-          setState(() {
-            posts = data;
-            isLoading = false;
-          });
-        }
+
+        if (!mounted) return;
+
+        setState(() {
+          posts = data is List ? data : data['data'] ?? [];
+          isLoading = false;
+        });
+      } else {
+        print("❌ API ERROR");
+        if (mounted) setState(() => isLoading = false);
       }
     } catch (e) {
       debugPrint("Error fetching hashtag posts: $e");
@@ -399,36 +468,92 @@ class _HashtagPostsPageState extends State<HashtagPostsPage> {
     }
   }
 
-  void toggleLike(String postId) {
+  Future<void> toggleLike(String postId) async {
+    final bool isAlreadyLiked = likedPosts.contains(postId);
+
+    // 🔥 Instant UI Update
     setState(() {
-      likedPosts.contains(postId)
-          ? likedPosts.remove(postId)
-          : likedPosts.add(postId);
+      if (isAlreadyLiked) {
+        likedPosts.remove(postId);
+      } else {
+        likedPosts.add(postId);
+      }
+
+      // ✅ Update support count locally
+      for (var p in posts) {
+        if (p['post_id']?.toString() == postId) {
+          int currentCount =
+              int.tryParse(p['support_count']?.toString() ?? '0') ?? 0;
+          p['support_count'] = isAlreadyLiked
+              ? (currentCount - 1).clamp(0, 999999)
+              : (currentCount + 1);
+          break;
+        }
+      }
     });
+
+    _saveInteractionsLocal(); // ✅ Update cache
+
+    try {
+      // ✅ Added backend API call (missing before)
+      await http.post(
+        Uri.parse("https://bigiluu.com/api/posts/toggleSupport"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "post_id": postId,
+          "action": isAlreadyLiked ? "unlike" : "like",
+        }),
+      );
+    } catch (e) {
+      debugPrint("Error toggling support API: $e");
+    }
   }
 
   void toggleSave(String postId) async {
     String? userId = await getUserId();
     if (userId == null) return;
 
-    final url = Uri.parse("https://bigiluu.com/api/posts/savePost");
+    final bool isAlreadySaved = savedPosts.contains(postId);
 
     try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'user_id': userId, 'post_id': postId}),
-      );
+      if (isAlreadySaved) {
+        // 🔥 REMOVE / UNSAVE
+        final url = Uri.parse(
+          "https://bigiluu.com/api/posts/removeSavedPost/$userId/$postId",
+        );
+        final response = await http
+            .delete(url)
+            .timeout(const Duration(seconds: 10));
 
-      if (response.statusCode == 200 && mounted) {
-        setState(() {
-          savedPosts.contains(postId)
-              ? savedPosts.remove(postId)
-              : savedPosts.add(postId);
-        });
+        if (response.statusCode == 200 && mounted) {
+          setState(() {
+            savedPosts.remove(postId);
+          });
+          _saveInteractionsLocal(); // ✅ Update cache
+          print("✅ Removed from saved");
+        }
+      } else {
+        // 🔥 SAVE
+        final url = Uri.parse("https://bigiluu.com/api/posts/savePost");
+
+        final response = await http
+            .post(
+              url,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'user_id': userId, 'post_id': postId}),
+            )
+            .timeout(const Duration(seconds: 10));
+
+        if (response.statusCode == 200 && mounted) {
+          setState(() {
+            savedPosts.add(postId);
+          });
+          _saveInteractionsLocal(); // ✅ Update cache
+          print("✅ Post saved successfully");
+        }
       }
     } catch (e) {
-      debugPrint("Error saving post: $e");
+      debugPrint("Error toggling save: $e");
     }
   }
 

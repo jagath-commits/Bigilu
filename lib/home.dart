@@ -1,13 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
-import 'dart:io' show Platform;
+import 'dart:ui' as ui;
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:bigilu/PrivacyPage.dart';
 import 'package:bigilu/TermsPage.dart';
 import 'package:bigilu/hashtag.dart';
 import 'package:bigilu/profile1.dart';
 import 'package:bigilu/write.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
@@ -38,13 +41,82 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
+    _loadInteractionsLocal(); // 🔥 Load from cache immediately
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await fetchPosts();
+      await fetchUserInteractions(); // Load liked/saved status
 
       if (widget.deepLinkPostId != null) {
         openPostFromDeepLink(widget.deepLinkPostId!);
       }
     });
+  }
+
+  Future<void> fetchUserInteractions() async {
+    String? userId = await getUserId();
+    if (userId == null) return;
+
+    print("🔄 Fetching user interactions for: $userId");
+
+    // 1. Fetch Saved Posts
+    try {
+      final savedResponse = await http
+          .get(Uri.parse("https://bigiluu.com/api/posts/savedPosts/$userId"))
+          .timeout(const Duration(seconds: 10));
+
+      if (savedResponse.statusCode == 200) {
+        final data = jsonDecode(savedResponse.body);
+        final List savedData = data['data'] ?? [];
+        setState(() {
+          savedPosts = savedData.map((e) => e['post_id'].toString()).toSet();
+        });
+        print("✅ Captured ${savedPosts.length} saved posts");
+      }
+    } catch (e) {
+      print("⚠️ Error fetching saved posts: $e");
+    }
+
+    // 2. Fetch Supported (Liked) Posts
+    try {
+      // Assuming endpoint follows same pattern as savePost
+      final likedResponse = await http
+          .get(
+            Uri.parse("https://bigiluu.com/api/posts/supportedPosts/$userId"),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (likedResponse.statusCode == 200) {
+        final data = jsonDecode(likedResponse.body);
+        final List likedData = data['data'] ?? [];
+        setState(() {
+          likedPosts = likedData.map((e) => e['post_id'].toString()).toSet();
+        });
+        print("✅ Captured ${likedPosts.length} supported posts");
+        _saveInteractionsLocal(); // ✅ Update cache
+      }
+    } catch (e) {
+      // If endpoint doesn't exist, we might need to check if getAllPosts returns it
+      // or if there's another way. For now, we handle it gracefully.
+      print("⚠️ Error fetching supported posts: $e");
+    }
+  }
+
+  Future<void> _loadInteractionsLocal() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      likedPosts = (prefs.getStringList('cached_liked_posts') ?? []).toSet();
+      savedPosts = (prefs.getStringList('cached_saved_posts') ?? []).toSet();
+    });
+    print(
+      "📦 Loaded local cache: ${likedPosts.length} likes, ${savedPosts.length} saves",
+    );
+  }
+
+  Future<void> _saveInteractionsLocal() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('cached_liked_posts', likedPosts.toList());
+    await prefs.setStringList('cached_saved_posts', savedPosts.toList());
   }
 
   @override
@@ -126,6 +198,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> fetchPosts() async {
     final url = Uri.parse("https://bigiluu.com/api/posts/getAllPosts");
+    String? userId = await getUserId();
+
+    likedPosts = posts
+        .where((p) => (p['supported_users'] ?? []).contains(userId))
+        .map((p) => p['post_id'].toString())
+        .toSet();
 
     try {
       print("🔄 Fetching posts from: $url");
@@ -143,7 +221,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
         setState(() {
-          posts = jsonData["data"] ?? [];
+          posts = (jsonData["data"] ?? []).map((p) {
+            posts = jsonData["data"] ?? [];
+            return p;
+          }).toList();
+
           isLoading = false;
         });
 
@@ -169,54 +251,111 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       });
     } catch (e) {
       print("❌ Error: $e");
-      setState(() {
-        isLoading = false;
-      });
+
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
-  void toggleLike(String postId) {
+  Future<void> toggleLike(String postId) async {
+    final isAlreadyLiked = likedPosts.contains(postId);
+    final String? userId = await getUserId();
+    if (userId == null) return;
+
+    // ✅ UI instant update
     setState(() {
-      likedPosts.contains(postId)
-          ? likedPosts.remove(postId)
-          : likedPosts.add(postId);
+      if (isAlreadyLiked) {
+        likedPosts.remove(postId);
+      } else {
+        likedPosts.add(postId);
+      }
+
+      for (var p in posts) {
+        if (p['post_id']?.toString() == postId) {
+          int current = p['support_count'] ?? 0;
+          p['support_count'] = isAlreadyLiked
+              ? (current - 1).clamp(0, 999999)
+              : (current + 1);
+          break;
+        }
+      }
     });
+
+    _saveInteractionsLocal();
+
+    // ✅ SINGLE API CALL
+    try {
+      final response = await http.post(
+        Uri.parse("https://bigiluu.com/api/posts/toggleSupport"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "post_id": postId,
+          "user_id": userId,
+          "action": isAlreadyLiked ? "unlike" : "like",
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      print("✅ Server support count: ${data['support_count']}");
+    } catch (e) {
+      print("❌ Support API error: $e");
+    }
   }
 
   void toggleSave(String postId) async {
     String? userId = await getUserId();
     if (userId == null) return;
 
-    final url = Uri.parse("https://bigiluu.com/api/posts/savePost");
+    final bool isAlreadySaved = savedPosts.contains(postId);
 
     try {
-      final response = await http
-          .post(
-            url,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'user_id': userId, 'post_id': postId}),
-          )
-          .timeout(
-            const Duration(seconds: 8),
-            onTimeout: () {
-              print("⚠️ toggleSave timeout");
-              throw TimeoutException("Save request timed out");
-            },
-          );
+      if (isAlreadySaved) {
+        // 🔥 REMOVE / UNSAVE
+        final url = Uri.parse(
+          "https://bigiluu.com/api/posts/removeSavedPost/$userId/$postId",
+        );
+        final response = await http
+            .delete(url)
+            .timeout(const Duration(seconds: 8));
 
-      if (response.statusCode == 200) {
-        setState(() {
-          savedPosts.contains(postId)
-              ? savedPosts.remove(postId)
-              : savedPosts.add(postId);
-        });
+        if (response.statusCode == 200) {
+          setState(() {
+            savedPosts.remove(postId);
+          });
+          _saveInteractionsLocal(); // ✅ Update local cache
+          print("✅ Removed from saved");
+        } else {
+          print("❌ Failed to remove from saved: ${response.body}");
+        }
       } else {
-        print("Failed to save post: ${response.body}");
+        // 🔥 SAVE
+        final url = Uri.parse("https://bigiluu.com/api/posts/savePost");
+        final response = await http
+            .post(
+              url,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'user_id': userId, 'post_id': postId}),
+            )
+            .timeout(const Duration(seconds: 8));
+
+        if (response.statusCode == 200) {
+          setState(() {
+            savedPosts.add(postId);
+          });
+          _saveInteractionsLocal(); // ✅ Update local cache
+          print("✅ Post saved successfully");
+        } else {
+          print("❌ Failed to save post: ${response.body}");
+        }
       }
     } on TimeoutException {
-      print("⚠️ Timeout saving post");
+      print("⚠️ Timeout toggling save");
     } catch (e) {
-      print("Error saving post: $e");
+      print("Error toggling save: $e");
     }
   }
 
@@ -381,7 +520,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 itemCount: posts.length,
                 itemBuilder: (context, index) {
                   final post = posts[index];
-                  final postId = post['post_id'];
+                  final String postId = post['post_id']?.toString() ?? "";
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 24),
@@ -456,7 +595,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => ProfilePage(userId: userId),
+                        builder: (_) => ProfilePage(
+                          userId: userId,
+                          isPublicView: false, // 🔥 IMPORTANT
+                        ),
                       ),
                     );
                   }
@@ -649,40 +791,41 @@ class PostContainer extends StatelessWidget {
     final String postIdStr = post['post_id']?.toString() ?? "";
 
     // 🏆 Badge Variants Logic
-    final int variantNum = (postIdStr.hashCode).abs() % 3;
+    String ack = (post['acknowledgment'] ?? "").toString().toUpperCase();
 
-    String badgeLabel = "GOAT";
-    List<Color> badgeGradients = [
-      const Color(0xFFFFD700),
-      const Color(0xFFDAA520),
-    ];
-    Color themeBorderColor = const Color(0xFFFFD700);
-    Color themeSpineColor = const Color(0xFFFFD700).withOpacity(0.2);
+    String badgeLabel = "";
+    List<Color> badgeGradients = [Colors.white, Colors.white];
+    Color themeBorderColor = Colors.white;
+    Color themeSpineColor = Colors.white.withOpacity(0.2);
 
-    if (variantNum == 0) {
-      // Gold Variety (GOAT)
+    // 🔥 HANDLE EMPTY (WHITE)
+    if (ack.isEmpty) {
+      badgeLabel = ""; // no text OR you can put "NEW"
+      badgeGradients = [Colors.white, Colors.white];
+      themeBorderColor = Colors.white;
+      themeSpineColor = Colors.white.withOpacity(0.1);
+    }
+    // 🥇 GOAT
+    else if (ack == "GOAT") {
       badgeLabel = "GOAT";
       badgeGradients = [const Color(0xFFFFD700), const Color(0xFFDAA520)];
       themeBorderColor = const Color(0xFFFFD700);
       themeSpineColor = const Color(0xFFFFD700).withOpacity(0.2);
-    } else if (variantNum == 1) {
-      // Silver Variety (MERSAL)
+    }
+    // 🥈 MERSAL
+    else if (ack == "MERSAL") {
       badgeLabel = "MERSAL";
-      badgeGradients = [
-        const Color(0xFFE0E0E0),
-        const Color(0xFF9E9E9E),
-        const Color(0xFFE0E0E0),
-      ];
+      badgeGradients = [const Color(0xFFE0E0E0), const Color(0xFF9E9E9E)];
       themeBorderColor = const Color(0xFFC0C0C0);
       themeSpineColor = const Color(0xFFE0E0E0).withOpacity(0.25);
-    } else {
-      // Bronze Variety (THERI)
+    }
+    // 🥉 THERI
+    else if (ack == "THERI") {
       badgeLabel = "THERI";
       badgeGradients = [const Color(0xFFCD7F32), const Color(0xFF8B4513)];
       themeBorderColor = const Color(0xFFCD7F32);
       themeSpineColor = const Color(0xFFCD7F32).withOpacity(0.2);
     }
-
     return GestureDetector(
       onTap: () async {
         try {
@@ -757,80 +900,95 @@ class PostContainer extends StatelessWidget {
             // Header Section
             Padding(
               padding: EdgeInsets.all(paddingHorizontal),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: brandColor.withOpacity(0.2),
-                        width: 1.5,
+              child: GestureDetector(
+                onTap: () {
+                  final userId = post['user_id']?.toString();
+
+                  if (userId != null && userId.isNotEmpty) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ProfilePage(
+                          userId: userId,
+                          isPublicView: true, // 🔥 ADD THIS
+                        ),
+                      ),
+                    );
+                  }
+                },
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFFB11226).withOpacity(0.2),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: CircleAvatar(
+                        radius: 20,
+                        backgroundColor: Colors.grey.shade100,
+                        backgroundImage: NetworkImage(
+                          fullUrl(post['profile_image'] ?? ''),
+                        ),
                       ),
                     ),
-                    child: CircleAvatar(
-                      radius: 20,
-                      backgroundColor: Colors.grey.shade100,
-                      backgroundImage: NetworkImage(
-                        fullUrl(post['profile_image'] ?? ''),
+                    const SizedBox(width: 12),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            post['username'] ?? "Bigiluu Member",
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          Text(
+                            "Storyteller",
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          post['username'] ?? "Bigiluu Member",
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.2,
-                            color: Color(0xFF1A1A1A),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFB11226).withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.auto_stories_rounded,
+                            color: Color(0xFFB11226),
+                            size: 14,
                           ),
-                        ),
-                        Text(
-                          "Storyteller",
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey.shade500,
-                            fontWeight: FontWeight.w600,
+                          const SizedBox(width: 4),
+                          Text(
+                            "${post['readers_count'] ?? 0}",
+                            style: const TextStyle(
+                              color: Color(0xFFB11226),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: brandColor.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.auto_stories_rounded,
-                          color: brandColor,
-                          size: 14,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          "${post['readers_count']?.toString() ?? "0"}",
-                          style: const TextStyle(
-                            color: brandColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
 
@@ -1287,9 +1445,11 @@ class PostContainer extends StatelessWidget {
                 24, // Added bottom padding inside the card
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   _buildActionButton(
                     icon: Icons.touch_app_rounded,
+                    topLabel: (post['support_count'] ?? 0).toString(),
                     label: "Support",
                     color: isLiked ? brandColor : null,
                     onTap: onLike,
@@ -1323,46 +1483,70 @@ class PostContainer extends StatelessWidget {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
+    String? topLabel,
     Color? color,
   }) {
     final bool isHighlighted = color != null;
     return Expanded(
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: isHighlighted
-                  ? color.withOpacity(0.1)
-                  : const Color(0xFFF5F5F7),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isHighlighted
-                    ? color.withOpacity(0.3)
-                    : Colors.transparent,
-                width: 1.5,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (topLabel != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6, left: 16),
+              child: Text(
+                topLabel,
+                textAlign: TextAlign.left,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFFB11226),
+                ),
               ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 18, color: color ?? const Color(0xFF6E6E73)),
-                const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: color ?? const Color(0xFF1A1A1A),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 11),
+                decoration: BoxDecoration(
+                  color: isHighlighted
+                      ? color.withOpacity(0.1)
+                      : const Color(0xFFF5F5F7),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isHighlighted
+                        ? color.withOpacity(0.3)
+                        : Colors.transparent,
+                    width: 1.5,
                   ),
                 ),
-              ],
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      icon,
+                      size: 18,
+                      color: color ?? const Color(0xFF6E6E73),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: color ?? const Color(0xFF1A1A1A),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -1391,6 +1575,37 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
   int currentPage = 0;
   late PageController _controller;
   bool readerCounted = false;
+
+  final GlobalKey _summaryKey = GlobalKey();
+
+  Future<void> _shareSummaryImage() async {
+    try {
+      final boundary =
+          _summaryKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
+      if (boundary == null) return;
+
+      final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+      final ByteData? byteData = await image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
+      if (byteData == null) return;
+
+      final Uint8List pngBytes = byteData.buffer.asUint8List();
+
+      final tempDir = Directory.systemTemp;
+      final file = File(
+        '${tempDir.path}/summary_share_${DateTime.now().millisecondsSinceEpoch}.png',
+      );
+      await file.writeAsBytes(pngBytes);
+
+      await Share.shareXFiles([
+        XFile(file.path),
+      ], text: 'Read this interesting story on Bigiluu!');
+    } catch (e) {
+      debugPrint("Error sharing image: $e");
+    }
+  }
 
   // Reader Settings (Synced with uploaded UI)
   double _fontSize = 18.0;
@@ -1674,9 +1889,13 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
                   size: 22,
                 ),
                 onPressed: () {
-                  Share.share(
-                    "Read this post on Bigiluu: https://bigiluu.com/post/${widget.postId}",
-                  );
+                  if (currentPage == 0) {
+                    _shareSummaryImage();
+                  } else {
+                    Share.share(
+                      "Read this post on Bigiluu: https://bigiluu.com/post/${widget.postId}",
+                    );
+                  }
                 },
               ),
               const SizedBox(width: 8),
@@ -1865,23 +2084,28 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
                                                 top: isHeadline ? 12 : 0,
                                               ),
                                               child: SelectableText(
-                                                block['text'] ?? "",
+                                                isHeadline
+                                                    ? (block['text'] ?? "")
+                                                          .toString()
+                                                          .toUpperCase()
+                                                    : (block['text'] ?? ""),
                                                 textAlign: _alignment,
                                                 style: TextStyle(
                                                   fontSize: isHeadline
                                                       ? _fontSize * 1.3
                                                       : _fontSize,
                                                   fontFamily: _fontFamily,
-                                                  backgroundColor:
-                                                      block['isHighlighted'] ==
-                                                          true
-                                                      ? const Color(
-                                                          0xFFFFF1A1,
-                                                        ).withOpacity(0.8)
-                                                      : null,
-                                                  color: textColor.withOpacity(
-                                                    isHeadline ? 1.0 : 0.85,
-                                                  ),
+                                                  backgroundColor: null,
+                                                  color:
+                                                      block['fontColor'] != null
+                                                      ? Color(
+                                                          block['fontColor'],
+                                                        )
+                                                      : textColor.withOpacity(
+                                                          isHeadline
+                                                              ? 1.0
+                                                              : 0.85,
+                                                        ),
                                                   height: _lineHeight,
                                                   letterSpacing: _letterSpacing,
                                                   fontWeight: isHeadline
@@ -2058,194 +2282,152 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
     List<String> summaryPoints = _generateSummaryPoints();
 
     return SizedBox.expand(
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 8, 16, 75),
-        decoration: BoxDecoration(
-          color: paperColor,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(
-                _currentTheme == "Dark" ? 0.5 : 0.2,
+      child: RepaintBoundary(
+        key: _summaryKey,
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(16, 8, 16, 75),
+          decoration: BoxDecoration(
+            color: paperColor,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(
+                  _currentTheme == "Dark" ? 0.5 : 0.2,
+                ),
+                blurRadius: 30,
+                offset: const Offset(0, 15),
+                spreadRadius: -8,
               ),
-              blurRadius: 30,
-              offset: const Offset(0, 15),
-              spreadRadius: -8,
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // Crystal Atmosphere Background
-              Positioned.fill(
-                child: Opacity(
-                  opacity: 0.05,
-                  child: Image.network(
-                    "https://www.transparenttextures.com/patterns/crystal-white.png",
-                    repeat: ImageRepeat.repeat,
-                    errorBuilder: (_, __, ___) => const SizedBox(),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Crystal Atmosphere Background
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: 0.05,
+                    child: Image.network(
+                      "https://www.transparenttextures.com/patterns/crystal-white.png",
+                      repeat: ImageRepeat.repeat,
+                      errorBuilder: (_, __, ___) => const SizedBox(),
+                    ),
                   ),
                 ),
-              ),
 
-              // ✅ Big Watermark Logo
-              Center(
-                child: Opacity(
-                  opacity: 0.15,
-                  child: Image.asset(
-                    "assets/images/bigilu_logo21.png",
-                    width: 280,
-                    fit: BoxFit.contain,
+                // ✅ Big Watermark Logo
+                Center(
+                  child: Opacity(
+                    opacity: 0.15,
+                    child: Image.asset(
+                      "assets/images/bigilu_logo21.png",
+                      width: 280,
+                      fit: BoxFit.contain,
+                    ),
                   ),
                 ),
-              ),
 
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  _horizontalPadding * 0.8,
-                  80,
-                  _horizontalPadding * 0.8,
-                  40,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Premium Summary Badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    _horizontalPadding * 0.8,
+                    50, // REDUCED VERTICAL PADDING FURTHER FURTHER
+                    _horizontalPadding * 0.8,
+                    30,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Headline
+                      Text(
+                        "Inside this story",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          fontFamily: 'serif',
                         ),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFFD700).withOpacity(0.3),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
                       ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.auto_awesome_rounded,
-                            color: Colors.white,
-                            size: 16,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            "QUICK CONTEXT",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 48),
+                      const SizedBox(height: 12),
 
-                    // Headline
-                    Text(
-                      "Inside this story",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w900,
-                        fontFamily: 'serif',
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-
-                    // Generated Summary Points
-                    Expanded(
-                      child: SingleChildScrollView(
-                        physics: const BouncingScrollPhysics(),
+                      // Generated Summary Points
+                      Expanded(
                         child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: summaryPoints.map((point) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 24),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    margin: const EdgeInsets.only(top: 4),
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: const Color(
-                                        0xFFFFD700,
-                                      ).withOpacity(0.15),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.circle,
-                                      size: 8,
-                                      color: Color(0xFFDAA520),
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  margin: const EdgeInsets.only(top: 4),
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(
+                                      0xFFFFD700,
+                                    ).withOpacity(0.15),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.circle,
+                                    size: 8,
+                                    color: Color(0xFFDAA520),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Text(
+                                    point,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: textColor.withOpacity(0.85),
+                                      fontSize: 12, // More compact for fitting
+                                      fontFamily: _fontFamily,
+                                      height: 1.15,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Text(
-                                      point,
-                                      style: TextStyle(
-                                        color: textColor.withOpacity(0.85),
-                                        fontSize: 17,
-                                        fontFamily: _fontFamily,
-                                        height: 1.5,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             );
                           }).toList(),
                         ),
                       ),
-                    ),
 
-                    const SizedBox(height: 32),
+                      const SizedBox(height: 12),
 
-                    // Reader Invitation
-                    Text(
-                      "Tap or swipe to begin reading",
-                      style: TextStyle(
-                        color: textColor.withOpacity(0.4),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
+                      // Reader Invitation
+                      Text(
+                        "Tap or swipe to begin reading",
+                        style: TextStyle(
+                          color: textColor.withOpacity(0.4),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
 
-              // Bottom Progress Highlight
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                height: 4,
-                child: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                // Bottom Progress Highlight
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: 4,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -2255,7 +2437,8 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
   List<String> _generateSummaryPoints() {
     List<String> textBlocks = [];
 
-    for (var page in widget.pages.take(8)) {
+    // Analyze first 12 pages for deeper context
+    for (var page in widget.pages.take(12)) {
       final blocks = page['blocks'] as List? ?? [];
       for (var block in blocks) {
         if (block['type'] == 'text' && block['text'] != null) {
@@ -2278,16 +2461,27 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
     String fullContent = textBlocks.join(" ");
     List<String> sentences = fullContent.split(RegExp(r'(?<=[.!?])\s+'));
 
-    // Clean and take up to 3 points
-    List<String> points = sentences
-        .where((s) => s.length > 15)
-        .take(3)
-        .map((s) => s.trim())
-        .toList();
+    // Clean and take up to 5 points
+    List<String> points = sentences.where((s) => s.length > 20).take(5).map((
+      s,
+    ) {
+      String trimmed = s.trim();
+      if (trimmed.length > 65) trimmed = trimmed.substring(0, 62) + '...';
+      return trimmed;
+    }).toList();
 
-    // Ensure we have at least 3 points
-    if (points.length < 3) {
-      points.add("A captivating journey written by ${widget.username}.");
+    // Ensure we have at least 5 points
+    while (points.length < 5) {
+      if (points.length == 0)
+        points.add("Dive into this unique narration by ${widget.username}.");
+      else if (points.length == 1)
+        points.add("Explore the core themes of the storyteller.");
+      else if (points.length == 2)
+        points.add("Experience every twist and turn in this story.");
+      else if (points.length == 3)
+        points.add("Follow the journey through every page.");
+      else
+        points.add("A captivating read from start to finish.");
     }
 
     return points;

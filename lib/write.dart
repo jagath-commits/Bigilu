@@ -18,24 +18,20 @@ class PageBlock {
   Offset? imagePosition;
   String? previousText;
   bool isHeadline;
-  bool isHighlighted; // 🔥 NEW
+  int? fontColor; // 🔥 BLOCK COLOR
 
-  PageBlock.text(
-    this.text, {
-    this.isHeadline = false,
-    this.isHighlighted = false,
-  }) : type = "text",
-       image = null,
-       imageUrl = null,
-       imageWidth = null,
-       previousText = text;
+  PageBlock.text(this.text, {this.isHeadline = false, this.fontColor})
+    : type = "text",
+      image = null,
+      imageUrl = null,
+      imageWidth = null,
+      previousText = text;
 
   PageBlock.image(this.image)
     : type = "image",
       text = null,
       imageUrl = null,
       isHeadline = false,
-      isHighlighted = false,
       imageWidth = 200,
       imagePosition = const Offset(0, 0),
       previousText = null;
@@ -44,7 +40,6 @@ class PageBlock {
     : type = "image",
       text = null,
       isHeadline = false,
-      isHighlighted = false,
       image = null,
       imageWidth = 200,
       imagePosition = const Offset(0, 0),
@@ -106,6 +101,10 @@ class _WritePageState extends State<WritePage> {
   ];
   int _currentPage = 0;
   final PageController _pageController = PageController();
+
+  // Active styles for NEW blocks
+  int _activeColor = 0xFF000000;
+  bool _activeHeadline = false;
 
   final List<String> _fontFamilies = [
     "Roboto",
@@ -213,30 +212,34 @@ class _WritePageState extends State<WritePage> {
     if (pageIndex >= _pages.length) return;
 
     // Collect all text blocks and images from this page onwards
-    String allText = "";
+    List<PageBlock> originalTextBlocks = [];
     List<MapEntry<int, int>> imagePositions = []; // (pageIdx, blockIdx) pairs
 
     for (int p = pageIndex; p < _pages.length; p++) {
       for (int b = 0; b < _pages[p].blocks.length; b++) {
         final block = _pages[p].blocks[b];
         if (block.type == "text" && (block.text ?? "").isNotEmpty) {
-          allText += "${block.text ?? ""}\n";
+          originalTextBlocks.add(
+            PageBlock.text(
+              block.text!,
+              isHeadline: block.isHeadline,
+              fontColor: block.fontColor,
+            ),
+          );
         } else if (block.type == "image") {
           imagePositions.add(MapEntry(p, b));
         }
       }
     }
 
-    allText = allText.trim();
-
     // Clear all text blocks from this page onwards (keep images for now)
     for (int p = pageIndex; p < _pages.length; p++) {
       _pages[p].blocks.removeWhere((b) => b.type == "text");
     }
 
-    // Redistribute all collected text starting from this page
-    if (allText.isNotEmpty) {
-      _distributeTextToPages(pageIndex, allText);
+    // Redistribute all collected blocks starting from this page
+    if (originalTextBlocks.isNotEmpty) {
+      _distributeBlocksToPages(pageIndex, originalTextBlocks);
     }
 
     // Track current keys to avoid disposing active controllers
@@ -290,93 +293,143 @@ class _WritePageState extends State<WritePage> {
     }
   }
 
-  /// distribute [text] starting at [startPage] across pages, creating
-  /// new pages as needed.  Guarantees no page ends up overflowing the visible
-  /// area, even when [text] is very large (e.g. from a paste).
-  void _distributeTextToPages(int startPage, String text) {
+  /// distribute blocks starting at [startPage] across pages, creating
+  /// new pages as needed while preserving text block attributes.
+  void _distributeBlocksToPages(
+    int startPage,
+    List<PageBlock> blocksToDistribute,
+  ) {
     double maxWidth =
         MediaQuery.of(context).size.width - (_pages[0].pageMargin * 2);
-    String remaining = text;
     int pageIdx = startPage;
 
-    while (remaining.isNotEmpty) {
-      // ensure page exists
-      if (pageIdx >= _pages.length) {
-        _pages.add(
-          PageData(
-            fontSize: _pages[0].fontSize,
-            fontFamily: _pages[0].fontFamily,
-            fontColor: _pages[0].fontColor,
-          ),
-        );
-      }
+    for (int i = 0; i < blocksToDistribute.length; i++) {
+      var srcBlock = blocksToDistribute[i];
+      String remaining = srcBlock.text ?? "";
 
-      PageData page = _pages[pageIdx];
-
-      // If this is a new page (not the starting page), clear empty blocks
-      if (pageIdx > startPage) {
-        page.blocks.removeWhere(
-          (b) => b.type == "text" && (b.text ?? "").trim().isEmpty,
-        );
-      }
-
-      // find or create a text block at end
-      PageBlock? lastBlock;
-      for (var b in page.blocks.reversed) {
-        if (b.type == "text") {
-          lastBlock = b;
-          break;
+      while (remaining.isNotEmpty) {
+        // Ensure we skip pages that already contain an image
+        while (pageIdx < _pages.length &&
+            _pages[pageIdx].blocks.any((b) => b.type == "image")) {
+          pageIdx++;
         }
-      }
-      if (lastBlock == null) {
-        page.blocks.add(PageBlock.text(""));
-        lastBlock = page.blocks.last;
-      }
 
-      String existing = lastBlock.text ?? "";
-      String candidate = existing + remaining;
+        // ensure page exists
+        if (pageIdx >= _pages.length) {
+          _pages.add(
+            PageData(
+              fontSize: _pages[0].fontSize,
+              fontFamily: _pages[0].fontFamily,
+              fontColor: _pages[0].fontColor,
+            ),
+          );
+        }
 
-      // Determine if the block being distributed is a headline
-      // This assumes that if the lastBlock is a headline, the text being added to it should also be treated as such for overflow calculation.
-      bool isHeadlineBlock = lastBlock.isHeadline;
+        PageData page = _pages[pageIdx];
 
-      if (!_doesTextOverflow(
-        candidate,
-        page,
-        maxWidth,
-        isHeadline: isHeadlineBlock,
-      )) {
-        // whole remainder fits on this page
-        lastBlock.text = candidate;
-        remaining = "";
-      } else {
-        // need to split; binary search for largest prefix that fits
-        int low = 0, high = remaining.length;
-        while (low < high) {
-          int mid = (low + high + 1) ~/ 2;
-          String prefix = existing + remaining.substring(0, mid);
-          if (_doesTextOverflow(
-            prefix,
-            page,
-            maxWidth,
-            isHeadline: isHeadlineBlock,
-          )) {
-            // ✅ PASS HEADLINE STATUS
-            high = mid - 1;
-          } else {
-            low = mid;
+        // If this is a new page (not the starting page), clear empty blocks
+        if (pageIdx > startPage) {
+          page.blocks.removeWhere(
+            (b) => b.type == "text" && (b.text ?? "").trim().isEmpty,
+          );
+        }
+
+        // find or create a text block at end WITH SAME ATTRIBUTES
+        PageBlock? lastBlock;
+        if (page.blocks.isNotEmpty && page.blocks.last.type == "text") {
+          if (page.blocks.last.isHeadline == srcBlock.isHeadline &&
+              page.blocks.last.fontColor == srcBlock.fontColor) {
+            lastBlock = page.blocks.last;
           }
         }
-        // low characters of remaining can fit
-        if (low == 0) {
-          // should not happen (means single char doesn't fit)
-          // to avoid infinite loop, forcibly move one char
-          low = 1;
+
+        if (lastBlock == null) {
+          lastBlock = PageBlock.text(
+            "",
+            isHeadline: srcBlock.isHeadline,
+            fontColor: srcBlock.fontColor,
+          );
+          page.blocks.add(lastBlock);
         }
-        String fitPart = remaining.substring(0, low);
-        lastBlock.text = existing + fitPart;
-        remaining = remaining.substring(low);
-        pageIdx++;
+
+        String existing = lastBlock.text ?? "";
+
+        // If we are appending a different block that happened to share styles,
+        // add a newline if the existing block isn't empty, to respect their original separation
+        String candidate;
+        if (existing.isNotEmpty &&
+            !remaining.startsWith("\n") &&
+            !existing.endsWith("\n")) {
+          candidate = existing + "\n" + remaining;
+        } else {
+          candidate = existing + remaining;
+        }
+
+        if (!_doesTextOverflow(
+          candidate,
+          page,
+          maxWidth,
+          isHeadline: srcBlock.isHeadline,
+        )) {
+          // whole remainder fits on this page
+          lastBlock.text = candidate;
+          remaining = "";
+        } else {
+          // need to split; binary search for largest prefix that fits
+          int low = 0, high = remaining.length;
+          while (low < high) {
+            int mid = (low + high + 1) ~/ 2;
+
+            String tempCandidate;
+            if (existing.isNotEmpty &&
+                !remaining.startsWith("\n") &&
+                !existing.endsWith("\n")) {
+              tempCandidate = existing + "\n" + remaining.substring(0, mid);
+            } else {
+              tempCandidate = existing + remaining.substring(0, mid);
+            }
+
+            if (_doesTextOverflow(
+              tempCandidate,
+              page,
+              maxWidth,
+              isHeadline: srcBlock.isHeadline,
+            )) {
+              high = mid - 1;
+            } else {
+              low = mid;
+            }
+          }
+          if (low == 0) {
+            // If even one character doesn't fit, move to next page
+            pageIdx++;
+            continue;
+          }
+
+          String fitPart = remaining.substring(0, low);
+
+          // Improve word wrapping: avoid breaking words if possible to prevent single-letter lines
+          if (low < remaining.length &&
+              !remaining[low].contains(RegExp(r'\s')) &&
+              !remaining[low - 1].contains(RegExp(r'\s'))) {
+            int lastSpace = remaining.substring(0, low).lastIndexOf(' ');
+            if (lastSpace > 0) {
+              low = lastSpace;
+              fitPart = remaining.substring(0, low);
+            }
+          }
+
+          if (existing.isNotEmpty &&
+              !remaining.startsWith("\n") &&
+              !existing.endsWith("\n")) {
+            lastBlock.text = existing + "\n" + fitPart;
+          } else {
+            lastBlock.text = existing + fitPart;
+          }
+
+          remaining = remaining.substring(low).trimLeft();
+          pageIdx++;
+        }
       }
     }
   }
@@ -465,9 +518,15 @@ class _WritePageState extends State<WritePage> {
     if (pageIndex >= _pages.length - 1) return; // No next page
 
     var currentPage = _pages[pageIndex];
+    // Rule: Skip if current page is an image page
+    if (currentPage.blocks.any((b) => b.type == "image")) return;
+
     double maxWidth =
         MediaQuery.of(context).size.width - (currentPage.pageMargin * 2);
     var nextPage = _pages[pageIndex + 1];
+
+    // Rule: Skip if next page is an image page
+    if (nextPage.blocks.any((b) => b.type == "image")) return;
 
     // Calculate current page usage
     String currentText = "";
@@ -494,8 +553,14 @@ class _WritePageState extends State<WritePage> {
           String testText = "$currentText\n${blockToMove.text ?? ""}";
 
           if (!_doesTextOverflow(testText, currentPage, maxWidth)) {
-            // It fits! Move the block
-            currentPage.blocks.add(PageBlock.text(blockToMove.text ?? ""));
+            // It fits! Move the block while preserving styles
+            currentPage.blocks.add(
+              PageBlock.text(
+                blockToMove.text ?? "",
+                isHeadline: blockToMove.isHeadline,
+                fontColor: blockToMove.fontColor,
+              ),
+            );
             nextPage.blocks.remove(blockToMove);
 
             // Update controller
@@ -549,8 +614,7 @@ class _WritePageState extends State<WritePage> {
                 PageBlock.text(
                   block['text'] ?? "",
                   isHeadline: block['isHeadline'] ?? false,
-                  isHighlighted:
-                      block['isHighlighted'] ?? false, // ✅ LOAD HIGHLIGHT
+                  fontColor: block['fontColor'], // LOAD COLOR
                 ),
               );
             }
@@ -558,21 +622,37 @@ class _WritePageState extends State<WritePage> {
             if (block['type'] == "image") {
               final imageName = block['image'];
 
-              if (imageName != null && imageName.toString().isNotEmpty) {
-                final imageUrl =
-                    "https://bigiluu.com/uploads/page_images/$imageName";
+              print("IMAGE RAW: $imageName"); // DEBUG
 
-                final imgBlock = PageBlock.networkImage(imageUrl);
-
-                imgBlock.imageWidth = (block['imageWidth'] ?? 200).toDouble();
-
-                imgBlock.imagePosition = Offset(
-                  (block['imagePosX'] ?? 0).toDouble(),
-                  (block['imagePosY'] ?? 0).toDouble(),
-                );
-
-                pageData.blocks.add(imgBlock);
+              if (imageName == null || imageName.toString().isEmpty) {
+                print("❌ Image missing in draft");
+                continue;
               }
+
+              String finalUrl = imageName.toString();
+
+              // ✅ If not full URL → convert
+              if (!finalUrl.startsWith("http")) {
+                if (finalUrl.contains("uploads/")) {
+                  finalUrl = "https://bigiluu.com/$finalUrl";
+                } else {
+                  finalUrl =
+                      "https://bigiluu.com/uploads/page_images/$finalUrl";
+                }
+              }
+
+              print("✅ FINAL URL: $finalUrl");
+
+              final imgBlock = PageBlock.networkImage(finalUrl);
+
+              imgBlock.imageWidth = (block['imageWidth'] ?? 200).toDouble();
+
+              imgBlock.imagePosition = Offset(
+                (block['imagePosX'] ?? 0).toDouble(),
+                (block['imagePosY'] ?? 0).toDouble(),
+              );
+
+              pageData.blocks.add(imgBlock);
             }
           }
         }
@@ -642,17 +722,26 @@ class _WritePageState extends State<WritePage> {
       for (var block in page.blocks) {
         String? imageName;
 
-        // ✅ CASE 1: New image selected from gallery
-        if (block.type == "image" && block.image != null) {
-          request.files.add(
-            await http.MultipartFile.fromPath("page_images", block.image!.path),
-          );
+        if (block.type == "image") {
+          // ✅ CASE 1: NEW IMAGE (picked from gallery)
+          if (block.image != null) {
+            print("📤 Uploading NEW image: ${block.image!.path}");
 
-          imageName = block.image!.path.split('/').last;
-        }
-        // ✅ CASE 2: Already saved network image (editing draft)
-        else if (block.type == "image" && block.imageUrl != null) {
-          imageName = block.imageUrl!.split('/').last;
+            request.files.add(
+              await http.MultipartFile.fromPath(
+                "page_images", // 🔥 must match backend
+                block.image!.path,
+              ),
+            );
+
+            imageName = null; // backend will assign filename
+          }
+          // ✅ CASE 2: OLD IMAGE (already from server)
+          else if (block.imageUrl != null) {
+            print("🌐 Using EXISTING image: ${block.imageUrl}");
+
+            imageName = block.imageUrl; // keep existing
+          }
         }
 
         blocksJson.add({
@@ -663,7 +752,7 @@ class _WritePageState extends State<WritePage> {
           "imagePosX": block.imagePosition?.dx,
           "imagePosY": block.imagePosition?.dy,
           "isHeadline": block.isHeadline,
-          "isHighlighted": block.isHighlighted, // ✅ SAVE TO DRAFT
+          "fontColor": block.fontColor,
         });
       }
 
@@ -708,56 +797,57 @@ class _WritePageState extends State<WritePage> {
 
     if (image != null) {
       setState(() {
-        final page = _pages[index];
-
-        bool hasImage = page.blocks.any((b) => b.type == "image");
-        String combinedText = page.blocks
-            .where((b) => b.type == "text")
-            .map((b) => b.text ?? "")
-            .join("\n")
-            .trim();
-
-        // Rule: If page has ANY text or an image, move this image to the next page
-        bool shouldMoveToNextPage = hasImage || combinedText.isNotEmpty;
-
         int targetPage = index;
-        if (shouldMoveToNextPage) {
+
+        // Rule: A page can ONLY have an image OR text, not both.
+        // If current page is not empty, we MUST move the image to a new page.
+        bool currentPageHasContent = _pages[index].blocks.any(
+          (b) =>
+              b.type == "image" ||
+              (b.type == "text" && (b.text ?? "").trim().isNotEmpty),
+        );
+
+        if (currentPageHasContent) {
           targetPage = index + 1;
           if (targetPage >= _pages.length) {
             _pages.add(
               PageData(
-                fontSize: page.fontSize,
-                fontFamily: page.fontFamily,
-                fontColor: page.fontColor,
-                lineSpacing: page.lineSpacing,
-                letterSpacing: page.letterSpacing,
-                pageMargin: page.pageMargin,
-                textAlign: page.textAlign,
+                fontSize: _pages[0].fontSize,
+                fontFamily: _pages[0].fontFamily,
+                fontColor: _pages[0].fontColor,
+                lineSpacing: _pages[0].lineSpacing,
+                letterSpacing: _pages[0].letterSpacing,
+                pageMargin: _pages[0].pageMargin,
+                textAlign: _pages[0].textAlign,
+              ),
+            );
+          } else {
+            // Insert a fresh page for the image
+            _pages.insert(
+              targetPage,
+              PageData(
+                fontSize: _pages[0].fontSize,
+                fontFamily: _pages[0].fontFamily,
+                fontColor: _pages[0].fontColor,
+                lineSpacing: _pages[0].lineSpacing,
+                letterSpacing: _pages[0].letterSpacing,
+                pageMargin: _pages[0].pageMargin,
+                textAlign: _pages[0].textAlign,
               ),
             );
           }
-        }
-
-        // Clean up target page to ensure it's fresh for the image
-        if (_pages[targetPage].blocks.length == 1 &&
-            _pages[targetPage].blocks[0].type == "text" &&
-            (_pages[targetPage].blocks[0].text ?? "").isEmpty) {
           _pages[targetPage].blocks.clear();
-        } else if (shouldMoveToNextPage) {
-          // If we're moving to an existing next page, we don't want to clear it
-          // but we'll insert the image at the top if it was chosen while on a previous page
-          // However, based on the flow, it's safer to always add it to a fresh spot
+        } else {
+          // Current page is empty, reuse it
+          _pages[targetPage].blocks.clear();
         }
 
         _pages[targetPage].blocks.add(PageBlock.image(File(image.path)));
-        _pages[targetPage].blocks.add(PageBlock.text(""));
 
-        if (shouldMoveToNextPage) {
-          _currentPage = targetPage;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _pageController.jumpToPage(targetPage); // Instant jump
-          });
-        }
+        _currentPage = targetPage;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _pageController.jumpToPage(targetPage);
+        });
       });
     }
   }
@@ -765,9 +855,12 @@ class _WritePageState extends State<WritePage> {
   void _removeImageBlock(int pageIndex, int blockIndex) {
     setState(() {
       final blocks = _pages[pageIndex].blocks;
-
-      // simply remove the image – do NOT delete the following text
       blocks.removeAt(blockIndex);
+
+      // If page is now empty, add a default text block
+      if (blocks.isEmpty) {
+        blocks.add(PageBlock.text(""));
+      }
 
       // if removing left two adjacent text blocks, merge them
       for (int i = 0; i < blocks.length - 1; i++) {
@@ -778,6 +871,9 @@ class _WritePageState extends State<WritePage> {
           break;
         }
       }
+
+      // Trigger rebalance to pull content from next pages into this newly freed space
+      _rebalancePagesFromIndex(pageIndex);
     });
   }
 
@@ -853,6 +949,63 @@ class _WritePageState extends State<WritePage> {
     });
   }
 
+  void _addNewTextBlock(int pageIndex) {
+    if (pageIndex >= _pages.length) return;
+
+    // Rule: Cannot add text to a page that already has an image
+    if (_pages[pageIndex].blocks.any((b) => b.type == "image")) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Cannot add text to an image page")),
+      );
+      return;
+    }
+
+    // Add a new empty text block to the current page so the user can type independently
+    setState(() {
+      int insertIndex = (_focusedBlockIndex ?? -1) + 1;
+      if (insertIndex > 0 && insertIndex < _pages[pageIndex].blocks.length) {
+        _pages[pageIndex].blocks.insert(
+          insertIndex,
+          PageBlock.text(
+            "",
+            isHeadline: _activeHeadline,
+            fontColor: _activeColor,
+          ),
+        );
+      } else {
+        _pages[pageIndex].blocks.add(
+          PageBlock.text(
+            "",
+            isHeadline: _activeHeadline,
+            fontColor: _activeColor,
+          ),
+        );
+      }
+    });
+
+    // Auto focus the new block
+    Future.delayed(const Duration(milliseconds: 100), () {
+      int insertIndex = (_focusedBlockIndex ?? -1) + 1;
+      int newBlockIndex =
+          (insertIndex > 0 && insertIndex < _pages[pageIndex].blocks.length)
+          ? insertIndex
+          : _pages[pageIndex].blocks.length - 1;
+
+      String key = "$pageIndex-$newBlockIndex";
+
+      if (!_controllers.containsKey(key)) {
+        _controllers[key] = TextEditingController(text: "");
+      }
+      if (!_focusNodes.containsKey(key)) {
+        _focusNodes[key] = FocusNode();
+      }
+
+      FocusScope.of(context).requestFocus(_focusNodes[key]);
+      _onFocusChanged(newBlockIndex, true);
+    });
+  }
+
+  // FIXED BUILD METHOD START
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -1067,6 +1220,12 @@ class _WritePageState extends State<WritePage> {
                                                   },
                                                   keyboardType:
                                                       TextInputType.multiline,
+                                                  textCapitalization:
+                                                      block.isHeadline
+                                                      ? TextCapitalization
+                                                            .characters
+                                                      : TextCapitalization
+                                                            .sentences,
                                                   textInputAction:
                                                       TextInputAction.newline,
                                                   maxLines: null,
@@ -1090,7 +1249,9 @@ class _WritePageState extends State<WritePage> {
                                                     fontFamily: _pages[index]
                                                         .fontFamily,
                                                     color: Color(
-                                                      _pages[index].fontColor,
+                                                      block.fontColor ??
+                                                          _pages[index]
+                                                              .fontColor,
                                                     ),
                                                     height: _pages[index]
                                                         .lineSpacing,
@@ -1099,12 +1260,7 @@ class _WritePageState extends State<WritePage> {
                                                         ? -0.5
                                                         : _pages[index]
                                                               .letterSpacing,
-                                                    backgroundColor:
-                                                        block.isHighlighted
-                                                        ? const Color(
-                                                            0xFFFFF1A1,
-                                                          ).withOpacity(0.8)
-                                                        : null,
+                                                    backgroundColor: null,
                                                   ),
                                                   decoration: InputDecoration(
                                                     hintText: blockIndex == 0
@@ -1133,14 +1289,38 @@ class _WritePageState extends State<WritePage> {
                                               } else if (block.imageUrl !=
                                                       null &&
                                                   block.imageUrl!.isNotEmpty) {
-                                                imageWidget = Image.network(
-                                                  block.imageUrl!,
-                                                  width: double.infinity,
-                                                  fit: BoxFit.contain,
-                                                  errorBuilder: (c, e, s) =>
-                                                      const Icon(
+                                                imageWidget = ClipRRect(
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  child: Image.network(
+                                                    block.imageUrl!,
+                                                    width: double.infinity,
+                                                    height:
+                                                        200, // 🔥 ADD FIXED HEIGHT
+                                                    fit: BoxFit.cover,
+                                                    loadingBuilder:
+                                                        (
+                                                          context,
+                                                          child,
+                                                          progress,
+                                                        ) {
+                                                          if (progress == null)
+                                                            return child;
+                                                          return const Center(
+                                                            child:
+                                                                CircularProgressIndicator(),
+                                                          );
+                                                        },
+                                                    errorBuilder: (c, e, s) {
+                                                      print(
+                                                        "❌ IMAGE LOAD ERROR: $e",
+                                                      );
+                                                      return const Icon(
                                                         Icons.broken_image,
-                                                      ),
+                                                        size: 50,
+                                                      );
+                                                    },
+                                                  ),
                                                 );
                                               } else {
                                                 return const SizedBox();
@@ -1319,6 +1499,24 @@ class _WritePageState extends State<WritePage> {
                             child: const Icon(
                               Icons.add_photo_alternate_outlined,
                             ),
+                          ),
+                          FloatingActionButton.small(
+                            backgroundColor:
+                                _pages[_currentPage].blocks.any(
+                                  (b) => b.type == "image",
+                                )
+                                ? Colors.grey.shade100
+                                : Colors.white,
+                            foregroundColor:
+                                _pages[_currentPage].blocks.any(
+                                  (b) => b.type == "image",
+                                )
+                                ? Colors.grey.shade400
+                                : const Color(0xFF2196F3),
+                            elevation: 4,
+                            heroTag: "addText",
+                            onPressed: () => _addNewTextBlock(_currentPage),
+                            child: const Icon(Icons.short_text_rounded),
                           ),
                         ],
                       ),
@@ -1703,33 +1901,35 @@ class _WritePageState extends State<WritePage> {
                             _buildBlockStyleButton(
                               "Headline",
                               Icons.title_rounded,
-                              focusedBlock?.isHeadline ?? false,
-                              focusedBlock == null
-                                  ? null
-                                  : () {
-                                      HapticFeedback.mediumImpact();
-                                      setState(
-                                        () => focusedBlock.isHeadline =
-                                            !focusedBlock.isHeadline,
-                                      );
-                                      setModalState(() {});
-                                    },
-                            ),
-                            const SizedBox(width: 12),
-                            _buildBlockStyleButton(
-                              "Highlight",
-                              Icons.auto_fix_high_rounded,
-                              focusedBlock?.isHighlighted ?? false,
-                              focusedBlock == null
-                                  ? null
-                                  : () {
-                                      HapticFeedback.mediumImpact();
-                                      setState(
-                                        () => focusedBlock.isHighlighted =
-                                            !focusedBlock.isHighlighted,
-                                      );
-                                      setModalState(() {});
-                                    },
+                              focusedBlock != null
+                                  ? focusedBlock.isHeadline
+                                  : _activeHeadline,
+                              () {
+                                HapticFeedback.mediumImpact();
+                                if (focusedBlock != null) {
+                                  setState(() {
+                                    focusedBlock.isHeadline =
+                                        !focusedBlock.isHeadline;
+                                    if (focusedBlock.isHeadline &&
+                                        focusedBlock.text != null) {
+                                      focusedBlock.text = focusedBlock.text!
+                                          .toUpperCase();
+                                      String key =
+                                          "$_currentPage-$_focusedBlockIndex";
+                                      if (_controllers.containsKey(key)) {
+                                        _controllers[key]!.text =
+                                            focusedBlock.text!;
+                                      }
+                                    }
+                                  });
+                                  setModalState(() {});
+                                } else {
+                                  setState(
+                                    () => _activeHeadline = !_activeHeadline,
+                                  );
+                                  setModalState(() {});
+                                }
+                              },
                             ),
                           ],
                         ),
@@ -1753,10 +1953,24 @@ class _WritePageState extends State<WritePage> {
                           spacing: 12,
                           runSpacing: 12,
                           children: _fontColors.map((colorValue) {
-                            final isSelected = page.fontColor == colorValue;
+                            final isSelected =
+                                (focusedBlock != null &&
+                                    focusedBlock.fontColor != null)
+                                ? focusedBlock.fontColor == colorValue
+                                : _activeColor == colorValue;
                             return GestureDetector(
                               onTap: () {
-                                setState(() => page.fontColor = colorValue);
+                                setState(() {
+                                  _activeColor = colorValue;
+
+                                  // Split block if it has text, so new text gets new color
+                                  if (focusedBlock != null &&
+                                      (focusedBlock.text ?? "").isNotEmpty) {
+                                    _addNewTextBlock(_currentPage);
+                                  } else if (focusedBlock != null) {
+                                    focusedBlock.fontColor = colorValue;
+                                  }
+                                });
                                 setModalState(() {});
                               },
                               child: Container(
@@ -2433,7 +2647,10 @@ class _PostPageState extends State<PostPage> {
             words.addAll(
               block.text!
                   .toLowerCase()
-                  .replaceAll(RegExp(r'[^\w\s]'), '')
+                  .replaceAll(
+                    RegExp(r'[^\p{L}\p{M}\p{N}\s]', unicode: true),
+                    '',
+                  )
                   .split(" "),
             );
           }
@@ -2480,7 +2697,7 @@ class _PostPageState extends State<PostPage> {
           "imagePosX": block.imagePosition?.dx,
           "imagePosY": block.imagePosition?.dy,
           "isHeadline": block.isHeadline,
-          "isHighlighted": block.isHighlighted, // ✅ PERSIST HIGHLIGHT
+          "fontColor": block.fontColor,
         });
       }
 
@@ -2795,7 +3012,9 @@ class _PostPageState extends State<PostPage> {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(
-                  block.text ?? "",
+                  block.isHeadline
+                      ? (block.text ?? "").toUpperCase()
+                      : (block.text ?? ""),
                   style: TextStyle(
                     fontSize: block.isHeadline
                         ? (page.fontSize * 0.8)
@@ -2804,10 +3023,7 @@ class _PostPageState extends State<PostPage> {
                         ? FontWeight.w900
                         : FontWeight.normal,
                     fontFamily: page.fontFamily,
-                    backgroundColor: block.isHighlighted
-                        ? const Color(0xFFFFF1A1).withOpacity(0.8)
-                        : null,
-                    color: Color(page.fontColor),
+                    color: Color(block.fontColor ?? page.fontColor),
                     height: 1.4,
                   ),
                 ),

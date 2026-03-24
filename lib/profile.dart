@@ -34,53 +34,240 @@ class _EditProfilePageState extends State<EditProfilePage> {
   String? _selectedConstituency;
 
   final List<String> _constituencies = [
-    "Gummidipoondi", "Ponneri", "Tiruttani", "Tiruvallur", "Poonamallee",
-    "Avadi", "Maduravoyal", "Ambattur", "Madavaram", "Thiruvottiyur",
-    "Dr. Radhakrishnan Nagar", "Perambur", "Kolathur", "Villivakkam", "Thiru-Vi-Ka-Nagar",
-    "Egmore", "Royapuram", "Harbour", "Chepauk-Thiruvallikeni", "Thousand Lights",
-    "Anna Nagar", "Virugampakkam", "Saidapet", "T. Nagar", "Mylapore",
-    "Velachery", "Sholinganallur", "Alandur", "Sriperumbudur", "Pallavaram",
-    "Tambaram", "Chengalpattu", "Thiruporur", "Cheyyur", "Madurantakam",
-    "Uthiramerur", "Kancheepuram", "Arakkonam", "Sholingur", "Katpadi",
-    "Ranipet", "Arcot", "Vellore", "Anaikattu", "K. V. Kuppam",
-    "Gudiyattam", "Vaniyambadi", "Ambur", "Jolarpet", "Tirupattur",
-    "Uthangarai", "Bargur", "Krishnagiri", "Veppanahalli", "Hosur",
-    "Thalli", "Palacode", "Pennagaram", "Dharmapuri", "Pappireddippatti",
-    "Harur", "Chengam", "Tiruvannamalai", "Kilpennathur", "Kalasapakkam",
-    "Polur", "Arani", "Cheyyar", "Vandavasi", "Gingee", "Mailam",
-    "Tindivanam", "Vanur", "Villupuram", "Vikravandi", "Tirukoilur",
-    "Ulundurpettai", "Rishivandiyam", "Sankarapuram", "Kallakurichi",
-    "Gangavalli", "Attur", "Yercaud", "Omalur", "Mettur", "Edappadi",
-    "Sankagiri", "Salem West", "Salem North", "Salem South", "Veerapandi",
-    "Rasipuram", "Senthamangalam", "Namakkal", "Paramathi Velur", "Tiruchengode",
-    "Kumarapalayam", "Erode East", "Erode West", "Modakurichi", "Perundurai",
-    "Bhavani", "Anthiyur", "Gobichettipalayam", "Bhavanisagar", "Dharapuram",
-    "Kangeyam", "Avinashi", "Tiruppur North", "Tiruppur South", "Palladam",
-    "Udumalpet", "Madathukulam", "Udhagamandalam", "Gudalur", "Coonoor",
-    "Mettuppalayam", "Sulur", "Kavundampalayam", "Coimbatore North", "Thondamuthur",
-    "Coimbatore South", "Singanallur", "Kinathukadavu", "Pollachi", "Valparai",
-    "Palani", "Oddanchatram", "Athoor", "Nilakkottai", "Natham", "Dindigul",
-    "Vedasandur", "Aravakurichi", "Karur", "Krishnarayapuram", "Kulithalai",
-    "Manapparai", "Srirangam", "Tiruchirappalli West", "Tiruchirappalli East",
-    "Thiruverumbur", "Lalgudi", "Mannachanallur", "Musiri", "Thuraiyur",
-    "Perambalur", "Kunnam", "Ariyalur", "Jayankondam", "Chidambaram",
-    "Kattumannarkoil", "Cuddalore", "Panruti", "Kurinjipadi", "Bhuvanagiri",
-    "Neyveli", "Vridhachalam", "Tittakudi", "Sirkazhi", "Mayiladuthurai",
-    "Poompuhar", "Nagapattinam", "Kilvelur", "Vedaranyam", "Thiruthuraipoondi",
-    "Mannargudi", "Thiruvarur", "Nannilam", "Thiruvidaimarudur",
-    "Kumbakonam", "Papanasam", "Thiruvaiyaru", "Thanjavur", "Orathanadu",
-    "Pattukkottai", "Peravurani", "Gandharvakottai", "Viralimalai", "Pudukkottai",
-    "Thirumayam", "Alangudi", "Aranthangi", "Karaikudi", "Tiruppattur (Sivaganga)",
-    "Sivaganga", "Manamadurai", "Melur", "Madurai East", "Madurai North",
-    "Madurai Central", "Madurai West", "Madurai South", "Thirupparankundram",
-    "Thirumangalam", "Usilampatti", "Andipatti", "Periyakulam", "Bodinayakanur",
-    "Cumbum", "Theni", "Rajapalayam", "Srivilliputhur", "Sattur", "Sivakasi",
-    "Virudhunagar", "Aruppukkottai", "Tiruchuli", "Paramakudi", "Tiruvadanai",
-    "Ramanathapuram", "Mudukulathur", "Vilathikulam", "Thoothukkudi", "Tiruchendur",
-    "Srivaikuntam", "Ottapidaram", "Kovilpatti", "Sankarankovil", "Vasudevanallur",
-    "Kadayanallur", "Tenkasi", "Alangulam", "Tirunelveli", "Ambasamudram",
-    "Palayamkottai", "Nanguneri", "Radhapuram", "Kanniyakumari", "Nagercoil",
-    "Colachel", "Padmanabhapuram", "Vilavancode", "Killiyoor"
+    "Gummidipoondi",
+    "Ponneri",
+    "Tiruttani",
+    "Tiruvallur",
+    "Poonamallee",
+    "Avadi",
+    "Maduravoyal",
+    "Ambattur",
+    "Madavaram",
+    "Thiruvottiyur",
+    "Dr. Radhakrishnan Nagar",
+    "Perambur",
+    "Kolathur",
+    "Villivakkam",
+    "Thiru-Vi-Ka-Nagar",
+    "Egmore",
+    "Royapuram",
+    "Harbour",
+    "Chepauk-Thiruvallikeni",
+    "Thousand Lights",
+    "Anna Nagar",
+    "Virugampakkam",
+    "Saidapet",
+    "T. Nagar",
+    "Mylapore",
+    "Velachery",
+    "Sholinganallur",
+    "Alandur",
+    "Sriperumbudur",
+    "Pallavaram",
+    "Tambaram",
+    "Chengalpattu",
+    "Thiruporur",
+    "Cheyyur",
+    "Madurantakam",
+    "Uthiramerur",
+    "Kancheepuram",
+    "Arakkonam",
+    "Sholingur",
+    "Katpadi",
+    "Ranipet",
+    "Arcot",
+    "Vellore",
+    "Anaikattu",
+    "K. V. Kuppam",
+    "Gudiyattam",
+    "Vaniyambadi",
+    "Ambur",
+    "Jolarpet",
+    "Tirupattur",
+    "Uthangarai",
+    "Bargur",
+    "Krishnagiri",
+    "Veppanahalli",
+    "Hosur",
+    "Thalli",
+    "Palacode",
+    "Pennagaram",
+    "Dharmapuri",
+    "Pappireddippatti",
+    "Harur",
+    "Chengam",
+    "Tiruvannamalai",
+    "Kilpennathur",
+    "Kalasapakkam",
+    "Polur",
+    "Arani",
+    "Cheyyar",
+    "Vandavasi",
+    "Gingee",
+    "Mailam",
+    "Tindivanam",
+    "Vanur",
+    "Villupuram",
+    "Vikravandi",
+    "Tirukoilur",
+    "Ulundurpettai",
+    "Rishivandiyam",
+    "Sankarapuram",
+    "Kallakurichi",
+    "Gangavalli",
+    "Attur",
+    "Yercaud",
+    "Omalur",
+    "Mettur",
+    "Edappadi",
+    "Sankagiri",
+    "Salem West",
+    "Salem North",
+    "Salem South",
+    "Veerapandi",
+    "Rasipuram",
+    "Senthamangalam",
+    "Namakkal",
+    "Paramathi Velur",
+    "Tiruchengode",
+    "Kumarapalayam",
+    "Erode East",
+    "Erode West",
+    "Modakurichi",
+    "Perundurai",
+    "Bhavani",
+    "Anthiyur",
+    "Gobichettipalayam",
+    "Bhavanisagar",
+    "Dharapuram",
+    "Kangeyam",
+    "Avinashi",
+    "Tiruppur North",
+    "Tiruppur South",
+    "Palladam",
+    "Udumalpet",
+    "Madathukulam",
+    "Udhagamandalam",
+    "Gudalur",
+    "Coonoor",
+    "Mettuppalayam",
+    "Sulur",
+    "Kavundampalayam",
+    "Coimbatore North",
+    "Thondamuthur",
+    "Coimbatore South",
+    "Singanallur",
+    "Kinathukadavu",
+    "Pollachi",
+    "Valparai",
+    "Palani",
+    "Oddanchatram",
+    "Athoor",
+    "Nilakkottai",
+    "Natham",
+    "Dindigul",
+    "Vedasandur",
+    "Aravakurichi",
+    "Karur",
+    "Krishnarayapuram",
+    "Kulithalai",
+    "Manapparai",
+    "Srirangam",
+    "Tiruchirappalli West",
+    "Tiruchirappalli East",
+    "Thiruverumbur",
+    "Lalgudi",
+    "Mannachanallur",
+    "Musiri",
+    "Thuraiyur",
+    "Perambalur",
+    "Kunnam",
+    "Ariyalur",
+    "Jayankondam",
+    "Chidambaram",
+    "Kattumannarkoil",
+    "Cuddalore",
+    "Panruti",
+    "Kurinjipadi",
+    "Bhuvanagiri",
+    "Neyveli",
+    "Vridhachalam",
+    "Tittakudi",
+    "Sirkazhi",
+    "Mayiladuthurai",
+    "Poompuhar",
+    "Nagapattinam",
+    "Kilvelur",
+    "Vedaranyam",
+    "Thiruthuraipoondi",
+    "Mannargudi",
+    "Thiruvarur",
+    "Nannilam",
+    "Thiruvidaimarudur",
+    "Kumbakonam",
+    "Papanasam",
+    "Thiruvaiyaru",
+    "Thanjavur",
+    "Orathanadu",
+    "Pattukkottai",
+    "Peravurani",
+    "Gandharvakottai",
+    "Viralimalai",
+    "Pudukkottai",
+    "Thirumayam",
+    "Alangudi",
+    "Aranthangi",
+    "Karaikudi",
+    "Tiruppattur (Sivaganga)",
+    "Sivaganga",
+    "Manamadurai",
+    "Melur",
+    "Madurai East",
+    "Madurai North",
+    "Madurai Central",
+    "Madurai West",
+    "Madurai South",
+    "Thirupparankundram",
+    "Thirumangalam",
+    "Usilampatti",
+    "Andipatti",
+    "Periyakulam",
+    "Bodinayakanur",
+    "Cumbum",
+    "Theni",
+    "Rajapalayam",
+    "Srivilliputhur",
+    "Sattur",
+    "Sivakasi",
+    "Virudhunagar",
+    "Aruppukkottai",
+    "Tiruchuli",
+    "Paramakudi",
+    "Tiruvadanai",
+    "Ramanathapuram",
+    "Mudukulathur",
+    "Vilathikulam",
+    "Thoothukkudi",
+    "Tiruchendur",
+    "Srivaikuntam",
+    "Ottapidaram",
+    "Kovilpatti",
+    "Sankarankovil",
+    "Vasudevanallur",
+    "Kadayanallur",
+    "Tenkasi",
+    "Alangulam",
+    "Tirunelveli",
+    "Ambasamudram",
+    "Palayamkottai",
+    "Nanguneri",
+    "Radhapuram",
+    "Kanniyakumari",
+    "Nagercoil",
+    "Colachel",
+    "Padmanabhapuram",
+    "Vilavancode",
+    "Killiyoor",
   ];
 
   File? _image;
@@ -141,7 +328,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
     super.initState();
     _constituencies.sort(); // 🔥 Ensure alphabetical order
     print("🔍 DEBUG: EditProfilePage init with userId: ${widget.userId}");
+    _loadLocalProfile(); // 🔥 Load local data first for speed
     _refreshProfile();
+  }
+
+  Future<void> _loadLocalProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _nameController.text =
+          prefs.getString("username") ?? _nameController.text;
+      String? localConst = prefs.getString("user_constituency");
+      if (localConst != null && _constituencies.contains(localConst)) {
+        _selectedConstituency = localConst;
+      }
+    });
   }
 
   Future<void> _refreshProfile() async {
@@ -166,11 +366,24 @@ class _EditProfilePageState extends State<EditProfilePage> {
           _nameController.text = data['username'] ?? "";
           _mobileController.text = data['phoneno']?.toString() ?? "";
           _emailController.text = data['mail_id'] ?? "";
-          
-          // Try both keys for backward compatibility
-          String backendConstituency = data['constituency'] ?? data['membership_id'] ?? "";
-          if (_constituencies.contains(backendConstituency)) {
-            _selectedConstituency = backendConstituency;
+
+          // Robust matching for constituency
+          String backendConst = (data['Constituency'] ?? "").toString().trim();
+          if (backendConst.isNotEmpty) {
+            // Find case-insensitive match from our list to ensure it's selectable in the dropdown
+            try {
+              _selectedConstituency = _constituencies.firstWhere(
+                (c) => c.toLowerCase() == backendConst.toLowerCase(),
+                orElse: () => _constituencies.firstWhere(
+                  (c) => c.contains(backendConst),
+                  orElse: () => "",
+                ),
+              );
+              if (_selectedConstituency == "") _selectedConstituency = null;
+            } catch (e) {
+              _selectedConstituency = null;
+              print("⚠️ Constituency '$backendConst' not in official list");
+            }
           }
 
           // ✅ Use fullUrl() to normalize image paths
@@ -224,8 +437,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       request.fields["username"] = _nameController.text;
       request.fields["mail_id"] = _emailController.text;
       // Send to both keys to ensure backend receives it correctly
-      request.fields["constituency"] = _selectedConstituency ?? "";
-      request.fields["membership_id"] = _selectedConstituency ?? "";
+      request.fields["Constituency"] = _selectedConstituency ?? "";
 
       if (_image != null) {
         final mimeType = lookupMimeType(_image!.path);
@@ -265,7 +477,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
         await _saveLocally(updatedName, _image, imageUrl);
 
-        // 🔥 GO TO HOME PAGE
+        // 🔥 RETURN TO PREVIOUS PAGE OR GO TO HOME
         if (mounted) {
           Navigator.pushAndRemoveUntil(
             context,
@@ -290,9 +502,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
     String? imageUrl,
   ) async {
     final prefs = await SharedPreferences.getInstance();
-
-    // Save username
+    // Save username and constituency
     prefs.setString("username", username);
+    if (_selectedConstituency != null) {
+      prefs.setString("user_constituency", _selectedConstituency!);
+    }
 
     // Save local image path if user picked new image
     if (imageFile != null) {
@@ -652,7 +866,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 ),
               ),
               isExpanded: true,
-              icon: Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey.shade600),
+              icon: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: Colors.grey.shade600,
+              ),
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -665,10 +882,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   child: Text(value),
                 );
               }).toList(),
-              onChanged: (newValue) {
-                setState(() {
-                  _selectedConstituency = newValue;
-                });
+              onChanged: (newValue) async {
+                if (newValue != null) {
+                  setState(() {
+                    _selectedConstituency = newValue;
+                  });
+                  // 🔥 Save immediately to local storage so it's "sticky" even without explicit Save
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString("user_constituency", newValue);
+                }
               },
             ),
           ),

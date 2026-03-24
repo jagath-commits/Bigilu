@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:bigilu/home.dart';
 import 'package:bigilu/otp.dart';
+import 'package:bigilu/profile1.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,11 +10,39 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:app_links/app_links.dart';
 import 'dart:async';
+import 'dart:convert';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:http/http.dart' as http;
 
+
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp();
+
+    // 👇 ADD THIS
+  const AndroidInitializationSettings initializationSettingsAndroid =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  const InitializationSettings initializationSettings =
+      InitializationSettings(android: initializationSettingsAndroid);
+
+  await flutterLocalNotificationsPlugin.initialize(initializationSettings); 
+
+  await flutterLocalNotificationsPlugin
+    .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>()
+    ?.createNotificationChannel(
+  const AndroidNotificationChannel(
+    'channel_id',
+    'channel_name',
+    description: 'This is important channel',
+    importance: Importance.max,
+  ),
+);
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -31,6 +60,33 @@ Future<void> main() async {
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+
+
+  Future<void> sendTokenToServer(String token) async {
+  final prefs = await SharedPreferences.getInstance();
+  String? userId = prefs.getString("user_id");
+
+if (userId == null) {
+  print("⚠️ Sending token without user_id");
+}
+
+var response = await http.post(
+  Uri.parse("https://bigiluu.com/save-token"),
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: jsonEncode({
+    "user_id": userId,
+    "fcm_token": token,
+  }),
+);
+
+print("API STATUS: ${response.statusCode}");
+print("API RESPONSE: ${response.body}");
+}
+
+
+
 class MyApp extends StatefulWidget {
   final String? token;
 
@@ -44,11 +100,116 @@ class _MyAppState extends State<MyApp> {
   late final AppLinks _appLinks;
   StreamSubscription<Uri>? _sub;
 
-  @override
-  void initState() {
-    super.initState();
-    _initDeepLinks();
+// ONLY CHANGED PARTS ARE MARKED ✅
+
+@override
+void initState() {
+  super.initState();
+
+  _initDeepLinks();
+
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+  _initFirebase();
+}); // ✅ only this
+
+}
+
+
+
+Future<void> _initFirebase() async {
+  NotificationSettings settings =
+      await FirebaseMessaging.instance.requestPermission(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+
+  await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+  alert: true,
+  badge: true,
+  sound: true,
+);
+
+  print("Permission: ${settings.authorizationStatus}");
+
+FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+  print("🔥 FULL MESSAGE: ${message.data}");
+
+String title = message.data['title'] ?? "New Notification";
+String body = message.data['body'] ?? "You have a new update";
+
+  flutterLocalNotificationsPlugin.show(
+    DateTime.now().millisecondsSinceEpoch ~/ 1000,
+    title,
+    body,
+    const NotificationDetails(
+      android: AndroidNotificationDetails(
+        'channel_id',
+        'channel_name',
+        importance: Importance.max,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+      ),
+    ),
+  );
+});
+
+  // 🔔 Click (background)
+FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+  print("🔥 BACKGROUND CLICK");
+
+  String? postId = message.data['post_id']?.toString();
+  String? userId = message.data['user_id']?.toString();
+
+  if (postId != null && userId != null) {
+    navigatorKey.currentState?.push(
+      MaterialPageRoute(
+        builder: (_) => ProfilePage(
+          userId: userId, // ✅ FIXED
+          isPublicView: true,
+          initialPostId: postId,
+        ),
+      ),
+    );
   }
+});
+
+FirebaseMessaging.instance.getInitialMessage().then((message) {
+  if (message != null) {
+    print("🔥 APP OPENED FROM TERMINATED");
+
+    String? postId = message.data['post_id']?.toString();
+    String? userId = message.data['user_id']?.toString();
+
+    if (postId != null && userId != null) {
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => ProfilePage(
+            userId: userId, // ✅ USE FROM NOTIFICATION
+            isPublicView: true,
+            initialPostId: postId,
+          ),
+        ),
+      );
+    }
+  }
+});
+
+
+  // 🔄 Token refresh
+  FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+    print("NEW FCM TOKEN: $newToken");
+    await sendTokenToServer(newToken);
+  });
+
+  String? token = await FirebaseMessaging.instance.getToken();
+print("🔥 FINAL TOKEN: $token");
+
+if (token != null) {
+  await sendTokenToServer(token);
+}
+}
 
   void _initDeepLinks() async {
     _appLinks = AppLinks();
@@ -58,23 +219,46 @@ class _MyAppState extends State<MyApp> {
 
     if (initialUri != null && initialUri.pathSegments.contains('post')) {
       final postId = initialUri.pathSegments.last;
+final prefs = await SharedPreferences.getInstance();
+String? userId = prefs.getString("user_id");
 
-      navigatorKey.currentState?.push(
-        MaterialPageRoute(builder: (_) => HomePage(deepLinkPostId: postId)),
-      );
+if (userId == null) return;
+
+navigatorKey.currentState?.push(
+  MaterialPageRoute(
+    builder: (_) => ProfilePage(
+      userId: userId,
+      isPublicView: true,
+      initialPostId: postId,
+    ),
+  ),
+);
     }
 
     // App already running
-    _sub = _appLinks.uriLinkStream.listen((Uri uri) {
+    _sub = _appLinks.uriLinkStream.listen((Uri uri) async {
       if (uri.pathSegments.contains('post')) {
         final postId = uri.pathSegments.last;
 
-        navigatorKey.currentState?.push(
-          MaterialPageRoute(builder: (_) => HomePage(deepLinkPostId: postId)),
-        );
+final prefs = await SharedPreferences.getInstance();
+String? userId = prefs.getString("user_id");
+
+if (userId == null) return;
+
+navigatorKey.currentState?.push(
+  MaterialPageRoute(
+    builder: (_) => ProfilePage(
+      userId: userId,
+      isPublicView: true,
+      initialPostId: postId,
+    ),
+  ),
+);
       }
     });
   }
+
+
 
   @override
   void dispose() {
@@ -130,16 +314,45 @@ class _LoginPageState extends State<LoginPage> {
       timeout: const Duration(seconds: 30),
       phoneNumber: "+91${phoneController.text.trim()}",
       verificationCompleted: (credential) async {
-        // Auto-verification (sometimes happens on Android)
-        await FirebaseAuth.instance.signInWithCredential(credential);
+  await FirebaseAuth.instance.signInWithCredential(credential);
 
-        setState(() => isLoading = false);
+  // 🔥 CALL BACKEND TO GET USER_ID
+  var response = await http.post(
+    Uri.parse("https://bigiluu.com/api/login"), // ⚠️ create this API
+    body: {
+      "phone": phoneController.text.trim()
+    },
+  );
 
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomePage()),
-        );
-      },
+  var data = jsonDecode(response.body);
+
+  if (data["success"] != true) {
+    print("User not found");
+    return;
+  }
+
+  String userId = data["user_id"];
+
+  // 🔥 SAVE USER_ID
+  final prefs = await SharedPreferences.getInstance();
+  prefs.setString("user_id", userId);
+
+  // 🔥 GET FCM TOKEN
+  String? fcmToken = await FirebaseMessaging.instance.getToken();
+  print("FCM TOKEN: $fcmToken");
+
+  // 🔥 SEND TOKEN TO BACKEND
+  if (fcmToken != null) {
+  await sendTokenToServer(fcmToken);
+}
+
+  setState(() => isLoading = false);
+
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(builder: (_) => const HomePage()),
+  );
+},
       verificationFailed: (e) {
         setState(() => isLoading = false);
         showError(e.message ?? "OTP failed");
@@ -169,6 +382,8 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
+
+
   void showError(String message) {
     ScaffoldMessenger.of(
       context,
@@ -195,10 +410,7 @@ class _LoginPageState extends State<LoginPage> {
         children: [
           // Light theme background
           Container(color: const Color(0xFFF8F9FA)),
-
-
-
-          // Top Center Logo - Bigger and Lower
+        // Top Center Logo - Bigger and Lower
           Positioned(
             top: MediaQuery.of(context).padding.top + 30, // Moved lower
             left: 0,

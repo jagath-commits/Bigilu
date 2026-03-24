@@ -30,7 +30,15 @@ List<dynamic> extractPages(dynamic rawContent) {
 
 class ProfilePage extends StatefulWidget {
   final String userId;
-  const ProfilePage({super.key, required this.userId});
+  final bool isPublicView; // 👈 ADD THIS
+  final String? initialPostId;
+
+const ProfilePage({
+  super.key,
+  required this.userId,
+  this.isPublicView = false,
+  this.initialPostId, // ✅ ONLY THIS
+});
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -102,7 +110,42 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadUserDrafts();
     _loadSavedPosts();
     print("PROFILE USER ID: ${widget.userId}");
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+  if (widget.initialPostId != null) {
+    await Future.delayed(const Duration(milliseconds: 800));
+    _openSpecificPost(widget.initialPostId!);
   }
+});
+  }
+
+  void _openSpecificPost(String postId) async {
+  print("🔥 OPEN PROFILE POST: $postId");
+
+  try {
+    final response = await http.get(
+      Uri.parse("https://bigiluu.com/api/posts/singlePost/$postId"),
+    );
+
+    if (response.statusCode == 200) {
+      final postData = jsonDecode(response.body);
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ProfileFeedViewer(
+            posts: [postData],
+            initialIndex: 0,
+            title: "Post",
+            userId: widget.userId,
+          ),
+        ),
+      );
+    }
+  } catch (e) {
+    print("❌ Error opening profile post: $e");
+  }
+}
 
   final String baseUrl = "https://bigiluu.com/api/profile/profile/";
 
@@ -177,7 +220,9 @@ class _ProfilePageState extends State<ProfilePage> {
                         previewTexts.add(block['text'].toString());
                       }
                       if (block['type'] == 'image' && block['image'] != null) {
-                        previewImages.add(block['image'].toString());
+                        previewImages.add(
+                          fullUrl("uploads/page_images/${block['image']}"),
+                        );
                       }
                     }
                   }
@@ -327,6 +372,36 @@ class _ProfilePageState extends State<ProfilePage> {
     });
   }
 
+  List<dynamic> _convertDraftImages(List<dynamic> content) {
+    return content.map((page) {
+      if (page['blocks'] is List) {
+        page['blocks'] = page['blocks'].map((block) {
+          if (block['type'] == 'image' &&
+              block['image'] != null &&
+              block['image'].toString().isNotEmpty) {
+            String img = block['image'];
+
+            // ✅ Already full URL
+            if (img.startsWith("http")) {
+              return block;
+            }
+
+            // ✅ Already has uploads path
+            if (img.contains("uploads/")) {
+              block['image'] = fullUrl(img);
+            }
+            // ✅ Only filename
+            else {
+              block['image'] = fullUrl("uploads/page_images/$img");
+            }
+          }
+          return block;
+        }).toList();
+      }
+      return page;
+    }).toList();
+  }
+
   String getDraftPreview(String draftContent) {
     try {
       List<dynamic> pages = jsonDecode(draftContent);
@@ -430,14 +505,16 @@ class _ProfilePageState extends State<ProfilePage> {
 
         return GestureDetector(
           onTap: () async {
-            if (selectedTab == 1) {
+            if (!widget.isPublicView && selectedTab == 1) {
               // Drafts
               await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) => WritePage(
                     draftId: postId,
-                    draftContent: jsonEncode(post['rawContent']),
+                    draftContent: jsonEncode(
+                      _convertDraftImages(post['rawContent']),
+                    ),
                     draftCover: post['cover_img'],
                   ),
                 ),
@@ -641,7 +718,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
 
                 // Delete button for drafts
-                if (selectedTab == 1)
+                if (!widget.isPublicView && selectedTab == 1)
                   Positioned(
                     top: 6,
                     right: 12,
@@ -724,23 +801,28 @@ class _ProfilePageState extends State<ProfilePage> {
 
                           // Stats Row
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _buildStatItem("${myPosts.length}", "Books"),
-                              _buildStatVerticalDivider(),
-                              _buildStatItem("${savedPosts.length}", "Saved"),
-                              _buildStatVerticalDivider(),
-                              _buildStatItem("${draftPosts.length}", "Drafts"),
-                            ],
-                          ),
+  mainAxisAlignment: MainAxisAlignment.center,
+  children: widget.isPublicView
+      ? [
+          _buildStatItem("${myPosts.length}", "Books"),
+        ]
+      : [
+          _buildStatItem("${myPosts.length}", "Books"),
+          _buildStatVerticalDivider(),
+          _buildStatItem("${savedPosts.length}", "Saved"),
+          _buildStatVerticalDivider(),
+          _buildStatItem("${draftPosts.length}", "Drafts"),
+        ],
+),
 
                           const SizedBox(height: 32),
 
                           // Action Buttons
-                          Row(
-                            children: [
-                              Expanded(
-                                child: ElevatedButton.icon(
+                          if (!widget.isPublicView)
+  Row(
+    children: [
+      Expanded(
+        child: ElevatedButton.icon(
                                   onPressed: () async {
                                     final result = await Navigator.push(
                                       context,
@@ -836,12 +918,16 @@ class _ProfilePageState extends State<ProfilePage> {
                         ],
                       ),
                       child: Row(
-                        children: [
-                          _buildModernTab("Books", 0),
-                          _buildModernTab("Drafts", 1),
-                          _buildModernTab("Saved", 2),
-                        ],
-                      ),
+  children: widget.isPublicView
+      ? [
+          _buildModernTab("Books", 0), // 👈 only this
+        ]
+      : [
+          _buildModernTab("Books", 0),
+          _buildModernTab("Drafts", 1),
+          _buildModernTab("Saved", 2),
+        ],
+),
                     ),
                   ),
                 ),
@@ -854,7 +940,9 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ),
       ),
-      bottomNavigationBar: _buildBottomNavigationBar(context),
+      bottomNavigationBar: widget.isPublicView
+    ? null
+    : _buildBottomNavigationBar(context),
     );
   }
 
@@ -967,11 +1055,13 @@ class _ProfilePageState extends State<ProfilePage> {
   // ============================
   // Tabs
   // ============================
-  List<Map<String, dynamic>> _getSelectedList() {
-    if (selectedTab == 0) return myPosts;
-    if (selectedTab == 1) return draftPosts;
-    return savedPosts;
-  }
+List<Map<String, dynamic>> _getSelectedList() {
+  if (widget.isPublicView) return myPosts; // 👈 FIX
+
+  if (selectedTab == 0) return myPosts;
+  if (selectedTab == 1) return draftPosts;
+  return savedPosts;
+}
 
   // ============================
   // Bottom Navigation

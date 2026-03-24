@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -111,6 +112,19 @@ class _OtpPageState extends State<OtpPage> with CodeAutoFill { // Added CodeAuto
       await prefs.setString("token", data["token"]);
       await prefs.setString("user_id", data["user_id"]);
       await prefs.setString("user_mobile", widget.phone);
+
+      // 🔥 GET FCM TOKEN
+String? fcmToken = await FirebaseMessaging.instance.getToken();
+print("FCM TOKEN: $fcmToken");
+
+// 🔥 SEND TOKEN TO BACKEND
+await http.post(
+  Uri.parse("https://bigiluu.com/api/posts/save-token"),
+  body: {
+    "user_id": data["user_id"],
+    "fcm_token": fcmToken
+  },
+);
 
       Navigator.pushReplacement(
         context,

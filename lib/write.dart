@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:google_fonts/google_fonts.dart';
 
 class PageBlock {
   String type;
@@ -19,13 +20,40 @@ class PageBlock {
   String? previousText;
   bool isHeadline;
   int? fontColor; // 🔥 BLOCK COLOR
+  double? fontSize; // 🔥 BLOCK FONT SIZE
+  String? fontFamily; // 🔥 BLOCK FONT FAMILY
+  double? lineSpacing;
+  double? letterSpacing;
+  TextAlign? textAlign;
 
-  PageBlock.text(this.text, {this.isHeadline = false, this.fontColor})
-    : type = "text",
-      image = null,
-      imageUrl = null,
-      imageWidth = null,
-      previousText = text;
+  PageBlock({
+    required this.type,
+    this.text,
+    this.imageUrl,
+    this.imagePosition,
+    this.isHeadline = false,
+    this.fontSize,
+    this.fontFamily,
+    this.fontColor,
+    this.lineSpacing,
+    this.letterSpacing,
+    this.textAlign,
+  });
+
+  PageBlock.text(
+    this.text, {
+    this.isHeadline = false,
+    this.fontColor,
+    this.fontSize,
+    this.fontFamily,
+    this.lineSpacing,
+    this.letterSpacing,
+    this.textAlign,
+  }) : type = "text",
+       image = null,
+       imageUrl = null,
+       imageWidth = null,
+       previousText = text;
 
   PageBlock.image(this.image)
     : type = "image",
@@ -110,6 +138,16 @@ class _WritePageState extends State<WritePage> {
     "Roboto",
     "Lora",
     "Playfair Display",
+    "Mukta Malar",
+    "Hind Madurai",
+    "Pavanam",
+    "Arima",
+    "Kavivanar",
+    "Catamaran",
+    "Baloo 2",
+    "Tiro Tamil",
+    "Roboto",
+    "Lora",
     "Inter",
     "Merienda",
     "Lobster",
@@ -169,21 +207,26 @@ class _WritePageState extends State<WritePage> {
     PageData page,
     double maxWidth, {
     bool assumeImage = false,
-    bool isHeadline = false, // 🔥 ADD THIS
+    bool isHeadline = false,
+    double? fontSize,
+    String? fontFamily,
+    double? lineSpacing,
+    double? letterSpacing,
+    TextAlign? textAlign,
   }) {
     final painter = TextPainter(
       text: TextSpan(
         text: text,
         style: TextStyle(
-          fontSize: isHeadline ? 28 : page.fontSize, // ✅ USE HEADLINE SIZE
+          fontSize: isHeadline ? 28 : (fontSize ?? page.fontSize),
           fontWeight: isHeadline ? FontWeight.w900 : FontWeight.w400,
-          fontFamily: page.fontFamily,
-          height: page.lineSpacing,
-          letterSpacing: page.letterSpacing,
+          fontFamily: fontFamily ?? page.fontFamily,
+          height: lineSpacing ?? page.lineSpacing,
+          letterSpacing: isHeadline ? -0.5 : (letterSpacing ?? page.letterSpacing),
         ),
       ),
       maxLines: null,
-      textAlign: page.textAlign,
+      textAlign: textAlign ?? page.textAlign,
       textDirection: TextDirection.ltr,
     );
 
@@ -224,6 +267,11 @@ class _WritePageState extends State<WritePage> {
               block.text!,
               isHeadline: block.isHeadline,
               fontColor: block.fontColor,
+              fontSize: block.fontSize,
+              fontFamily: block.fontFamily,
+              lineSpacing: block.lineSpacing,
+              letterSpacing: block.letterSpacing,
+              textAlign: block.textAlign,
             ),
           );
         } else if (block.type == "image") {
@@ -338,7 +386,12 @@ class _WritePageState extends State<WritePage> {
         PageBlock? lastBlock;
         if (page.blocks.isNotEmpty && page.blocks.last.type == "text") {
           if (page.blocks.last.isHeadline == srcBlock.isHeadline &&
-              page.blocks.last.fontColor == srcBlock.fontColor) {
+              page.blocks.last.fontColor == srcBlock.fontColor &&
+              page.blocks.last.fontSize == srcBlock.fontSize &&
+              page.blocks.last.fontFamily == srcBlock.fontFamily &&
+              page.blocks.last.lineSpacing == srcBlock.lineSpacing &&
+              page.blocks.last.letterSpacing == srcBlock.letterSpacing &&
+              page.blocks.last.textAlign == srcBlock.textAlign) {
             lastBlock = page.blocks.last;
           }
         }
@@ -348,6 +401,11 @@ class _WritePageState extends State<WritePage> {
             "",
             isHeadline: srcBlock.isHeadline,
             fontColor: srcBlock.fontColor,
+            fontSize: srcBlock.fontSize,
+            fontFamily: srcBlock.fontFamily,
+            lineSpacing: srcBlock.lineSpacing,
+            letterSpacing: srcBlock.letterSpacing,
+            textAlign: srcBlock.textAlign,
           );
           page.blocks.add(lastBlock);
         }
@@ -394,6 +452,11 @@ class _WritePageState extends State<WritePage> {
               page,
               maxWidth,
               isHeadline: srcBlock.isHeadline,
+              fontSize: srcBlock.fontSize,
+              fontFamily: srcBlock.fontFamily,
+              lineSpacing: srcBlock.lineSpacing,
+              letterSpacing: srcBlock.letterSpacing,
+              textAlign: srcBlock.textAlign,
             )) {
               high = mid - 1;
             } else {
@@ -559,6 +622,11 @@ class _WritePageState extends State<WritePage> {
                 blockToMove.text ?? "",
                 isHeadline: blockToMove.isHeadline,
                 fontColor: blockToMove.fontColor,
+                fontSize: blockToMove.fontSize,
+                fontFamily: blockToMove.fontFamily,
+                lineSpacing: blockToMove.lineSpacing,
+                letterSpacing: blockToMove.letterSpacing,
+                textAlign: blockToMove.textAlign,
               ),
             );
             nextPage.blocks.remove(blockToMove);
@@ -614,7 +682,14 @@ class _WritePageState extends State<WritePage> {
                 PageBlock.text(
                   block['text'] ?? "",
                   isHeadline: block['isHeadline'] ?? false,
-                  fontColor: block['fontColor'], // LOAD COLOR
+                  fontSize: (block['fontSize'] as num?)?.toDouble(),
+                  fontFamily: block['fontFamily'] as String?,
+                  fontColor: (block['fontColor'] as num?)?.toInt(),
+                  lineSpacing: (block['lineSpacing'] as num?)?.toDouble(),
+                  letterSpacing: (block['letterSpacing'] as num?)?.toDouble(),
+                  textAlign: block['textAlign'] != null
+                      ? TextAlign.values[(block['textAlign'] as num).toInt()]
+                      : null,
                 ),
               );
             }
@@ -753,6 +828,11 @@ class _WritePageState extends State<WritePage> {
           "imagePosY": block.imagePosition?.dy,
           "isHeadline": block.isHeadline,
           "fontColor": block.fontColor,
+          "fontSize": block.fontSize,
+          "fontFamily": block.fontFamily,
+          "lineSpacing": block.lineSpacing,
+          "letterSpacing": block.letterSpacing,
+          "textAlign": block.textAlign?.index,
         });
       }
 
@@ -1005,6 +1085,231 @@ class _WritePageState extends State<WritePage> {
     });
   }
 
+  void _applyStyleToSelection({
+    double? fontSize,
+    String? fontFamily,
+    int? fontColor,
+    bool? isHeadline,
+    double? lineSpacing,
+    double? letterSpacing,
+    TextAlign? textAlign,
+  }) {
+    if (_focusedBlockIndex == null) return;
+    final pageIdx = _currentPage;
+    final page = _pages[pageIdx];
+    final blockIndex = _focusedBlockIndex!;
+    final block = page.blocks[blockIndex];
+    if (block.type != "text") return;
+
+    final key = "$pageIdx-$blockIndex";
+    final controller = _controllers[key];
+    if (controller == null) return;
+
+    final selection = controller.selection;
+    final text = controller.text;
+
+    // BOUNDS CHECK
+    if (fontSize != null && fontSize < 12) fontSize = 12;
+
+    // ALIGNMENT and LINE SPACING usually apply to the entire paragraph/block.
+    // However, if the user HAS a selection, we respect their wish to split it.
+    if (selection.isCollapsed ||
+        selection.start == -1 ||
+        selection.start == selection.end) {
+      if (textAlign != null || lineSpacing != null) {
+        setState(() {
+          if (textAlign != null) block.textAlign = textAlign;
+          if (lineSpacing != null) block.lineSpacing = lineSpacing;
+        });
+        // If ONLY alignment/spacing was changed, we don't need to do more.
+        if (fontSize == null &&
+            fontFamily == null &&
+            fontColor == null &&
+            isHeadline == null &&
+            letterSpacing == null) {
+          return;
+        }
+      }
+    }
+
+    if (selection.isCollapsed ||
+        selection.start == -1 ||
+        selection.start == selection.end) {
+      // Apply to WHOLE block (block-level override)
+      setState(() {
+        if (fontSize != null) block.fontSize = fontSize;
+        if (fontFamily != null) block.fontFamily = fontFamily;
+        if (fontColor != null) block.fontColor = fontColor;
+        if (isHeadline != null) block.isHeadline = isHeadline;
+        if (lineSpacing != null) block.lineSpacing = lineSpacing;
+        if (letterSpacing != null) block.letterSpacing = letterSpacing;
+        if (textAlign != null) block.textAlign = textAlign;
+      });
+      return;
+    }
+
+    // SPLIT BLOCK
+    final beforeText = text.substring(0, selection.start);
+    final selectedText = text.substring(selection.start, selection.end);
+    final afterText = text.substring(selection.end);
+
+    setState(() {
+      page.blocks.removeAt(blockIndex);
+
+      int insertAt = blockIndex;
+
+      if (beforeText.isNotEmpty) {
+        page.blocks.insert(
+          insertAt++,
+          PageBlock.text(
+            beforeText,
+            isHeadline: block.isHeadline,
+            fontColor: block.fontColor,
+            fontSize: block.fontSize,
+            fontFamily: block.fontFamily,
+            lineSpacing: block.lineSpacing,
+            letterSpacing: block.letterSpacing,
+            textAlign: block.textAlign,
+          ),
+        );
+      }
+
+      final middleBlock = PageBlock.text(
+        (isHeadline ?? block.isHeadline)
+            ? selectedText.toUpperCase()
+            : selectedText,
+        isHeadline: isHeadline ?? block.isHeadline,
+        fontColor: fontColor ?? block.fontColor,
+        fontSize: fontSize ?? block.fontSize,
+        fontFamily: fontFamily ?? block.fontFamily,
+        lineSpacing: lineSpacing ?? block.lineSpacing,
+        letterSpacing: letterSpacing ?? block.letterSpacing,
+        textAlign: textAlign ?? block.textAlign,
+      );
+      final int activeBlockIndex = insertAt;
+      page.blocks.insert(insertAt++, middleBlock);
+
+      if (afterText.isNotEmpty) {
+        page.blocks.insert(
+          insertAt++,
+          PageBlock.text(
+            afterText,
+            isHeadline: block.isHeadline,
+            fontColor: block.fontColor,
+            fontSize: block.fontSize,
+            fontFamily: block.fontFamily,
+            lineSpacing: block.lineSpacing,
+            letterSpacing: block.letterSpacing,
+            textAlign: block.textAlign,
+          ),
+        );
+      }
+
+      // Restore focus to the middle block
+      _focusedBlockIndex = activeBlockIndex;
+    });
+
+    _rebalancePagesFromIndex(pageIdx);
+
+    // RESTORE SELECTION & FOCUS POST-REBALANCE
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final newKey = "$pageIdx-$_focusedBlockIndex";
+      if (_controllers.containsKey(newKey)) {
+        final ctrl = _controllers[newKey]!;
+        final len = ctrl.text.length;
+        ctrl.selection = TextSelection(baseOffset: 0, extentOffset: len);
+        if (_focusNodes.containsKey(newKey)) {
+          FocusScope.of(context).requestFocus(_focusNodes[newKey]);
+        }
+      }
+    });
+  }
+
+  void _applyGlobalStyle({
+    double? fontSize,
+    String? fontFamily,
+    double? lineSpacing,
+    double? letterSpacing,
+    TextAlign? textAlign,
+    double? pageMargin,
+  }) {
+    setState(() {
+      for (var p in _pages) {
+        if (fontSize != null) p.fontSize = fontSize;
+        if (fontFamily != null) p.fontFamily = fontFamily;
+        if (lineSpacing != null) p.lineSpacing = lineSpacing;
+        if (letterSpacing != null) p.letterSpacing = letterSpacing;
+        if (textAlign != null) p.textAlign = textAlign;
+        if (pageMargin != null) p.pageMargin = pageMargin;
+
+        for (var b in p.blocks) {
+          if (b.type == "text") {
+            if (fontSize != null) b.fontSize = fontSize;
+            if (fontFamily != null) b.fontFamily = fontFamily;
+            if (lineSpacing != null) b.lineSpacing = lineSpacing;
+            if (letterSpacing != null) b.letterSpacing = letterSpacing;
+            if (textAlign != null) b.textAlign = textAlign;
+          }
+        }
+      }
+    });
+
+    if (fontSize != null ||
+        fontFamily != null ||
+        lineSpacing != null ||
+        letterSpacing != null ||
+        pageMargin != null) {
+      _rebalancePagesFromIndex(0);
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_focusedBlockIndex != null && _currentPage < _pages.length) {
+        final newKey = "$_currentPage-$_focusedBlockIndex";
+        if (_focusNodes.containsKey(newKey)) {
+          FocusScope.of(context).requestFocus(_focusNodes[newKey]);
+        }
+      }
+    });
+  }
+
+  void _applyStyleSmartly({
+    double? fontSize,
+    String? fontFamily,
+    double? lineSpacing,
+    double? letterSpacing,
+    TextAlign? textAlign,
+  }) {
+    bool hasSelection = false;
+    if (_focusedBlockIndex != null) {
+      final key = "$_currentPage-$_focusedBlockIndex";
+      final ctrl = _controllers[key];
+      if (ctrl != null &&
+          ctrl.selection.isValid &&
+          !ctrl.selection.isCollapsed &&
+          ctrl.selection.start != -1) {
+        hasSelection = true;
+      }
+    }
+
+    if (hasSelection) {
+      _applyStyleToSelection(
+        fontSize: fontSize,
+        fontFamily: fontFamily,
+        lineSpacing: lineSpacing,
+        letterSpacing: letterSpacing,
+        textAlign: textAlign,
+      );
+    } else {
+      _applyGlobalStyle(
+        fontSize: fontSize,
+        fontFamily: fontFamily,
+        lineSpacing: lineSpacing,
+        letterSpacing: letterSpacing,
+        textAlign: textAlign,
+      );
+    }
+  }
+
   // FIXED BUILD METHOD START
   @override
   Widget build(BuildContext context) {
@@ -1236,30 +1541,34 @@ class _WritePageState extends State<WritePage> {
                                                       blockIndex,
                                                     );
                                                   },
-                                                  textAlign:
+                                                  textAlign: block.textAlign ??
                                                       _pages[index].textAlign,
-                                                  style: TextStyle(
+                                                  style: GoogleFonts.getFont(
+                                                    block.fontFamily ??
+                                                        _pages[index]
+                                                            .fontFamily,
                                                     fontSize: block.isHeadline
                                                         ? 28
-                                                        : _pages[index]
-                                                              .fontSize,
+                                                        : (block.fontSize ??
+                                                            _pages[index]
+                                                                .fontSize),
                                                     fontWeight: block.isHeadline
                                                         ? FontWeight.w900
                                                         : FontWeight.w400,
-                                                    fontFamily: _pages[index]
-                                                        .fontFamily,
                                                     color: Color(
                                                       block.fontColor ??
                                                           _pages[index]
                                                               .fontColor,
                                                     ),
-                                                    height: _pages[index]
-                                                        .lineSpacing,
-                                                    letterSpacing:
-                                                        block.isHeadline
+                                                    height: block.lineSpacing ??
+                                                        _pages[index]
+                                                            .lineSpacing,
+                                                    letterSpacing: block
+                                                            .isHeadline
                                                         ? -0.5
-                                                        : _pages[index]
-                                                              .letterSpacing,
+                                                        : (block.letterSpacing ??
+                                                            _pages[index]
+                                                                .letterSpacing),
                                                     backgroundColor: null,
                                                   ),
                                                   decoration: InputDecoration(
@@ -1601,6 +1910,7 @@ class _WritePageState extends State<WritePage> {
   }
 
   void _showStylePicker() {
+    FocusManager.instance.primaryFocus?.unfocus();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1655,16 +1965,17 @@ class _WritePageState extends State<WritePage> {
                           ),
                         ),
                         TextButton(
-                          onPressed: () {
-                            setState(() {
-                              page.fontSize = 22;
-                              page.lineSpacing = 1.4;
-                              page.letterSpacing = 0.0;
-                              page.fontFamily = "Roboto";
-                              page.textAlign = TextAlign.left;
-                            });
-                            setModalState(() {});
-                          },
+                            onPressed: () {
+                              _applyGlobalStyle(
+                                fontSize: 22,
+                                lineSpacing: 1.4,
+                                letterSpacing: 0.0,
+                                fontFamily: "Mukta Malar",
+                                textAlign: TextAlign.left,
+                                pageMargin: 50.0,
+                              );
+                              setModalState(() {});
+                            },
                           child: const Text(
                             "RESET",
                             style: TextStyle(
@@ -1687,16 +1998,20 @@ class _WritePageState extends State<WritePage> {
                         _buildSectionHeaderLabel("FONT SIZE"),
                         const SizedBox(height: 16),
                         _buildStepper(
-                          value: "${page.fontSize.toInt()} px",
+                          value: "${(focusedBlock?.fontSize ?? page.fontSize).toInt()} px",
                           onDecrement: () {
                             if (page.fontSize > 16) {
-                              setState(() => page.fontSize--);
+                              _applyStyleSmartly(
+                                fontSize: (focusedBlock?.fontSize ?? page.fontSize) - 1,
+                              );
                               setModalState(() {});
                             }
                           },
                           onIncrement: () {
                             if (page.fontSize < 48) {
-                              setState(() => page.fontSize++);
+                              _applyStyleSmartly(
+                                fontSize: (focusedBlock?.fontSize ?? page.fontSize) + 1,
+                              );
                               setModalState(() {});
                             }
                           },
@@ -1707,60 +2022,62 @@ class _WritePageState extends State<WritePage> {
                         // --- FONT FAMILY ---
                         _buildSectionHeaderLabel("FONT FAMILY"),
                         const SizedBox(height: 16),
-                        Container(
+                        SizedBox(
                           height: 54,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Row(
-                            children: _fontFamilies.take(3).map((font) {
-                              final isSelected = page.fontFamily == font;
-                              return Expanded(
-                                child: GestureDetector(
-                                  onTap: () {
-                                    HapticFeedback.selectionClick();
-                                    setState(() => page.fontFamily = font);
-                                    setModalState(() {});
-                                  },
-                                  child: Container(
-                                    height: 46,
-                                    margin: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? Colors.white
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(12),
-                                      boxShadow: isSelected
-                                          ? [
-                                              BoxShadow(
-                                                color: Colors.black.withOpacity(
-                                                  0.05,
-                                                ),
-                                                blurRadius: 10,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _fontFamilies.length,
+                            itemBuilder: (context, idx) {
+                              final font = _fontFamilies[idx];
+                              final isSelected = (focusedBlock != null)
+                                  ? (focusedBlock.fontFamily ??
+                                          page.fontFamily) ==
+                                      font
+                                  : page.fontFamily == font;
+                              return GestureDetector(
+                                onTap: () {
+                                  HapticFeedback.selectionClick();
+                                  _applyStyleSmartly(fontFamily: font);
+                                  setModalState(() {});
+                                },
+                                child: Container(
+                                  height: 46,
+                                  width: 120, // Enough for Tamil font names
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? Colors.white
+                                        : Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: isSelected
+                                        ? [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(
+                                                0.05,
                                               ),
-                                            ]
-                                          : null,
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Text(
+                                              blurRadius: 10,
+                                            ),
+                                          ]
+                                        : null,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    font,
+                                    style: GoogleFonts.getFont(
                                       font,
-                                      style: TextStyle(
-                                        fontFamily: font,
-                                        fontWeight: isSelected
-                                            ? FontWeight.w900
-                                            : FontWeight.w600,
-                                        color: isSelected
-                                            ? Colors.black
-                                            : Colors.grey.shade500,
-                                      ),
+                                      fontWeight: isSelected
+                                          ? FontWeight.w900
+                                          : FontWeight.w600,
+                                      color: isSelected
+                                          ? Colors.black
+                                          : Colors.grey.shade500,
                                     ),
                                   ),
                                 ),
                               );
-                            }).toList(),
+                            },
                           ),
                         ),
 
@@ -1774,16 +2091,21 @@ class _WritePageState extends State<WritePage> {
                             Expanded(
                               child: _buildTypographyStepper(
                                 label: "LINE SPACING",
-                                value: page.lineSpacing.toStringAsFixed(1),
+                                value: (focusedBlock?.lineSpacing ?? page.lineSpacing)
+                                    .toStringAsFixed(1),
                                 onDecrement: () {
                                   if (page.lineSpacing > 1.0) {
-                                    setState(() => page.lineSpacing -= 0.1);
+                                    _applyStyleSmartly(
+                                      lineSpacing: (focusedBlock?.lineSpacing ?? page.lineSpacing) - 0.1,
+                                    );
                                     setModalState(() {});
                                   }
                                 },
                                 onIncrement: () {
                                   if (page.lineSpacing < 3.0) {
-                                    setState(() => page.lineSpacing += 0.1);
+                                    _applyStyleSmartly(
+                                      lineSpacing: (focusedBlock?.lineSpacing ?? page.lineSpacing) + 0.1,
+                                    );
                                     setModalState(() {});
                                   }
                                 },
@@ -1793,16 +2115,21 @@ class _WritePageState extends State<WritePage> {
                             Expanded(
                               child: _buildTypographyStepper(
                                 label: "LETTERING",
-                                value: page.letterSpacing.toStringAsFixed(1),
+                                value: (focusedBlock?.letterSpacing ?? page.letterSpacing)
+                                    .toStringAsFixed(1),
                                 onDecrement: () {
                                   if (page.letterSpacing > -2.0) {
-                                    setState(() => page.letterSpacing -= 0.1);
+                                    _applyStyleSmartly(
+                                      letterSpacing: (focusedBlock?.letterSpacing ?? page.letterSpacing) - 0.1,
+                                    );
                                     setModalState(() {});
                                   }
                                 },
                                 onIncrement: () {
                                   if (page.letterSpacing < 5.0) {
-                                    setState(() => page.letterSpacing += 0.1);
+                                    _applyStyleSmartly(
+                                      letterSpacing: (focusedBlock?.letterSpacing ?? page.letterSpacing) + 0.1,
+                                    );
                                     setModalState(() {});
                                   }
                                 },
@@ -1832,33 +2159,27 @@ class _WritePageState extends State<WritePage> {
                                       children: [
                                         _buildAlignButton(
                                           TextAlign.left,
-                                          page.textAlign,
+                                          focusedBlock?.textAlign ?? page.textAlign,
                                           (val) {
-                                            setState(
-                                              () => page.textAlign = val,
-                                            );
+                                            _applyStyleSmartly(textAlign: val);
                                             setModalState(() {});
                                           },
                                           Icons.format_align_left_rounded,
                                         ),
                                         _buildAlignButton(
                                           TextAlign.center,
-                                          page.textAlign,
+                                          focusedBlock?.textAlign ?? page.textAlign,
                                           (val) {
-                                            setState(
-                                              () => page.textAlign = val,
-                                            );
+                                            _applyStyleSmartly(textAlign: val);
                                             setModalState(() {});
                                           },
                                           Icons.format_align_center_rounded,
                                         ),
                                         _buildAlignButton(
                                           TextAlign.right,
-                                          page.textAlign,
+                                          focusedBlock?.textAlign ?? page.textAlign,
                                           (val) {
-                                            setState(
-                                              () => page.textAlign = val,
-                                            );
+                                            _applyStyleSmartly(textAlign: val);
                                             setModalState(() {});
                                           },
                                           Icons.format_align_right_rounded,
@@ -1876,13 +2197,13 @@ class _WritePageState extends State<WritePage> {
                                 value: page.pageMargin.toInt().toString(),
                                 onDecrement: () {
                                   if (page.pageMargin > 10) {
-                                    setState(() => page.pageMargin -= 5);
+                                    _applyGlobalStyle(pageMargin: page.pageMargin - 5);
                                     setModalState(() {});
                                   }
                                 },
                                 onIncrement: () {
                                   if (page.pageMargin < 100) {
-                                    setState(() => page.pageMargin += 5);
+                                    _applyGlobalStyle(pageMargin: page.pageMargin + 5);
                                     setModalState(() {});
                                   }
                                 },
@@ -1907,21 +2228,9 @@ class _WritePageState extends State<WritePage> {
                               () {
                                 HapticFeedback.mediumImpact();
                                 if (focusedBlock != null) {
-                                  setState(() {
-                                    focusedBlock.isHeadline =
-                                        !focusedBlock.isHeadline;
-                                    if (focusedBlock.isHeadline &&
-                                        focusedBlock.text != null) {
-                                      focusedBlock.text = focusedBlock.text!
-                                          .toUpperCase();
-                                      String key =
-                                          "$_currentPage-$_focusedBlockIndex";
-                                      if (_controllers.containsKey(key)) {
-                                        _controllers[key]!.text =
-                                            focusedBlock.text!;
-                                      }
-                                    }
-                                  });
+                                  _applyStyleToSelection(
+                                    isHeadline: !focusedBlock.isHeadline,
+                                  );
                                   setModalState(() {});
                                 } else {
                                   setState(
@@ -1963,12 +2272,10 @@ class _WritePageState extends State<WritePage> {
                                 setState(() {
                                   _activeColor = colorValue;
 
-                                  // Split block if it has text, so new text gets new color
-                                  if (focusedBlock != null &&
-                                      (focusedBlock.text ?? "").isNotEmpty) {
-                                    _addNewTextBlock(_currentPage);
-                                  } else if (focusedBlock != null) {
-                                    focusedBlock.fontColor = colorValue;
+                                  if (focusedBlock != null) {
+                                    _applyStyleToSelection(
+                                      fontColor: colorValue,
+                                    );
                                   }
                                 });
                                 setModalState(() {});

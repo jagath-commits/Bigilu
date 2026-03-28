@@ -9,6 +9,7 @@ import 'package:bigilu/TermsPage.dart';
 import 'package:bigilu/hashtag.dart';
 import 'package:bigilu/profile1.dart';
 import 'package:bigilu/write.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:bigilu/notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -74,9 +75,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
       // 🔥 STREAM LISTENER
       _linkSub = _appLinks.uriLinkStream.listen((uri) {
-        if (uri != null) {
-          handleLink(uri.toString());
-        }
+        handleLink(uri.toString());
       });
     } catch (e) {
       print("Deep link error: $e");
@@ -1705,12 +1704,12 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
     }
   }
 
-  // Reader Settings (Synced with uploaded UI)
-  double _fontSize = 18.0;
-  String _fontFamily = "Lora";
-  double _lineHeight = 1.6;
+  // Reader Settings (Synced with uploaded UI & Writer Defaults)
+  double _fontSize = 22.0;
+  String _fontFamily = "Roboto";
+  double _lineHeight = 1.4;
   TextAlign _alignment = TextAlign.left;
-  double _letterSpacing = 0.2;
+  double _letterSpacing = 0.0;
   double _horizontalPadding = 50.0;
   String _currentTheme = "Sepia"; // Light, Sepia, Dark
 
@@ -1725,10 +1724,10 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _fontSize = prefs.getDouble("reader_font_size") ?? 18.0;
-      _fontFamily = prefs.getString("reader_font_family") ?? "Lora";
-      _lineHeight = prefs.getDouble("reader_line_height") ?? 1.6;
-      _letterSpacing = prefs.getDouble("reader_letter_spacing") ?? 0.2;
+      _fontSize = prefs.getDouble("reader_font_size") ?? 22.0;
+      _fontFamily = prefs.getString("reader_font_family") ?? "Roboto";
+      _lineHeight = prefs.getDouble("reader_line_height") ?? 1.4;
+      _letterSpacing = prefs.getDouble("reader_letter_spacing") ?? 0.0;
       _horizontalPadding = prefs.getDouble("reader_horizontal_padding") ?? 50.0;
       _currentTheme = prefs.getString("reader_theme") ?? "Sepia";
       String align = prefs.getString("reader_alignment") ?? "left";
@@ -2158,118 +2157,203 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
                                 // Content Height Constraint
                                 SingleChildScrollView(
                                   physics: const BouncingScrollPhysics(),
-                                  child: Padding(
-                                    padding: EdgeInsets.fromLTRB(
-                                      _horizontalPadding,
-                                      60,
-                                      _horizontalPadding * 0.8,
-                                      100,
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          _alignment == TextAlign.center
-                                          ? CrossAxisAlignment.center
-                                          : (_alignment == TextAlign.justify
-                                                ? CrossAxisAlignment.stretch
-                                                : CrossAxisAlignment.start),
-                                      children: [
-                                        ...blocks.map<Widget>((block) {
-                                          if (block['type'] == 'text') {
-                                            bool isHeadline =
-                                                block['isHeadline'] ?? false;
-                                            return Padding(
-                                              padding: EdgeInsets.only(
-                                                bottom: isHeadline ? 32 : 24,
-                                                top: isHeadline ? 12 : 0,
-                                              ),
-                                              child: SelectableText(
-                                                isHeadline
-                                                    ? (block['text'] ?? "")
-                                                          .toString()
-                                                          .toUpperCase()
-                                                    : (block['text'] ?? ""),
-                                                textAlign: _alignment,
-                                                style: TextStyle(
-                                                  fontSize: isHeadline
-                                                      ? _fontSize * 1.3
-                                                      : _fontSize,
-                                                  fontFamily: _fontFamily,
-                                                  backgroundColor: null,
-                                                  color:
-                                                      block['fontColor'] != null
-                                                      ? Color(
-                                                          block['fontColor'],
-                                                        )
-                                                      : textColor.withOpacity(
-                                                          isHeadline
-                                                              ? 1.0
-                                                              : 0.85,
-                                                        ),
-                                                  height: _lineHeight,
-                                                  letterSpacing: _letterSpacing,
-                                                  fontWeight: isHeadline
-                                                      ? FontWeight.w900
-                                                      : FontWeight.w400,
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                          if (block['type'] == 'image') {
-                                            return Container(
-                                              margin: const EdgeInsets.only(
-                                                bottom: 32,
-                                                top: 4,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: Colors.black
-                                                        .withOpacity(0.1),
-                                                    blurRadius: 20,
-                                                    offset: const Offset(0, 10),
+                                  child: Builder(
+                                    builder: (context) {
+                                      final pageAlignIdx =
+                                          (page['textAlign'] is num)
+                                              ? (page['textAlign'] as num)
+                                                  .toInt()
+                                              : (int.tryParse(
+                                                page['textAlign']?.toString() ??
+                                                    "",
+                                              ));
+                                      final TextAlign pageAlignment =
+                                          (pageAlignIdx != null &&
+                                                  pageAlignIdx >= 0 &&
+                                                  pageAlignIdx <
+                                                      TextAlign.values.length)
+                                              ? TextAlign.values[pageAlignIdx]
+                                              : _alignment;
+
+                                      final CrossAxisAlignment pageCrossAlign =
+                                          pageAlignment == TextAlign.center
+                                              ? CrossAxisAlignment.center
+                                              : (pageAlignment ==
+                                                      TextAlign.justify
+                                                  ? CrossAxisAlignment.stretch
+                                                  : CrossAxisAlignment.start);
+
+                                      final double pageMargin =
+                                          (page['pageMargin'] is num)
+                                              ? (page['pageMargin'] as num)
+                                                  .toDouble()
+                                              : _horizontalPadding;
+
+                                      final double pageFontSize =
+                                          (page['fontSize'] is num)
+                                              ? (page['fontSize'] as num)
+                                                  .toDouble()
+                                              : _fontSize;
+
+                                      final double pageLineHeight =
+                                          (page['lineSpacing'] is num)
+                                              ? (page['lineSpacing'] as num)
+                                                  .toDouble()
+                                              : _lineHeight;
+
+                                      final String pageFontFamily =
+                                          page['fontFamily']?.toString() ??
+                                          _fontFamily;
+                                      final double pageLetterSpacing =
+                                          (page['letterSpacing'] is num)
+                                              ? (page['letterSpacing'] as num)
+                                                  .toDouble()
+                                              : _letterSpacing;
+
+                                      return Padding(
+                                        padding: EdgeInsets.fromLTRB(
+                                          pageMargin,
+                                          40,
+                                          pageMargin,
+                                          40,
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment: pageCrossAlign,
+                                          children: [
+                                            ...blocks.map<Widget>((block) {
+                                              if (block['type'] == 'text') {
+                                                bool isHeadline =
+                                                    block['isHeadline'] ??
+                                                    false;
+                                                return Padding(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 4,
+                                                      ),
+                                                  child: SelectableText(
+                                                    isHeadline
+                                                        ? (block['text'] ?? "")
+                                                              .toString()
+                                                              .toUpperCase()
+                                                        : (block['text'] ?? ""),
+                                                    textAlign: block['textAlign'] != null
+                                                        ? TextAlign.values[(block['textAlign'] as num).toInt()]
+                                                        : pageAlignment,
+                                                    style: GoogleFonts.getFont(
+                                                      block['fontFamily']
+                                                              ?.toString() ??
+                                                          pageFontFamily,
+                                                      fontSize: isHeadline
+                                                          ? 28
+                                                          : (block['fontSize']
+                                                                      is num
+                                                                  ? (block['fontSize']
+                                                                          as num)
+                                                                      .toDouble()
+                                                                  : pageFontSize),
+                                                      backgroundColor: null,
+                                                      color:
+                                                          block['fontColor'] !=
+                                                              null
+                                                          ? Color(
+                                                              (block['fontColor']
+                                                                      as num)
+                                                                   .toInt(),
+                                                            )
+                                                          : textColor.withOpacity(
+                                                              isHeadline
+                                                                  ? 1.0
+                                                                  : 0.85,
+                                                             ),
+                                                      height: block['lineSpacing']
+                                                                  is num
+                                                          ? (block['lineSpacing']
+                                                                  as num)
+                                                              .toDouble()
+                                                          : pageLineHeight,
+                                                      letterSpacing: isHeadline
+                                                          ? -0.5
+                                                          : (block['letterSpacing']
+                                                                      is num
+                                                                  ? (block['letterSpacing']
+                                                                          as num)
+                                                                      .toDouble()
+                                                                  : pageLetterSpacing),
+                                                      fontWeight: isHeadline
+                                                          ? FontWeight.w900
+                                                          : FontWeight.w400,
+                                                    ),
                                                   ),
-                                                ],
-                                              ),
-                                              child: ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                child: Image.network(
-                                                  fullImageUrl(block['image']),
-                                                  fit: BoxFit.cover,
-                                                  loadingBuilder:
-                                                      (
-                                                        context,
-                                                        child,
-                                                        progress,
-                                                      ) {
-                                                        if (progress == null) {
-                                                          return child;
-                                                        }
-                                                        return Container(
-                                                          height: 200,
-                                                          color: textColor
-                                                              .withOpacity(
-                                                                0.03,
+                                                );
+                                              }
+                                              if (block['type'] == 'image') {
+                                                return Container(
+                                                  margin:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 16,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          8,
+                                                        ),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: Colors.black
+                                                            .withOpacity(0.1),
+                                                        blurRadius: 20,
+                                                        offset: const Offset(
+                                                          0,
+                                                          10,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  child: ClipRRect(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          8,
+                                                        ),
+                                                    child: Image.network(
+                                                      fullImageUrl(
+                                                        block['image'],
+                                                      ),
+                                                      fit: BoxFit.cover,
+                                                      loadingBuilder:
+                                                          (
+                                                            context,
+                                                            child,
+                                                            progress,
+                                                          ) {
+                                                            if (progress ==
+                                                                null) {
+                                                              return child;
+                                                            }
+                                                            return Container(
+                                                              height: 200,
+                                                              color: textColor
+                                                                  .withOpacity(
+                                                                    0.03,
+                                                                  ),
+                                                              child: const Center(
+                                                                child:
+                                                                    CircularProgressIndicator(
+                                                                      strokeWidth:
+                                                                          2,
+                                                                    ),
                                                               ),
-                                                          child: const Center(
-                                                            child:
-                                                                CircularProgressIndicator(
-                                                                  strokeWidth:
-                                                                      2,
-                                                                ),
-                                                          ),
-                                                        );
-                                                      },
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                          return const SizedBox();
-                                        }).toList(),
-                                      ],
-                                    ),
+                                                            );
+                                                          },
+                                                    ),
+                                                  ),
+                                                );
+                                              }
+                                              return const SizedBox();
+                                            }).toList(),
+                                          ],
+                                        ),
+                                      );
+                                    },
                                   ),
                                 ),
 

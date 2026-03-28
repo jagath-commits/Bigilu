@@ -1,0 +1,864 @@
+﻿Analyzing Bigilu...                                             
+
+   info - The file name 'PrivacyPage.dart' isn't a lower_case_with_underscores identifier - lib\PrivacyPage.dart:1:1 - file_names
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\PrivacyPage.dart:89:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\PrivacyPage.dart:91:54 - deprecated_member_use
+   info - The file name 'TermsPage.dart' isn't a lower_case_with_underscores identifier - lib\TermsPage.dart:1:1 - file_names
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\TermsPage.dart:88:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\TermsPage.dart:90:54 - deprecated_member_use
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\hashtag.dart:59:22 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\hashtag.dart:79:28 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\hashtag.dart:86:41 - deprecated_member_use
+  error - The name 'TextField' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/material/text_field.dart (via package:flutter/material.dart)' - lib\hashtag.dart:92:22 - ambiguous_import
+  error - The named parameter 'onChanged' isn't defined - lib\hashtag.dart:94:17 - undefined_named_parameter
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\hashtag.dart:104:41 - prefix_shadowed_by_local_declaration
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\hashtag.dart:121:36 - prefix_shadowed_by_local_declaration
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\hashtag.dart:148:45 - prefix_shadowed_by_local_declaration
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\hashtag.dart:149:46 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\hashtag.dart:155:57 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\hashtag.dart:161:55 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\hashtag.dart:167:52 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\hashtag.dart:169:57 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\hashtag.dart:178:41 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\hashtag.dart:184:41 - ambiguous_import
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\hashtag.dart:192:47 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\hashtag.dart:193:41 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\hashtag.dart:229:33 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\hashtag.dart:237:26 - prefix_shadowed_by_local_declaration
+   info - Don't use 'BuildContext's across async gaps - lib\hashtag.dart:269:23 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\hashtag.dart:304:34 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\hashtag.dart:305:37 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\hashtag.dart:307:26 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\hashtag.dart:310:38 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\hashtag.dart:313:40 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\hashtag.dart:318:42 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\hashtag.dart:333:21 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\hashtag.dart:334:15 - ambiguous_import
+  error - The named parameter 'textAlign' isn't defined - lib\hashtag.dart:343:17 - undefined_named_parameter
+   info - Don't invoke 'print' in production code - lib\hashtag.dart:445:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\hashtag.dart:449:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\hashtag.dart:450:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\hashtag.dart:462:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\hashtag.dart:533:11 - avoid_print
+   info - Don't invoke 'print' in production code - lib\hashtag.dart:552:11 - avoid_print
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\hashtag.dart:567:16 - ambiguous_import
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\hashtag.dart:602:25 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\hashtag.dart:603:19 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\hashtag.dart:616:30 - prefix_shadowed_by_local_declaration
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\hashtag.dart:706:19 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\hashtag.dart:715:13 - ambiguous_import
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\hashtag.dart:753:30 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\hashtag.dart:755:41 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\hashtag.dart:761:53 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\hashtag.dart:783:56 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\hashtag.dart:784:56 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\hashtag.dart:798:49 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\hashtag.dart:805:52 - prefix_shadowed_by_local_declaration
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\hashtag.dart:820:62 - prefix_shadowed_by_local_declaration
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\hashtag.dart:823:54 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\hashtag.dart:828:68 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\hashtag.dart:844:61 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\hashtag.dart:853:58 - deprecated_member_use
+   info - Statements in an if should be enclosed in a block - lib\hashtag.dart:872:59 - curly_braces_in_flow_control_structures
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\hashtag.dart:893:56 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\hashtag.dart:904:44 - ambiguous_import
+warning - The operand can't be 'null', so the condition is always 'true' - lib\home.dart:78:17 - unnecessary_null_comparison
+   info - Don't invoke 'print' in production code - lib\home.dart:83:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:90:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:110:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:124:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:127:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:145:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:151:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:161:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:194:15 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:220:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:222:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:275:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:331:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:356:11 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:358:11 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:376:11 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:378:11 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:382:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:384:7 - avoid_print
+   info - 'WillPopScope' is deprecated and shouldn't be used. Use PopScope instead. The Android predictive back feature will not work with WillPopScope. This feature was deprecated after v3.12.0-1.0.pre - lib\home.dart:390:12 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:413:30 - prefix_shadowed_by_local_declaration
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:423:30 - prefix_shadowed_by_local_declaration
+   info - Don't use 'BuildContext's across async gaps - lib\home.dart:430:25 - use_build_context_synchronously
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:439:36 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:445:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:446:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:452:58 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:468:30 - prefix_shadowed_by_local_declaration
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:472:36 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:485:58 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:521:44 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:523:62 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:532:33 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:533:27 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:551:44 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:553:62 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:562:33 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:563:27 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:587:32 - prefix_shadowed_by_local_declaration
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:597:36 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:624:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:629:35 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:636:26 - prefix_shadowed_by_local_declaration
+   info - Don't use 'BuildContext's across async gaps - lib\home.dart:667:23 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:705:34 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:706:37 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:708:26 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:711:38 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:714:40 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:719:42 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:734:21 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:735:15 - ambiguous_import
+  error - The named parameter 'textAlign' isn't defined - lib\home.dart:744:17 - undefined_named_parameter
+   info - The variable name 'list_pages' isn't a lowerCamelCase identifier - lib\home.dart:825:17 - non_constant_identifier_names
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:877:42 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:884:38 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:891:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:898:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:905:49 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:969:23 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:974:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:979:35 - deprecated_member_use
+  error - The name 'EdgeInsets' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/painting/edge_insets.dart (via 'package:flutter/material.dart' and 'package:flutter/rendering.dart')' - lib\home.dart:990:24 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:1010:38 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1014:58 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:1026:27 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:1032:27 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:1039:27 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:1050:38 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1055:56 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:1066:33 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:1067:27 - ambiguous_import
+  error - The name 'EdgeInsets' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/painting/edge_insets.dart (via 'package:flutter/material.dart' and 'package:flutter/rendering.dart')' - lib\home.dart:1085:24 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1102:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1135:57 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1146:52 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1177:53 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\home.dart:1238:57 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\home.dart:1238:61 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1268:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1269:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1271:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1272:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1291:56 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1292:56 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1293:56 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1294:56 - deprecated_member_use
+   info - Statements in an if should be enclosed in a block - lib\home.dart:1349:47 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\home.dart:1391:51 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\home.dart:1404:45 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\home.dart:1411:45 - curly_braces_in_flow_control_structures
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:1413:48 - ambiguous_import
+  error - The named parameter 'textAlign' isn't defined - lib\home.dart:1416:43 - undefined_named_parameter
+  error - The named parameter 'maxLines' isn't defined - lib\home.dart:1417:43 - undefined_named_parameter
+  error - The named parameter 'overflow' isn't defined - lib\home.dart:1418:43 - undefined_named_parameter
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1426:69 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:1449:42 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1462:53 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:1476:37 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:1477:31 - ambiguous_import
+  error - The name 'EdgeInsets' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/painting/edge_insets.dart (via 'package:flutter/material.dart' and 'package:flutter/rendering.dart')' - lib\home.dart:1498:24 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:1508:21 - ambiguous_import
+  error - The named parameter 'maxLines' isn't defined - lib\home.dart:1516:23 - undefined_named_parameter
+  error - The named parameter 'overflow' isn't defined - lib\home.dart:1517:23 - undefined_named_parameter
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:1521:38 - prefix_shadowed_by_local_declaration
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:1522:30 - ambiguous_import
+  error - The name 'EdgeInsets' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/painting/edge_insets.dart (via 'package:flutter/material.dart' and 'package:flutter/rendering.dart')' - lib\home.dart:1538:24 - ambiguous_import
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:1554:25 - ambiguous_import
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:1562:25 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:1595:30 - prefix_shadowed_by_local_declaration
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:1596:22 - ambiguous_import
+  error - The named parameter 'textAlign' isn't defined - lib\home.dart:1598:17 - undefined_named_parameter
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:1612:32 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1615:31 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1620:33 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:1633:27 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:1634:21 - ambiguous_import
+   info - Don't invoke 'print' in production code - lib\home.dart:1798:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:1809:15 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:1814:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:1817:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:1829:15 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:1837:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:1842:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\home.dart:1844:7 - avoid_print
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1935:32 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1935:58 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:1943:30 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1947:36 - deprecated_member_use
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:1955:17 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1958:38 - deprecated_member_use
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:1964:17 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1967:38 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1979:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:1987:36 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:2001:21 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2017:34 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2018:34 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:2029:23 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:2032:34 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2037:50 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2039:36 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:2074:30 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:2076:41 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2083:53 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2092:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2097:53 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2149:56 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2152:56 - deprecated_member_use
+  error - The name 'EdgeInsets' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/painting/edge_insets.dart (via 'package:flutter/material.dart' and 'package:flutter/rendering.dart')' - lib\home.dart:2216:50 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:2232:61 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2265:71 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:2294:61 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2305:62 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2337:68 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:2353:60 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:2369:54 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2374:59 - deprecated_member_use
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:2377:46 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2380:61 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:2415:38 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2421:44 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2422:44 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2425:44 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2434:46 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:2437:33 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:2438:27 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2441:48 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:2447:33 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2450:46 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:2469:12 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:2473:25 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2479:37 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\home.dart:2500:41 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\home.dart:2500:45 - unnecessary_underscores
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:2500:59 - ambiguous_import
+  error - The name 'EdgeInsets' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/painting/edge_insets.dart (via 'package:flutter/material.dart' and 'package:flutter/rendering.dart')' - lib\home.dart:2518:28 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:2528:23 - ambiguous_import
+  error - The named parameter 'textAlign' isn't defined - lib\home.dart:2530:25 - undefined_named_parameter
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:2538:29 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:2549:49 - prefix_shadowed_by_local_declaration
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:2550:50 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2554:39 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:2563:39 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:2565:42 - ambiguous_import
+  error - The named parameter 'maxLines' isn't defined - lib\home.dart:2567:37 - undefined_named_parameter
+  error - The named parameter 'overflow' isn't defined - lib\home.dart:2568:37 - undefined_named_parameter
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2570:56 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:2584:29 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:2587:23 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2590:44 - deprecated_member_use
+   info - Use interpolation to compose strings and values - lib\home.dart:2654:42 - prefer_interpolation_to_compose_strings
+   info - Use 'isEmpty' instead of 'length' to test whether the collection is empty - lib\home.dart:2660:11 - prefer_is_empty
+   info - Statements in an if should be enclosed in a block - lib\home.dart:2661:9 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\home.dart:2663:9 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\home.dart:2665:9 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\home.dart:2667:9 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\home.dart:2669:9 - curly_braces_in_flow_control_structures
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2697:41 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:2702:30 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2712:42 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:2717:25 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:2722:23 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2725:44 - deprecated_member_use
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:2745:32 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2748:47 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:2757:25 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:2772:25 - ambiguous_import
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:2791:25 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2830:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2836:65 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:2855:39 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:2856:33 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2861:53 - deprecated_member_use
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:2889:9 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2892:30 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:2898:15 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2916:24 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\home.dart:2939:26 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2949:38 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:2954:21 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:2955:15 - ambiguous_import
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:2964:21 - ambiguous_import
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\home.dart:2965:15 - ambiguous_import
+  error - The named parameter 'child' isn't defined - lib\home.dart:2967:17 - undefined_named_parameter
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2986:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:2991:45 - deprecated_member_use
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\home.dart:2995:32 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\home.dart:3000:45 - deprecated_member_use
+   info - Don't invoke 'print' in production code - lib\main.dart:70:3 - avoid_print
+   info - Don't invoke 'print' in production code - lib\main.dart:84:1 - avoid_print
+   info - Don't invoke 'print' in production code - lib\main.dart:85:1 - avoid_print
+   info - Don't invoke 'print' in production code - lib\main.dart:133:3 - avoid_print
+   info - Don't invoke 'print' in production code - lib\main.dart:136:3 - avoid_print
+   info - Don't invoke 'print' in production code - lib\main.dart:160:3 - avoid_print
+   info - Don't invoke 'print' in production code - lib\main.dart:180:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\main.dart:202:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\main.dart:207:1 - avoid_print
+   info - Don't invoke 'print' in production code - lib\main.dart:330:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\main.dart:342:3 - avoid_print
+   info - Don't use 'BuildContext's across async gaps - lib\main.dart:352:5 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:474:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:480:53 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:494:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:515:57 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:545:64 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:583:64 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:604:67 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:625:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:638:47 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:649:53 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:665:53 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:668:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main.dart:672:57 - deprecated_member_use
+   info - Don't invoke 'print' in production code - lib\notifications.dart:54:7 - avoid_print
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\notifications.dart:156:39 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\notifications.dart:208:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\notifications.dart:224:52 - deprecated_member_use
+   info - Don't invoke 'print' in production code - lib\otp.dart:54:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\otp.dart:118:1 - avoid_print
+   info - Don't use 'BuildContext's across async gaps - lib\otp.dart:130:9 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\otp.dart:136:28 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\otp.dart:401:47 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\otp.dart:414:47 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\otp.dart:417:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\otp.dart:421:51 - deprecated_member_use
+   info - Don't invoke 'print' in production code - lib\profile.dart:330:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile.dart:354:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile.dart:358:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile.dart:359:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile.dart:363:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile.dart:385:15 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile.dart:393:13 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile.dart:396:13 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile.dart:400:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile.dart:405:7 - avoid_print
+  error - Methods can't be invoked in constant expressions - lib\profile.dart:420:20 - const_eval_method_invocation
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:420:20 - ambiguous_import
+   info - Don't invoke 'print' in production code - lib\profile.dart:454:11 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile.dart:461:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile.dart:462:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile.dart:473:11 - avoid_print
+   info - Don't use 'BuildContext's across async gaps - lib\profile.dart:490:11 - use_build_context_synchronously
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:491:42 - ambiguous_import
+   info - Don't invoke 'print' in production code - lib\profile.dart:495:7 - avoid_print
+   info - Don't use 'BuildContext's across async gaps - lib\profile.dart:530:28 - use_build_context_synchronously
+  error - Methods can't be invoked in constant expressions - lib\profile.dart:535:15 - const_eval_method_invocation
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:535:15 - ambiguous_import
+  error - The named parameter 'width' isn't defined - lib\profile.dart:535:24 - undefined_named_parameter
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:536:15 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile.dart:548:25 - prefix_shadowed_by_local_declaration
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:587:22 - ambiguous_import
+  error - The name 'EdgeInsets' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/painting/edge_insets.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:603:24 - ambiguous_import
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:615:23 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile.dart:619:40 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile.dart:624:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile.dart:629:51 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:641:35 - ambiguous_import
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:647:35 - ambiguous_import
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:652:35 - ambiguous_import
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:658:23 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile.dart:666:62 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:693:39 - ambiguous_import
+  error - The named parameter 'width' isn't defined - lib\profile.dart:694:41 - undefined_named_parameter
+  error - The named parameter 'child' isn't defined - lib\profile.dart:696:41 - undefined_named_parameter
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile.dart:697:63 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:710:49 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:711:49 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile.dart:766:50 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile.dart:771:39 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile.dart:792:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile.dart:793:44 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile.dart:806:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile.dart:811:43 - deprecated_member_use
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:835:15 - ambiguous_import
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:845:15 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile.dart:847:26 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile.dart:851:46 - deprecated_member_use
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:859:21 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:882:26 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:911:9 - ambiguous_import
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:921:15 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile.dart:928:45 - deprecated_member_use
+  error - The name 'TextField' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/material/text_field.dart (via package:flutter/material.dart)' - lib\profile.dart:933:18 - ambiguous_import
+  error - The named parameter 'readOnly' isn't defined - lib\profile.dart:935:13 - undefined_named_parameter
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile.dart:943:37 - prefix_shadowed_by_local_declaration
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile.dart:959:38 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile.dart:986:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile.dart:991:35 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile.dart:998:26 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile.dart:1061:34 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile.dart:1062:37 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile.dart:1064:26 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile.dart:1067:38 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile.dart:1070:40 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile.dart:1075:42 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:1090:21 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:1091:15 - ambiguous_import
+  error - The named parameter 'textAlign' isn't defined - lib\profile.dart:1100:17 - undefined_named_parameter
+  error - The named parameter 'maxLines' isn't defined - lib\profile.dart:1101:17 - undefined_named_parameter
+  error - The named parameter 'overflow' isn't defined - lib\profile.dart:1102:17 - undefined_named_parameter
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:1120:28 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via 'package:flutter/cupertino.dart' and 'package:flutter/material.dart')' - lib\profile.dart:1134:28 - ambiguous_import
+   info - Don't invoke 'print' in production code - lib\profile1.dart:24:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile1.dart:114:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile1.dart:125:3 - avoid_print
+   info - Don't use 'BuildContext's across async gaps - lib\profile1.dart:136:9 - use_build_context_synchronously
+   info - Don't invoke 'print' in production code - lib\profile1.dart:149:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile1.dart:165:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile1.dart:190:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile1.dart:193:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile1.dart:248:7 - avoid_print
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:256:22 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:257:24 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:261:26 - ambiguous_import
+   info - Don't use 'BuildContext's across async gaps - lib\profile1.dart:270:29 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\profile1.dart:274:17 - use_build_context_synchronously
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:279:26 - ambiguous_import
+   info - Don't invoke 'print' in production code - lib\profile1.dart:296:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile1.dart:319:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile1.dart:322:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile1.dart:352:7 - avoid_print
+   info - Don't use 'BuildContext's across async gaps - lib\profile1.dart:432:30 - use_build_context_synchronously
+  error - 'Text' isn't a function - lib\profile1.dart:433:35 - invocation_of_non_function
+  error - Invalid constant value - lib\profile1.dart:433:35 - invalid_constant
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:433:35 - ambiguous_import
+   info - Don't use 'BuildContext's across async gaps - lib\profile1.dart:439:11 - use_build_context_synchronously
+  error - 'Text' isn't a function - lib\profile1.dart:440:48 - invocation_of_non_function
+  error - Invalid constant value - lib\profile1.dart:440:48 - invalid_constant
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:440:48 - ambiguous_import
+   info - Don't invoke 'print' in production code - lib\profile1.dart:443:7 - avoid_print
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:451:22 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:452:24 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:456:26 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:463:26 - ambiguous_import
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\profile1.dart:482:19 - ambiguous_import
+  error - 'Text' isn't a function - lib\profile1.dart:483:13 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:483:13 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:496:22 - prefix_shadowed_by_local_declaration
+   info - Don't use 'BuildContext's across async gaps - lib\profile1.dart:563:31 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\profile1.dart:567:17 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:594:39 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:614:61 - deprecated_member_use
+  error - 'Text' isn't a function - lib\profile1.dart:650:38 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:650:38 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:668:46 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:669:46 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:671:46 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:690:50 - prefix_shadowed_by_local_declaration
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:694:49 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:696:57 - deprecated_member_use
+  error - 'Text' isn't a function - lib\profile1.dart:699:42 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:699:42 - ambiguous_import
+  error - 'Text' isn't a function - lib\profile1.dart:708:31 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:708:31 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:741:40 - prefix_shadowed_by_local_declaration
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:777:38 - prefix_shadowed_by_local_declaration
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\profile1.dart:794:33 - ambiguous_import
+  error - 'Text' isn't a function - lib\profile1.dart:795:27 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:795:27 - ambiguous_import
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\profile1.dart:804:33 - ambiguous_import
+  error - 'Text' isn't a function - lib\profile1.dart:805:27 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:805:27 - ambiguous_import
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\profile1.dart:813:33 - ambiguous_import
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\profile1.dart:831:33 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:864:48 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:874:52 - prefix_shadowed_by_local_declaration
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\profile1.dart:883:37 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:895:50 - prefix_shadowed_by_local_declaration
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\profile1.dart:903:27 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:916:36 - prefix_shadowed_by_local_declaration
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:921:38 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:927:49 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:951:28 - prefix_shadowed_by_local_declaration
+  error - 'Text' isn't a function - lib\profile1.dart:965:9 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:965:9 - ambiguous_import
+  error - 'Text' isn't a function - lib\profile1.dart:973:9 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:973:9 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:989:21 - prefix_shadowed_by_local_declaration
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:1002:26 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:1009:41 - deprecated_member_use
+  error - 'Text' isn't a function - lib\profile1.dart:1016:18 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:1016:18 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:1048:42 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:1053:44 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:1088:33 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:1096:26 - prefix_shadowed_by_local_declaration
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\profile1.dart:1162:17 - ambiguous_import
+  error - 'Text' isn't a function - lib\profile1.dart:1163:11 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:1163:11 - ambiguous_import
+   info - Don't invoke 'print' in production code - lib\profile1.dart:1235:7 - avoid_print
+   info - Don't use 'BuildContext's across async gaps - lib\profile1.dart:1247:30 - use_build_context_synchronously
+  error - 'Text' isn't a function - lib\profile1.dart:1248:35 - invocation_of_non_function
+  error - Invalid constant value - lib\profile1.dart:1248:35 - invalid_constant
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:1248:35 - ambiguous_import
+   info - Don't use 'BuildContext's across async gaps - lib\profile1.dart:1251:23 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\profile1.dart:1254:11 - use_build_context_synchronously
+  error - 'Text' isn't a function - lib\profile1.dart:1255:48 - invocation_of_non_function
+  error - Invalid constant value - lib\profile1.dart:1255:48 - invalid_constant
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:1255:48 - ambiguous_import
+   info - Don't invoke 'print' in production code - lib\profile1.dart:1258:7 - avoid_print
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:1266:22 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:1267:24 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:1271:26 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:1278:26 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:1300:19 - ambiguous_import
+  error - 'Text' isn't a function - lib\profile1.dart:1309:13 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:1309:13 - ambiguous_import
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\profile1.dart:1330:22 - ambiguous_import
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\profile1.dart:1350:32 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:1352:43 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:1360:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:1383:58 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:1384:58 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\profile1.dart:1400:51 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:1409:54 - prefix_shadowed_by_local_declaration
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:1450:57 - prefix_shadowed_by_local_declaration
+  error - 'Text' isn't a function - lib\profile1.dart:1456:54 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:1456:54 - ambiguous_import
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\profile1.dart:1475:55 - ambiguous_import
+  error - 'Text' isn't a function - lib\profile1.dart:1476:49 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:1476:49 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:1495:58 - prefix_shadowed_by_local_declaration
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:1511:63 - prefix_shadowed_by_local_declaration
+  error - 'Text' isn't a function - lib\profile1.dart:1514:60 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:1514:60 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:1523:59 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:1541:63 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:1553:64 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\profile1.dart:1614:62 - ambiguous_import
+  error - 'Text' isn't a function - lib\profile1.dart:1628:46 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:1628:46 - ambiguous_import
+   info - Don't invoke 'print' in production code - lib\profile1.dart:1730:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile1.dart:1750:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile1.dart:1788:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\profile1.dart:1827:7 - avoid_print
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:1869:30 - prefix_shadowed_by_local_declaration
+  error - 'Text' isn't a function - lib\profile1.dart:1870:22 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:1870:22 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:1886:32 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:1889:31 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:1894:33 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\profile1.dart:1903:27 - ambiguous_import
+  error - 'Text' isn't a function - lib\profile1.dart:1904:21 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:1904:21 - ambiguous_import
+  error - 'Text' isn't a function - lib\profile1.dart:1928:16 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:1928:16 - ambiguous_import
+  error - 'Text' isn't a function - lib\profile1.dart:1936:22 - invocation_of_non_function
+  error - Invalid constant value - lib\profile1.dart:1936:22 - invalid_constant
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:1936:22 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:1960:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:1966:61 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:1971:61 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:1976:61 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:1981:35 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:1986:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:1991:47 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:2002:42 - prefix_shadowed_by_local_declaration
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:2006:48 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:2010:55 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\profile1.dart:2020:37 - ambiguous_import
+  error - 'Text' isn't a function - lib\profile1.dart:2025:37 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:2025:37 - ambiguous_import
+  error - 'Text' isn't a function - lib\profile1.dart:2032:37 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:2032:37 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:2056:54 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:2057:56 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:2064:58 - ambiguous_import
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:2069:58 - ambiguous_import
+   info - Don't use 'BuildContext's across async gaps - lib\profile1.dart:2088:45 - use_build_context_synchronously
+  error - 'Text' isn't a function - lib\profile1.dart:2091:56 - invocation_of_non_function
+  error - Invalid constant value - lib\profile1.dart:2091:56 - invalid_constant
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:2091:56 - ambiguous_import
+   info - Don't use 'BuildContext's across async gaps - lib\profile1.dart:2101:47 - use_build_context_synchronously
+   info - Don't invoke 'print' in production code - lib\profile1.dart:2107:41 - avoid_print
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:2113:48 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:2118:53 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\profile1.dart:2129:43 - ambiguous_import
+  error - 'Text' isn't a function - lib\profile1.dart:2130:37 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:2130:37 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:2147:42 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:2183:59 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:2212:71 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:2221:73 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:2247:67 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:2282:68 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:2283:68 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:2285:68 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:2286:68 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:2301:70 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:2302:70 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:2303:70 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:2304:70 - deprecated_member_use
+  error - 'Text' isn't a function - lib\profile1.dart:2348:58 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:2348:58 - ambiguous_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:2358:92 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:2375:58 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\profile1.dart:2379:87 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\profile1.dart:2385:53 - ambiguous_import
+  error - 'Text' isn't a function - lib\profile1.dart:2386:47 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:2386:47 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:2400:42 - prefix_shadowed_by_local_declaration
+  error - 'Text' isn't a function - lib\profile1.dart:2405:33 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:2405:33 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:2413:50 - prefix_shadowed_by_local_declaration
+  error - 'Text' isn't a function - lib\profile1.dart:2414:42 - invocation_of_non_function
+  error - The name 'Text' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/text.dart (via package:flutter/material.dart)' - lib\profile1.dart:2414:42 - ambiguous_import
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\profile1.dart:2425:42 - prefix_shadowed_by_local_declaration
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\profile1.dart:2436:37 - ambiguous_import
+   info - 'Share' is deprecated and shouldn't be used. Use SharePlus instead - lib\profile1.dart:2440:46 - deprecated_member_use
+   info - 'share' is deprecated and shouldn't be used. Use SharePlus.instance.share() instead - lib\profile1.dart:2440:52 - deprecated_member_use
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\profile1.dart:2442:37 - ambiguous_import
+  error - The name 'SizedBox' is defined in the libraries 'package:bigilu/write.dart' and 'package:flutter/src/widgets/basic.dart (via package:flutter/material.dart)' - lib\profile1.dart:2483:12 - ambiguous_import
+   info - Use interpolation to compose strings and values - lib\write.dart:421:23 - prefer_interpolation_to_compose_strings
+   info - Use interpolation to compose strings and values - lib\write.dart:445:31 - prefer_interpolation_to_compose_strings
+   info - Use interpolation to compose strings and values - lib\write.dart:488:30 - prefer_interpolation_to_compose_strings
+   info - Don't use 'BuildContext's across async gaps - lib\write.dart:556:25 - use_build_context_synchronously
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\write.dart:669:56 - deprecated_member_use
+   info - Don't invoke 'print' in production code - lib\write.dart:700:15 - avoid_print
+   info - Don't invoke 'print' in production code - lib\write.dart:703:17 - avoid_print
+   info - Don't invoke 'print' in production code - lib\write.dart:719:15 - avoid_print
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\write.dart:743:37 - deprecated_member_use
+   info - Don't invoke 'print' in production code - lib\write.dart:756:7 - avoid_print
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\write.dart:764:37 - deprecated_member_use
+   info - Don't invoke 'print' in production code - lib\write.dart:803:13 - avoid_print
+   info - Don't invoke 'print' in production code - lib\write.dart:816:13 - avoid_print
+   info - Don't invoke 'print' in production code - lib\write.dart:856:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\write.dart:857:5 - avoid_print
+   info - Don't use 'BuildContext's across async gaps - lib\write.dart:867:9 - use_build_context_synchronously
+  error - Methods can't be invoked in constant expressions - lib\write.dart:868:46 - const_eval_method_invocation
+  error - Methods can't be invoked in constant expressions - lib\write.dart:963:33 - const_eval_method_invocation
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\write.dart:1020:58 - deprecated_member_use
+  error - Methods can't be invoked in constant expressions - lib\write.dart:1038:33 - const_eval_method_invocation
+   info - Don't use 'BuildContext's across async gaps - lib\write.dart:1083:21 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\write.dart:1236:23 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:1244:37 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps - lib\write.dart:1258:33 - use_build_context_synchronously
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:1262:34 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:1269:54 - deprecated_member_use
+  error - The name 'Text' isn't a class - lib\write.dart:1273:30 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:1278:21 - creation_with_non_type
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:1300:34 - prefix_shadowed_by_local_declaration
+  error - The name 'Text' isn't a class - lib\write.dart:1308:30 - creation_with_non_type
+  error - The method 'symmetric' isn't defined for the type 'Function' - lib\write.dart:1320:37 - undefined_method
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:1336:43 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:1344:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:1366:58 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:1367:58 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\write.dart:1382:59 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\write.dart:1382:63 - unnecessary_underscores
+  error - The name 'SizedBox' isn't a class - lib\write.dart:1383:51 - creation_with_non_type
+  error - The method 'symmetric' isn't defined for the type 'Function' - lib\write.dart:1393:57 - undefined_method
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:1429:59 - prefix_shadowed_by_local_declaration
+  error - The named parameter 'focusNode' isn't defined - lib\write.dart:1434:51 - undefined_named_parameter
+  error - The named parameter 'onTap' isn't defined - lib\write.dart:1435:51 - undefined_named_parameter
+  error - The named parameter 'keyboardType' isn't defined - lib\write.dart:1441:51 - undefined_named_parameter
+  error - The named parameter 'textCapitalization' isn't defined - lib\write.dart:1443:51 - undefined_named_parameter
+  error - The named parameter 'textInputAction' isn't defined - lib\write.dart:1449:51 - undefined_named_parameter
+  error - The named parameter 'maxLines' isn't defined - lib\write.dart:1451:51 - undefined_named_parameter
+  error - The named parameter 'onChanged' isn't defined - lib\write.dart:1452:51 - undefined_named_parameter
+  error - The named parameter 'textAlign' isn't defined - lib\write.dart:1459:51 - undefined_named_parameter
+   info - Statements in an if should be enclosed in a block - lib\write.dart:1532:61 - curly_braces_in_flow_control_structures
+   info - Don't invoke 'print' in production code - lib\write.dart:1539:55 - avoid_print
+  error - The name 'SizedBox' isn't a class - lib\write.dart:1550:62 - creation_with_non_type
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:1554:59 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:1563:60 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:1582:67 - prefix_shadowed_by_local_declaration
+  error - The name 'SizedBox' isn't a class - lib\write.dart:1611:58 - creation_with_non_type
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:1631:42 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:1636:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:1640:53 - deprecated_member_use
+  error - The name 'Text' isn't a class - lib\write.dart:1679:48 - creation_with_non_type
+  error - The name 'Text' isn't a class - lib\write.dart:1680:50 - creation_with_non_type
+  error - The name 'Text' isn't a class - lib\write.dart:1686:52 - creation_with_non_type
+  error - The name 'Text' isn't a class - lib\write.dart:1693:52 - creation_with_non_type
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:1754:30 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:1759:41 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:1797:24 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:1799:53 - deprecated_member_use
+  error - The name 'SizedBox' isn't a class - lib\write.dart:1810:19 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:1836:61 - creation_with_non_type
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:1855:35 - prefix_shadowed_by_local_declaration
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:1866:36 - prefix_shadowed_by_local_declaration
+  error - The name 'Text' isn't a class - lib\write.dart:1895:40 - creation_with_non_type
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:1910:38 - prefix_shadowed_by_local_declaration
+  error - The name 'SizedBox' isn't a class - lib\write.dart:1913:31 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:1915:31 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:1948:31 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:1952:31 - creation_with_non_type
+  error - The named parameter 'child' isn't defined - lib\write.dart:1955:27 - undefined_named_parameter
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:1978:49 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:1989:67 - deprecated_member_use
+  error - The name 'SizedBox' isn't a class - lib\write.dart:2016:31 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:2020:31 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:2058:35 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:2099:31 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:2108:41 - creation_with_non_type
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:2111:52 - prefix_shadowed_by_local_declaration
+  error - The name 'SizedBox' isn't a class - lib\write.dart:2175:35 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:2197:31 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:2201:31 - creation_with_non_type
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:2229:44 - prefix_shadowed_by_local_declaration
+  error - The name 'SizedBox' isn't a class - lib\write.dart:2240:31 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:2242:31 - creation_with_non_type
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:2282:47 - deprecated_member_use
+  error - The name 'SizedBox' isn't a class - lib\write.dart:2299:31 - creation_with_non_type
+  error - The named parameter 'textAlign' isn't defined - lib\write.dart:2341:15 - undefined_named_parameter
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:2358:22 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:2369:37 - deprecated_member_use
+  error - The name 'SizedBox' isn't a class - lib\write.dart:2399:15 - creation_with_non_type
+  error - The named parameter 'textAlign' isn't defined - lib\write.dart:2412:19 - undefined_named_parameter
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:2431:24 - prefix_shadowed_by_local_declaration
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:2449:25 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:2456:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:2494:54 - deprecated_member_use
+  error - The name 'SizedBox' isn't a class - lib\write.dart:2510:21 - creation_with_non_type
+  error - The name 'Text' isn't a class - lib\write.dart:2587:22 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:2620:17 - creation_with_non_type
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:2628:24 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:2642:45 - deprecated_member_use
+  error - The named parameter 'textAlign' isn't defined - lib\write.dart:2678:29 - undefined_named_parameter
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:2687:55 - deprecated_member_use
+  error - The name 'SizedBox' isn't a class - lib\write.dart:2701:19 - creation_with_non_type
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:2705:30 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:2711:41 - deprecated_member_use
+  error - The name 'Text' isn't a class - lib\write.dart:2720:25 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:2724:25 - creation_with_non_type
+  error - The named parameter 'onChanged' isn't defined - lib\write.dart:2727:21 - undefined_named_parameter
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:2737:45 - prefix_shadowed_by_local_declaration
+  error - The name 'SizedBox' isn't a class - lib\write.dart:2743:25 - creation_with_non_type
+  error - The name 'Text' isn't a class - lib\write.dart:2746:29 - creation_with_non_type
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:2768:60 - deprecated_member_use
+  error - The name 'SizedBox' isn't a class - lib\write.dart:2771:25 - creation_with_non_type
+  error - The name 'Text' isn't a class - lib\write.dart:2772:25 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:2776:25 - creation_with_non_type
+  error - The named parameter 'child' isn't defined - lib\write.dart:2779:21 - undefined_named_parameter
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:2786:42 - prefix_shadowed_by_local_declaration
+  error - The name 'SizedBox' isn't a class - lib\write.dart:2807:25 - creation_with_non_type
+  error - The name 'Text' isn't a class - lib\write.dart:2808:25 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:2812:25 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:2839:19 - creation_with_non_type
+   info - Don't invoke 'print' in production code - lib\write.dart:2881:5 - avoid_print
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\write.dart:3004:40 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\write.dart:3018:28 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\write.dart:3018:61 - deprecated_member_use
+   info - Don't invoke 'print' in production code - lib\write.dart:3031:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\write.dart:3032:5 - avoid_print
+   info - Don't use 'BuildContext's across async gaps - lib\write.dart:3043:28 - use_build_context_synchronously
+  error - Methods can't be invoked in constant expressions - lib\write.dart:3044:33 - const_eval_method_invocation
+   info - Don't use 'BuildContext's across async gaps - lib\write.dart:3051:36 - use_build_context_synchronously
+   info - Don't invoke 'print' in production code - lib\write.dart:3053:7 - avoid_print
+  error - The name 'Text' isn't a class - lib\write.dart:3065:22 - creation_with_non_type
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:3090:24 - prefix_shadowed_by_local_declaration
+  error - The name 'Text' isn't a class - lib\write.dart:3094:19 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:3102:19 - creation_with_non_type
+  error - The name 'Text' isn't a class - lib\write.dart:3103:19 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:3111:19 - creation_with_non_type
+  error - The named parameter 'child' isn't defined - lib\write.dart:3116:15 - undefined_named_parameter
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:3122:35 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:3133:47 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:3155:52 - deprecated_member_use
+  error - The name 'SizedBox' isn't a class - lib\write.dart:3173:19 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:3175:19 - creation_with_non_type
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:3193:41 - deprecated_member_use
+  error - The name 'SizedBox' isn't a class - lib\write.dart:3196:27 - creation_with_non_type
+  error - Methods can't be invoked in constant expressions - lib\write.dart:3212:25 - const_eval_method_invocation
+  error - The named parameter 'width' isn't defined - lib\write.dart:3212:34 - undefined_named_parameter
+  error - The name 'SizedBox' isn't a class - lib\write.dart:3225:19 - creation_with_non_type
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:3255:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:3256:30 - deprecated_member_use
+  error - The named parameter 'textAlign' isn't defined - lib\write.dart:3271:15 - undefined_named_parameter
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:3279:41 - deprecated_member_use
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:3294:22 - prefix_shadowed_by_local_declaration
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:3302:32 - prefix_shadowed_by_local_declaration
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:3323:31 - prefix_shadowed_by_local_declaration
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\write.dart:3329:43 - deprecated_member_use
+  error - The name 'SizedBox' isn't a class - lib\write.dart:3341:37 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:3345:26 - creation_with_non_type
+  error - The name 'Text' isn't a class - lib\write.dart:3356:15 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:3364:15 - creation_with_non_type
+  error - The named parameter 'maxLines' isn't defined - lib\write.dart:3367:11 - undefined_named_parameter
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:3389:35 - prefix_shadowed_by_local_declaration
+  error - The name 'SizedBox' isn't a class - lib\write.dart:3392:15 - creation_with_non_type
+  error - The name 'Text' isn't a class - lib\write.dart:3393:15 - creation_with_non_type
+  error - The name 'SizedBox' isn't a class - lib\write.dart:3401:15 - creation_with_non_type
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:3438:35 - prefix_shadowed_by_local_declaration
+  error - Expected a method, getter, setter or operator declaration - lib\write.dart:3448:15 - expected_executable
+  error - Expected a method, getter, setter or operator declaration - lib\write.dart:3448:16 - expected_executable
+  error - Expected a method, getter, setter or operator declaration - lib\write.dart:3449:13 - expected_executable
+  error - Expected a method, getter, setter or operator declaration - lib\write.dart:3449:14 - expected_executable
+   info - An uninitialized variable should have an explicit type annotation - lib\write.dart:3450:13 - prefer_typing_uninitialized_variables
+   info - Missing type annotation - lib\write.dart:3450:13 - strict_top_level_inference
+  error - Expected to find ';' - lib\write.dart:3450:13 - expected_token
+  error - Variables must be declared using the keywords 'const', 'final', 'var' or a type name - lib\write.dart:3450:13 - missing_const_final_var_or_type
+  error - Expected a method, getter, setter or operator declaration - lib\write.dart:3450:27 - expected_executable
+  error - Can't have modifier 'const' here - lib\write.dart:3450:29 - extraneous_modifier
+   info - Missing type annotation - lib\write.dart:3450:35 - strict_top_level_inference
+   info - The variable name 'EdgeInsets' isn't a lowerCamelCase identifier - lib\write.dart:3450:35 - non_constant_identifier_names
+  error - Functions must have an explicit list of parameters - lib\write.dart:3450:35 - missing_function_parameters
+  error - A function body must be provided - lib\write.dart:3450:45 - missing_function_body
+  error - Expected a method, getter, setter or operator declaration - lib\write.dart:3450:45 - expected_executable
+   info - Missing type annotation - lib\write.dart:3450:46 - strict_top_level_inference
+  error - Expected an identifier - lib\write.dart:3450:50 - missing_identifier
+  error - A function body must be provided - lib\write.dart:3450:53 - missing_function_body
+  error - Expected a method, getter, setter or operator declaration - lib\write.dart:3450:53 - expected_executable
+  error - Expected a method, getter, setter or operator declaration - lib\write.dart:3451:11 - expected_executable
+  error - Expected a method, getter, setter or operator declaration - lib\write.dart:3451:12 - expected_executable
+  error - Expected a method, getter, setter or operator declaration - lib\write.dart:3452:9 - expected_executable
+  error - Expected a method, getter, setter or operator declaration - lib\write.dart:3452:10 - expected_executable
+  error - Can't have modifier 'const' here - lib\write.dart:3453:9 - extraneous_modifier
+   info - Missing type annotation - lib\write.dart:3453:15 - strict_top_level_inference
+   info - The variable name 'SizedBox' isn't a lowerCamelCase identifier - lib\write.dart:3453:15 - non_constant_identifier_names
+   info - Missing type annotation - lib\write.dart:3453:24 - strict_top_level_inference
+  error - Named parameters must be enclosed in curly braces ('{' and '}') - lib\write.dart:3453:30 - named_parameter_outside_group
+  error - Using a colon as the separator before a default value is no longer supported - lib\write.dart:3453:30 - obsolete_colon_for_default_value
+  error - A function body must be provided - lib\write.dart:3453:35 - missing_function_body
+  error - Expected a method, getter, setter or operator declaration - lib\write.dart:3453:35 - expected_executable
+  error - Can't have modifier 'const' here - lib\write.dart:3454:9 - extraneous_modifier
+   info - Missing type annotation - lib\write.dart:3454:15 - strict_top_level_inference
+   info - The variable name 'Text' isn't a lowerCamelCase identifier - lib\write.dart:3454:15 - non_constant_identifier_names
+  error - Expected an identifier - lib\write.dart:3455:11 - missing_identifier
+   info - Missing type annotation - lib\write.dart:3456:11 - strict_top_level_inference
+  error - Named parameters must be enclosed in curly braces ('{' and '}') - lib\write.dart:3456:16 - named_parameter_outside_group
+  error - Using a colon as the separator before a default value is no longer supported - lib\write.dart:3456:16 - obsolete_colon_for_default_value
+  error - The default value of an optional parameter must be constant - lib\write.dart:3456:18 - non_constant_default_value
+  error - A function body must be provided - lib\write.dart:3461:10 - missing_function_body
+  error - Expected a method, getter, setter or operator declaration - lib\write.dart:3461:10 - expected_executable
+  error - Can't have modifier 'const' here - lib\write.dart:3462:9 - extraneous_modifier
+   info - Missing type annotation - lib\write.dart:3462:15 - strict_top_level_inference
+   info - The variable name 'SizedBox' isn't a lowerCamelCase identifier - lib\write.dart:3462:15 - non_constant_identifier_names
+  error - The name 'SizedBox' is already defined - lib\write.dart:3462:15 - duplicate_definition
+   info - Missing type annotation - lib\write.dart:3462:24 - strict_top_level_inference
+  error - Named parameters must be enclosed in curly braces ('{' and '}') - lib\write.dart:3462:30 - named_parameter_outside_group
+  error - Using a colon as the separator before a default value is no longer supported - lib\write.dart:3462:30 - obsolete_colon_for_default_value
+  error - A function body must be provided - lib\write.dart:3462:35 - missing_function_body
+  error - Expected a method, getter, setter or operator declaration - lib\write.dart:3462:35 - expected_executable
+   info - Missing type annotation - lib\write.dart:3463:9 - strict_top_level_inference
+   info - The variable name 'TextField' isn't a lowerCamelCase identifier - lib\write.dart:3463:9 - non_constant_identifier_names
+   info - Missing type annotation - lib\write.dart:3464:11 - strict_top_level_inference
+  error - Named parameters must be enclosed in curly braces ('{' and '}') - lib\write.dart:3464:21 - named_parameter_outside_group
+  error - Using a colon as the separator before a default value is no longer supported - lib\write.dart:3464:21 - obsolete_colon_for_default_value
+  error - Undefined name '_hashtagController' - lib\write.dart:3464:23 - undefined_identifier
+   info - Missing type annotation - lib\write.dart:3465:11 - strict_top_level_inference
+  error - Named parameters must be enclosed in curly braces ('{' and '}') - lib\write.dart:3465:16 - named_parameter_outside_group
+  error - Using a colon as the separator before a default value is no longer supported - lib\write.dart:3465:16 - obsolete_colon_for_default_value
+   info - Missing type annotation - lib\write.dart:3470:11 - strict_top_level_inference
+  error - Named parameters must be enclosed in curly braces ('{' and '}') - lib\write.dart:3470:21 - named_parameter_outside_group
+  error - Using a colon as the separator before a default value is no longer supported - lib\write.dart:3470:21 - obsolete_colon_for_default_value
+  error - The default value of an optional parameter must be constant - lib\write.dart:3470:23 - non_constant_default_value
+  error - The prefix 'EdgeInsets' can't be used here because it's shadowed by a local declaration - lib\write.dart:3499:35 - prefix_shadowed_by_local_declaration
+  error - A function body must be provided - lib\write.dart:3504:10 - missing_function_body
+  error - Expected a method, getter, setter or operator declaration - lib\write.dart:3504:10 - expected_executable
+  error - Expected a method, getter, setter or operator declaration - lib\write.dart:3505:7 - expected_executable
+  error - Expected a method, getter, setter or operator declaration - lib\write.dart:3505:8 - expected_executable
+  error - Expected a method, getter, setter or operator declaration - lib\write.dart:3506:5 - expected_executable
+  error - Unexpected text ';' - lib\write.dart:3506:6 - unexpected_token
+  error - Expected a method, getter, setter or operator declaration - lib\write.dart:3507:3 - expected_executable
+  error - Expected a method, getter, setter or operator declaration - lib\write.dart:3508:1 - expected_executable
+

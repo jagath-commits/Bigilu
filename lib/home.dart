@@ -9,12 +9,14 @@ import 'package:bigilu/TermsPage.dart';
 import 'package:bigilu/hashtag.dart';
 import 'package:bigilu/profile1.dart';
 import 'package:bigilu/write.dart';
+import 'package:bigilu/notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:app_links/app_links.dart';
 
 class HomePage extends StatefulWidget {
   final String? deepLinkPostId;
@@ -26,6 +28,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
+  StreamSubscription? _linkSub;
+
   Set<String> likedPosts = {};
   Set<String> savedPosts = {};
   List posts = [];
@@ -36,6 +40,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return prefs.getString('user_id');
   }
 
+  bool interactionsLoaded = false;
+
   @override
   void initState() {
     super.initState();
@@ -44,16 +50,59 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _loadInteractionsLocal(); // 🔥 Load from cache immediately
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      initDeepLinks();
       await fetchPosts();
-      await fetchUserInteractions(); // Load liked/saved status
-
-      if (widget.deepLinkPostId != null) {
+      if (widget.deepLinkPostId != null && !isDeepLinkHandled) {
+        isDeepLinkHandled = true;
         openPostFromDeepLink(widget.deepLinkPostId!);
       }
     });
   }
 
+  late AppLinks _appLinks;
+
+  void initDeepLinks() async {
+    _appLinks = AppLinks();
+
+    try {
+      // 🔥 INITIAL LINK
+      final uri = await _appLinks.getInitialLink();
+
+      if (uri != null) {
+        handleLink(uri.toString());
+      }
+
+      // 🔥 STREAM LISTENER
+      _linkSub = _appLinks.uriLinkStream.listen((uri) {
+        if (uri != null) {
+          handleLink(uri.toString());
+        }
+      });
+    } catch (e) {
+      print("Deep link error: $e");
+    }
+  }
+
+  bool isDeepLinkHandled = false;
+
+  void handleLink(String link) {
+    print("🔥 Deep link: $link");
+
+    Uri uri = Uri.parse(link);
+
+    if (uri.pathSegments.isNotEmpty && uri.pathSegments.contains("post")) {
+      if (isDeepLinkHandled) return; // ✅ move inside
+
+      String postId = uri.pathSegments.last;
+
+      isDeepLinkHandled = true; // ✅ set only when valid
+      openPostFromDeepLink(postId);
+    }
+  }
+
   Future<void> fetchUserInteractions() async {
+    if (interactionsLoaded) return; // 🔥 PREVENT DUPLICATE
+    interactionsLoaded = true;
     String? userId = await getUserId();
     if (userId == null) return;
 
@@ -119,16 +168,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     await prefs.setStringList('cached_saved_posts', savedPosts.toList());
   }
 
-  @override
+  /*@override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       // Refresh posts when app comes to foreground
       fetchPosts();
     }
-  }
+  }*/
 
   @override
   void dispose() {
+    _linkSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -196,67 +246,34 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> fetchPosts() async {
-    final url = Uri.parse("https://bigiluu.com/api/posts/getAllPosts");
-    String? userId = await getUserId();
+  bool isFetchingPosts = false;
 
-    likedPosts = posts
-        .where((p) => (p['supported_users'] ?? []).contains(userId))
-        .map((p) => p['post_id'].toString())
-        .toSet();
+  Future<void> fetchPosts() async {
+    if (isFetchingPosts) return;
+
+    isFetchingPosts = true;
 
     try {
-      print("🔄 Fetching posts from: $url");
-
       final response = await http
-          .get(url)
-          .timeout(
-            const Duration(seconds: 25),
-            onTimeout: () {
-              print("❌ Timeout: Server took too long to respond");
-              throw TimeoutException("Request timed out after 25 seconds");
-            },
-          );
+          .get(Uri.parse("https://bigiluu.com/api/posts/getAllPosts"))
+          .timeout(Duration(seconds: 25));
 
       if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body);
-        setState(() {
-          posts = (jsonData["data"] ?? []).map((p) {
-            posts = jsonData["data"] ?? [];
-            return p;
-          }).toList();
+        final data = json.decode(response.body);
 
-          isLoading = false;
+        setState(() {
+          posts = data["data"] ?? [];
+          isLoading = false; // 🔥 IMPORTANT FIX
         });
 
-        // Debug: Print readers count for each post
-        print("✅ DEBUG: Fetched ${posts.length} posts");
-        for (int i = 0; i < posts.length; i++) {
-          print(
-            "📊 Post ${i + 1}: ID=${posts[i]['post_id']} | Readers=${posts[i]['readers_count'] ?? 0}",
-          );
-        }
-      } else {
-        // Handle non-200 status codes
-        print("❌ Error: API returned status ${response.statusCode}");
-        print("❌ Response: ${response.body}");
-        setState(() {
-          isLoading = false;
-        });
+        // ✅ CALL ONLY AFTER POSTS LOAD
+        await Future.delayed(Duration(milliseconds: 300));
+        await fetchUserInteractions();
       }
-    } on TimeoutException catch (e) {
-      print("❌ Timeout Error: $e");
-      setState(() {
-        isLoading = false;
-      });
     } catch (e) {
-      print("❌ Error: $e");
-
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
+      print("❌ ERROR: $e");
+    } finally {
+      isFetchingPosts = false;
     }
   }
 
@@ -275,7 +292,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
       for (var p in posts) {
         if (p['post_id']?.toString() == postId) {
-          int current = p['support_count'] ?? 0;
+          int current =
+              int.tryParse(p['support_count']?.toString() ?? "0") ?? 0;
           p['support_count'] = isAlreadyLiked
               ? (current - 1).clamp(0, 999999)
               : (current + 1);
@@ -300,7 +318,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
       final data = jsonDecode(response.body);
 
-      print("✅ Server support count: ${data['support_count']}");
+      setState(() {
+        for (var p in posts) {
+          if (p['post_id']?.toString() == postId) {
+            p['support_count'] = data['support_count'];
+            break;
+          }
+        }
+      });
     } catch (e) {
       print("❌ Support API error: $e");
     }
@@ -393,6 +418,51 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
           ),
           actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Center(
+                child: InkWell(
+                  onTap: () async {
+                    String? userId = await getUserId();
+                    if (userId != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => NotificationsPage(userId: userId),
+                        ),
+                      );
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          const Color(0xFFB11226).withOpacity(0.9),
+                          const Color(0xFF8A0C20).withOpacity(0.9),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFB11226).withOpacity(0.2),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.notifications_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: Center(
@@ -682,7 +752,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
 /* ---------------- POST CARD ---------------- */
 
-class PostContainer extends StatelessWidget {
+class PostContainer extends StatefulWidget {
   final Map post;
   final bool isLiked;
   final bool isSaved;
@@ -699,6 +769,13 @@ class PostContainer extends StatelessWidget {
     required this.onSave,
     this.onTap,
   });
+
+  @override
+  State<PostContainer> createState() => _PostContainerState();
+}
+
+class _PostContainerState extends State<PostContainer> {
+  bool _isOpeningPost = false; // ✅ Guard against double-tap
 
   String fullUrl(String? path) {
     if (path == null || path.isEmpty) {
@@ -745,7 +822,7 @@ class PostContainer extends StatelessWidget {
   }
 
   List<dynamic> list_pages() {
-    final content = post['content'];
+    final content = widget.post['content'];
 
     if (content == null) return [];
 
@@ -776,22 +853,22 @@ class PostContainer extends StatelessWidget {
   }
 
   String extractTitle() {
-    return post['title']?.toString() ?? "";
+    return widget.post['title']?.toString() ?? "";
   }
 
   @override
   Widget build(BuildContext context) {
     const brandColor = Color(0xFFB11226);
-    final caption = post['caption']?.toString() ?? "";
-    final hashtag = post['hastag']?.toString() ?? "";
+    final caption = widget.post['caption']?.toString() ?? "";
+    final hashtag = widget.post['hastag']?.toString() ?? "";
 
     final screenWidth = MediaQuery.of(context).size.width;
     double paddingHorizontal = screenWidth < 360 ? 12 : 20;
 
-    final String postIdStr = post['post_id']?.toString() ?? "";
+    final String postIdStr = widget.post['post_id']?.toString() ?? "";
 
     // 🏆 Badge Variants Logic
-    String ack = (post['acknowledgment'] ?? "").toString().toUpperCase();
+    String ack = (widget.post['acknowledgment'] ?? "").toString().toUpperCase();
 
     String badgeLabel = "";
     List<Color> badgeGradients = [Colors.white, Colors.white];
@@ -828,6 +905,9 @@ class PostContainer extends StatelessWidget {
     }
     return GestureDetector(
       onTap: () async {
+        if (_isOpeningPost) return; // ✅ Block multiple clicks
+        setState(() => _isOpeningPost = true);
+
         try {
           final response = await http
               .get(
@@ -859,15 +939,18 @@ class PostContainer extends StatelessWidget {
               }
             }
 
-            if (!context.mounted) return;
+            if (!context.mounted) {
+              if (mounted) setState(() => _isOpeningPost = false);
+              return;
+            }
 
             await Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => FullScreenPostViewer(
                   pages: pages,
-                  username: post['username']?.toString() ?? "",
-                  profileImage: post['profile_image']?.toString() ?? "",
+                  username: widget.post['username']?.toString() ?? "",
+                  profileImage: widget.post['profile_image']?.toString() ?? "",
                   postId: postIdStr,
                 ),
               ),
@@ -875,6 +958,10 @@ class PostContainer extends StatelessWidget {
           }
         } catch (e) {
           debugPrint("Error loading single post: $e");
+        } finally {
+          if (mounted) {
+            setState(() => _isOpeningPost = false);
+          }
         }
       },
       child: Container(
@@ -902,7 +989,7 @@ class PostContainer extends StatelessWidget {
               padding: EdgeInsets.all(paddingHorizontal),
               child: GestureDetector(
                 onTap: () {
-                  final userId = post['user_id']?.toString();
+                  final userId = widget.post['user_id']?.toString();
 
                   if (userId != null && userId.isNotEmpty) {
                     Navigator.push(
@@ -931,7 +1018,7 @@ class PostContainer extends StatelessWidget {
                         radius: 20,
                         backgroundColor: Colors.grey.shade100,
                         backgroundImage: NetworkImage(
-                          fullUrl(post['profile_image'] ?? ''),
+                          fullUrl(widget.post['profile_image'] ?? ''),
                         ),
                       ),
                     ),
@@ -942,7 +1029,7 @@ class PostContainer extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            post['username'] ?? "Bigiluu Member",
+                            widget.post['username'] ?? "Bigiluu Member",
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w800,
@@ -977,7 +1064,7 @@ class PostContainer extends StatelessWidget {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            "${post['readers_count'] ?? 0}",
+                            "${widget.post['readers_count'] ?? 0}",
                             style: const TextStyle(
                               color: Color(0xFFB11226),
                               fontSize: 12,
@@ -996,7 +1083,7 @@ class PostContainer extends StatelessWidget {
             Padding(
               padding: EdgeInsets.symmetric(horizontal: paddingHorizontal),
               child: Hero(
-                tag: "post_${post['post_id']}",
+                tag: "post_${widget.post['post_id']}",
                 child: Container(
                   height: 440, // Reduced height for more balanced feed
                   decoration: BoxDecoration(
@@ -1105,7 +1192,9 @@ class PostContainer extends StatelessWidget {
                                 // Cover Image — guard against empty/null URL
                                 Builder(
                                   builder: (context) {
-                                    final coverUrl = fullUrl(post['cover_img']);
+                                    final coverUrl = fullUrl(
+                                      widget.post['cover_img'],
+                                    );
                                     if (coverUrl.isEmpty) {
                                       // No cover image — show nice placeholder
                                       return Container(
@@ -1218,7 +1307,7 @@ class PostContainer extends StatelessWidget {
                                 ),
 
                                 // 📖 Book Title — matching Cover Design exactly
-                                if ((post['title']?.toString() ?? '')
+                                if ((widget.post['title']?.toString() ?? '')
                                     .isNotEmpty)
                                   Positioned(
                                     top: 15,
@@ -1236,34 +1325,40 @@ class PostContainer extends StatelessWidget {
                                           String? parsedFf;
 
                                           // 1. Try top-level post fields (stored by API)
-                                          if (post['titleFontSize'] != null &&
-                                              post['titleFontSize']
+                                          if (widget.post['titleFontSize'] !=
+                                                  null &&
+                                              widget.post['titleFontSize']
                                                   .toString()
                                                   .isNotEmpty) {
                                             parsedFs = double.tryParse(
-                                              post['titleFontSize'].toString(),
+                                              widget.post['titleFontSize']
+                                                  .toString(),
                                             );
                                           }
-                                          if (post['titleColor'] != null &&
-                                              post['titleColor']
+                                          if (widget.post['titleColor'] !=
+                                                  null &&
+                                              widget.post['titleColor']
                                                   .toString()
                                                   .isNotEmpty) {
                                             int? cv = int.tryParse(
-                                              post['titleColor'].toString(),
+                                              widget.post['titleColor']
+                                                  .toString(),
                                             );
                                             if (cv != null)
                                               parsedTc = Color(cv);
                                           }
-                                          if (post['titleFontFamily'] != null &&
-                                              post['titleFontFamily']
+                                          if (widget.post['titleFontFamily'] !=
+                                                  null &&
+                                              widget.post['titleFontFamily']
                                                   .toString()
                                                   .isNotEmpty) {
-                                            parsedFf = post['titleFontFamily']
+                                            parsedFf = widget
+                                                .post['titleFontFamily']
                                                 .toString();
                                           }
 
                                           // 2. Fallback to Content JSON
-                                          dynamic raw = post['content'];
+                                          dynamic raw = widget.post['content'];
                                           if (raw != null) {
                                             dynamic dec = raw;
                                             if (dec is String) {
@@ -1315,7 +1410,8 @@ class PostContainer extends StatelessWidget {
                                             ff = parsedFf;
                                         } catch (_) {}
                                         return Text(
-                                          post['title']?.toString() ?? '',
+                                          widget.post['title']?.toString() ??
+                                              '',
                                           textAlign: TextAlign.center,
                                           maxLines: 3,
                                           overflow: TextOverflow.ellipsis,
@@ -1449,26 +1545,27 @@ class PostContainer extends StatelessWidget {
                 children: [
                   _buildActionButton(
                     icon: Icons.touch_app_rounded,
-                    topLabel: (post['support_count'] ?? 0).toString(),
+                    topLabel: (widget.post['support_count'] ?? 0).toString(),
                     label: "Support",
-                    color: isLiked ? brandColor : null,
-                    onTap: onLike,
+                    color: widget.isLiked ? brandColor : null,
+                    onTap: widget.onLike,
                   ),
                   const SizedBox(width: 8),
                   _buildActionButton(
                     icon: Icons.share_rounded,
                     label: "Share",
                     onTap: () =>
+                        // ignore: deprecated_member_use
                         Share.share("https://bigiluu.com/post/$postIdStr"),
                   ),
                   const SizedBox(width: 8),
                   _buildActionButton(
-                    icon: isSaved
+                    icon: widget.isSaved
                         ? Icons.bookmark_rounded
                         : Icons.bookmark_outline_rounded,
-                    label: isSaved ? "Saved" : "Save",
-                    color: isSaved ? brandColor : null,
-                    onTap: onSave,
+                    label: widget.isSaved ? "Saved" : "Save",
+                    color: widget.isSaved ? brandColor : null,
+                    onTap: widget.onSave,
                   ),
                 ],
               ),
@@ -1599,6 +1696,7 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
       );
       await file.writeAsBytes(pngBytes);
 
+      // ignore: deprecated_member_use
       await Share.shareXFiles([
         XFile(file.path),
       ], text: 'Read this interesting story on Bigiluu!');
@@ -1892,6 +1990,7 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
                   if (currentPage == 0) {
                     _shareSummaryImage();
                   } else {
+                    // ignore: deprecated_member_use
                     Share.share(
                       "Read this post on Bigiluu: https://bigiluu.com/post/${widget.postId}",
                     );

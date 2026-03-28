@@ -30,8 +30,8 @@
 
                 <data
                      android:scheme="https"
-                     android:host="bigilu.com"
-                    android:pathPrefix="/post/" />
+                     android:host="bigiluu.com"
+                    android:pathPrefix="/post" />
             </intent-filter>
 
             <intent-filter>

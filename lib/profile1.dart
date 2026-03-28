@@ -8,6 +8,7 @@ import 'package:bigilu/home.dart';
 import 'package:bigilu/hashtag.dart';
 import 'package:bigilu/profile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:share_plus/share_plus.dart';
 
 List<dynamic> extractPages(dynamic rawContent) {
   if (rawContent == null) return [];
@@ -45,7 +46,8 @@ const ProfilePage({
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  int selectedTab = 0;
+  int selectedTab = 0; // 0=Books, 1=Drafts, 2=Saved
+  bool _isOpeningGridPost = false; // ✅ Guard against double-tap
 
   String userName = ""; // Default name
   File? _image;
@@ -138,6 +140,7 @@ class _ProfilePageState extends State<ProfilePage> {
             initialIndex: 0,
             title: "Post",
             userId: widget.userId,
+            isPublicView: widget.isPublicView,
           ),
         ),
       );
@@ -178,6 +181,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 "username": e['username'] ?? "",
                 "profile_image": e['profile_image'] ?? "",
                 "readers_count": e['readers_count'] ?? 0,
+                "acknowledgment": e['acknowledgment'] ?? "",
               },
             ),
           );
@@ -505,72 +509,81 @@ class _ProfilePageState extends State<ProfilePage> {
 
         return GestureDetector(
           onTap: () async {
-            if (!widget.isPublicView && selectedTab == 1) {
-              // Drafts
-              await Navigator.push(
+            if (_isOpeningGridPost) return;
+            setState(() => _isOpeningGridPost = true);
+
+            try {
+              if (!widget.isPublicView && selectedTab == 1) {
+                // Drafts
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => WritePage(
+                      draftId: postId,
+                      draftContent: jsonEncode(
+                        _convertDraftImages(post['rawContent']),
+                      ),
+                      draftCover: post['cover_img'],
+                    ),
+                  ),
+                );
+                _loadUserDrafts();
+                return;
+              }
+
+              // Normal Posts & Saved
+              List<Map<String, dynamic>> sourceList =
+                  selectedTab == 0 ? myPosts : savedPosts;
+              int clickedIndex = sourceList.indexWhere(
+                (p) => p['post_id'] == postId,
+              );
+
+              // Loading Overlay
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(
+                  child: CircularProgressIndicator(color: Color(0xFFB11226)),
+                ),
+              );
+
+              List<Map<String, dynamic>> fullPosts = [];
+              try {
+                for (var p in sourceList) {
+                  final response = await http.get(
+                    Uri.parse(
+                      "https://bigiluu.com/api/posts/singlePost/${p['post_id']}",
+                    ),
+                  );
+                  if (response.statusCode == 200) {
+                    fullPosts.add(jsonDecode(response.body));
+                  }
+                }
+              } finally {
+                Navigator.pop(context); // Close loading
+              }
+
+              final removedPostId = await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => WritePage(
-                    draftId: postId,
-                    draftContent: jsonEncode(
-                      _convertDraftImages(post['rawContent']),
-                    ),
-                    draftCover: post['cover_img'],
+                  builder: (_) => ProfileFeedViewer(
+                    posts: fullPosts,
+                    initialIndex: clickedIndex < 0 ? 0 : clickedIndex,
+                    title: selectedTab == 0 ? "My Books" : "Saved",
+                    userId: widget.userId,
+                    isPublicView: widget.isPublicView,
                   ),
                 ),
               );
-              _loadUserDrafts();
-              return;
-            }
 
-            // Normal Posts & Saved
-            List<Map<String, dynamic>> sourceList = selectedTab == 0
-                ? myPosts
-                : savedPosts;
-            int clickedIndex = sourceList.indexWhere(
-              (p) => p['post_id'] == postId,
-            );
-
-            // Loading Overlay
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (_) => const Center(
-                child: CircularProgressIndicator(color: Color(0xFFB11226)),
-              ),
-            );
-
-            List<Map<String, dynamic>> fullPosts = [];
-            try {
-              for (var p in sourceList) {
-                final response = await http.get(
-                  Uri.parse(
-                    "https://bigiluu.com/api/posts/singlePost/${p['post_id']}",
-                  ),
-                );
-                if (response.statusCode == 200) {
-                  fullPosts.add(jsonDecode(response.body));
-                }
+              if (removedPostId != null) {
+                _loadUserPosts();
+                _loadSavedPosts();
               }
             } finally {
-              Navigator.pop(context); // Close loading
-            }
-
-            final removedPostId = await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ProfileFeedViewer(
-                  posts: fullPosts,
-                  initialIndex: clickedIndex < 0 ? 0 : clickedIndex,
-                  title: selectedTab == 0 ? "My Books" : "Saved",
-                  userId: widget.userId,
-                ),
-              ),
-            );
-
-            if (removedPostId != null) {
-              _loadUserPosts();
-              _loadSavedPosts();
+              if (mounted) {
+                setState(() => _isOpeningGridPost = false);
+              }
             }
           },
           child: Container(
@@ -1653,6 +1666,7 @@ class ProfileFeedViewer extends StatefulWidget {
   final int initialIndex;
   final String title;
   final String userId;
+  final bool isPublicView;
 
   const ProfileFeedViewer({
     super.key,
@@ -1660,6 +1674,7 @@ class ProfileFeedViewer extends StatefulWidget {
     required this.initialIndex,
     required this.title,
     required this.userId,
+    required this.isPublicView,
   });
 
   @override
@@ -1669,6 +1684,149 @@ class ProfileFeedViewer extends StatefulWidget {
 class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
   late List<Map<String, dynamic>> posts;
   late PageController controller;
+  Set<String> likedPosts = {};
+  Set<String> savedPosts = {};
+  bool _isOpeningPost = false; // ✅ Guard against double-tap
+
+  Future<String?> getUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('user_id');
+  }
+
+  Future<void> _loadInteractionsLocal() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      likedPosts = (prefs.getStringList('cached_liked_posts') ?? []).toSet();
+      savedPosts = (prefs.getStringList('cached_saved_posts') ?? []).toSet();
+    });
+  }
+
+  Future<void> _saveInteractionsLocal() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('cached_liked_posts', likedPosts.toList());
+    await prefs.setStringList('cached_saved_posts', savedPosts.toList());
+  }
+
+  Future<void> fetchUserInteractions() async {
+    String? userId = await getUserId();
+    if (userId == null) return;
+
+    // 1. Fetch Saved Posts
+    try {
+      final savedResponse = await http
+          .get(Uri.parse("https://bigiluu.com/api/posts/savedPosts/$userId"))
+          .timeout(const Duration(seconds: 10));
+
+      if (savedResponse.statusCode == 200) {
+        final data = jsonDecode(savedResponse.body);
+        final List savedData = data['data'] ?? [];
+        if (mounted) {
+          setState(() {
+            savedPosts = savedData.map((e) => e['post_id'].toString()).toSet();
+          });
+        }
+      }
+    } catch (e) {
+      print("Error fetching saved: $e");
+    }
+
+    // 2. Fetch Supported Posts
+    try {
+      final likedResponse = await http
+          .get(Uri.parse("https://bigiluu.com/api/posts/supportedPosts/$userId"))
+          .timeout(const Duration(seconds: 10));
+
+      if (likedResponse.statusCode == 200) {
+        final data = jsonDecode(likedResponse.body);
+        final List likedData = data['data'] ?? [];
+        if (mounted) {
+          setState(() {
+            likedPosts = likedData.map((e) => e['post_id'].toString()).toSet();
+          });
+          _saveInteractionsLocal();
+        }
+      }
+    } catch (e) {
+      print("Error fetching supported: $e");
+    }
+  }
+
+  Future<void> toggleLike(String postId) async {
+    final isAlreadyLiked = likedPosts.contains(postId);
+    final String? userId = await getUserId();
+    if (userId == null) return;
+
+    setState(() {
+      if (isAlreadyLiked) {
+        likedPosts.remove(postId);
+      } else {
+        likedPosts.add(postId);
+      }
+
+      for (var p in posts) {
+        if (p['post_id']?.toString() == postId) {
+          int current = int.tryParse(p['support_count']?.toString() ?? "0") ?? 0;
+          p['support_count'] = isAlreadyLiked ? (current - 1).clamp(0, 999999) : (current + 1);
+          break;
+        }
+      }
+    });
+
+    _saveInteractionsLocal();
+
+    try {
+      await http.post(
+        Uri.parse("https://bigiluu.com/api/posts/toggleSupport"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "post_id": postId,
+          "user_id": userId,
+          "action": isAlreadyLiked ? "unlike" : "like",
+        }),
+      );
+    } catch (e) {
+      print("Support API error: $e");
+    }
+  }
+
+  Future<void> toggleSave(String postId) async {
+    String? userId = await getUserId();
+    if (userId == null) return;
+
+    final bool isAlreadySaved = savedPosts.contains(postId);
+
+    try {
+      if (isAlreadySaved) {
+        final response = await http
+            .delete(Uri.parse("https://bigiluu.com/api/posts/removeSavedPost/$userId/$postId"))
+            .timeout(const Duration(seconds: 8));
+
+        if (response.statusCode == 200) {
+          setState(() {
+            savedPosts.remove(postId);
+          });
+          _saveInteractionsLocal();
+        }
+      } else {
+        final response = await http
+            .post(
+              Uri.parse("https://bigiluu.com/api/posts/savePost"),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'user_id': userId, 'post_id': postId}),
+            )
+            .timeout(const Duration(seconds: 8));
+
+        if (response.statusCode == 200) {
+          setState(() {
+            savedPosts.add(postId);
+          });
+          _saveInteractionsLocal();
+        }
+      }
+    } catch (e) {
+      print("Error toggling save: $e");
+    }
+  }
 
   String _fullUrl(String? path) {
     if (path == null || path.isEmpty) return "";
@@ -1689,551 +1847,611 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
     super.initState();
     posts = List.from(widget.posts);
     controller = PageController(initialPage: widget.initialIndex);
+    _loadInteractionsLocal();
+    fetchUserInteractions();
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    String? topLabel,
+    Color? color,
+  }) {
+    final bool isHighlighted = color != null;
+    return Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (topLabel != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6, left: 16),
+              child: Text(
+                topLabel,
+                textAlign: TextAlign.left,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFFB11226),
+                ),
+              ),
+            ),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 11),
+                decoration: BoxDecoration(
+                  color: isHighlighted
+                      ? color.withOpacity(0.1)
+                      : const Color(0xFFF5F5F7),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isHighlighted
+                        ? color.withOpacity(0.3)
+                        : Colors.transparent,
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, color: isHighlighted ? color : Colors.grey.shade700, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: isHighlighted ? color : Colors.grey.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    const brandColor = Color(0xFFB11226);
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8F8FA),
       appBar: AppBar(
         title: Text(widget.title),
-        backgroundColor: const Color(0xFF800000),
-        foregroundColor: const Color.fromARGB(255, 248, 247, 247),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
         elevation: 1,
+        centerTitle: true,
       ),
       body: posts.isEmpty
           ? const Center(
-              child: Text("No Saved Posts", style: TextStyle(fontSize: 16)),
+              child: Text("No Posts Available", style: TextStyle(fontSize: 16)),
             )
           : PageView.builder(
               controller: controller,
               scrollDirection: Axis.vertical,
-              itemCount: posts.isEmpty ? 1 : posts.length,
+              itemCount: posts.length,
               itemBuilder: (context, index) {
                 final post = posts[index];
+                final String postIdStr = post['post_id']?.toString() ?? "";
                 final String img = _fullUrl(post['cover_img'] ?? '');
                 final String caption = (post['caption'] ?? '').toString();
                 final String hashtag = (post['hastag'] ?? '').toString();
-                final String username = (post['username'] ?? 'Storyteller')
-                    .toString();
+                final String username = (post['username'] ?? 'Storyteller').toString();
                 final String profileImg = _fullUrl(post['profile_image'] ?? '');
                 final int readersCount = post['readers_count'] ?? 0;
 
-                return LayoutBuilder(
-                  builder: (context, constraints) {
-                    return SingleChildScrollView(
-                      physics: const NeverScrollableScrollPhysics(),
-                      child: SizedBox(
-                        height: constraints.maxHeight,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // ─── HEADER ───────────────────────────────────────
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 22,
-                                    backgroundColor: Colors.grey.shade200,
-                                    backgroundImage: profileImg.isNotEmpty
-                                        ? NetworkImage(profileImg)
-                                        : null,
-                                    child: profileImg.isEmpty
-                                        ? const Icon(
-                                            Icons.person,
-                                            color: Colors.grey,
-                                          )
-                                        : null,
+                final bool isLiked = likedPosts.contains(postIdStr);
+                final bool isSaved = savedPosts.contains(postIdStr);
+
+                // 🏆 Badge Variants Logic
+                String ack = (post['acknowledgment'] ?? "").toString().toUpperCase();
+                String badgeLabel = "";
+                List<Color> badgeGradients = [Colors.white, Colors.white];
+                Color themeBorderColor = Colors.white;
+                Color themeSpineColor = Colors.white.withOpacity(0.2);
+
+                if (ack == "GOAT") {
+                  badgeLabel = "GOAT";
+                  badgeGradients = [const Color(0xFFFFD700), const Color(0xFFDAA520)];
+                  themeBorderColor = const Color(0xFFFFD700);
+                  themeSpineColor = const Color(0xFFFFD700).withOpacity(0.2);
+                } else if (ack == "MERSAL") {
+                  badgeLabel = "MERSAL";
+                  badgeGradients = [const Color(0xFFE0E0E0), const Color(0xFF9E9E9E)];
+                  themeBorderColor = const Color(0xFFC0C0C0);
+                  themeSpineColor = const Color(0xFFE0E0E0).withOpacity(0.25);
+                } else if (ack == "THERI") {
+                  badgeLabel = "THERI";
+                  badgeGradients = [const Color(0xFFCD7F32), const Color(0xFF8B4513)];
+                  themeBorderColor = const Color(0xFFCD7F32);
+                  themeSpineColor = const Color(0xFFCD7F32).withOpacity(0.2);
+                }
+
+                return SingleChildScrollView(
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: Colors.black.withOpacity(0.05),
+                        width: 1.0,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.06),
+                          blurRadius: 24,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header Section
+                        Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: brandColor.withOpacity(0.2),
+                                    width: 1.5,
                                   ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          username,
-                                          style: const TextStyle(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w800,
-                                            color: Color(0xFF1A1A1A),
-                                          ),
-                                        ),
-                                        const Text(
-                                          "Storyteller",
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.grey,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  // Delete button
-                                  if (widget.title == "My Stories" ||
-                                      widget.title == "Post" ||
-                                      widget.title == "My Books")
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.delete_outline_rounded,
-                                        color: Colors.redAccent,
-                                        size: 22,
+                                ),
+                                child: CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor: Colors.grey.shade100,
+                                  backgroundImage: NetworkImage(profileImg),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      username,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w800,
                                       ),
-                                      onPressed: () async {
-                                        final confirm = await showDialog<bool>(
-                                          context: context,
-                                          builder: (_) => AlertDialog(
-                                            title: const Text("Delete Post"),
-                                            content: const Text(
-                                              "Are you sure you want to delete this post?",
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(
-                                                  context,
-                                                  false,
-                                                ),
-                                                child: const Text("Cancel"),
+                                    ),
+                                    Text(
+                                      "Storyteller",
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey.shade500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (!widget.isPublicView && 
+                                  (widget.title == "My Stories" ||
+                                   widget.title == "Post" ||
+                                   widget.title == "My Books"))
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline_rounded,
+                                    color: Colors.redAccent,
+                                    size: 22,
+                                  ),
+                                  onPressed: () async {
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (_) => AlertDialog(
+                                        title: const Text("Delete Post"),
+                                        content: const Text(
+                                          "Are you sure you want to delete this post?",
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, false),
+                                            child: const Text("Cancel"),
+                                          ),
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, true),
+                                            child: const Text(
+                                              "Delete",
+                                              style: TextStyle(
+                                                color: Colors.red,
                                               ),
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(
-                                                  context,
-                                                  true,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (confirm == true) {
+                                      try {
+                                        final response = await http.delete(
+                                          Uri.parse(
+                                            "https://bigiluu.com/api/posts/deletePost/${post['post_id']}",
+                                          ),
+                                        );
+                                        if (response.statusCode == 200) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                "Post deleted successfully",
+                                              ),
+                                            ),
+                                          );
+                                          setState(() {
+                                            posts.removeAt(index);
+                                          });
+                                          if (posts.isEmpty) {
+                                            Navigator.pop(
+                                              context,
+                                              post['post_id'].toString(),
+                                            );
+                                          }
+                                        }
+                                      } catch (e) {
+                                        print("Delete error: $e");
+                                      }
+                                    }
+                                  },
+                                ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: brandColor.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.auto_stories_rounded,
+                                      color: brandColor,
+                                      size: 14,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      "$readersCount",
+                                      style: const TextStyle(
+                                        color: brandColor,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Hyper-Realistic 3D Book Cover
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: GestureDetector(
+                            onTap: () async {
+                              if (_isOpeningPost) return;
+                              setState(() => _isOpeningPost = true);
+
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => FullScreenPostViewer(
+                                    pages: extractPages(post['content']),
+                                    username: post['username'] ?? "",
+                                    profileImage: post['profile_image'] ?? "",
+                                    postId: postIdStr,
+                                  ),
+                                ),
+                              );
+
+                              if (mounted) {
+                                setState(() => _isOpeningPost = false);
+                              }
+                            },
+                            child: Hero(
+                              tag: "post_${post['post_id']}",
+                              child: Container(
+                                height: 440,
+                                decoration: BoxDecoration(
+                                  borderRadius: const BorderRadius.only(
+                                    topRight: Radius.circular(12),
+                                    bottomRight: Radius.circular(12),
+                                    topLeft: Radius.circular(16),
+                                    bottomLeft: Radius.circular(16),
+                                  ),
+                                  color: const Color(0xFFFDFCF2),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.25),
+                                      blurRadius: 20,
+                                      offset: const Offset(8, 8),
+                                    ),
+                                  ],
+                                ),
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    // Page Edges effect (Home page logic)
+                                    Positioned(
+                                      right: 0,
+                                      top: 8,
+                                      bottom: 8,
+                                      width: 12,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFFDFCF2),
+                                          borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
+                                        ),
+                                        child: Stack(
+                                          children: [
+                                            Column(
+                                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                              children: List.generate(
+                                                30,
+                                                (i) => Container(
+                                                  height: 0.5,
+                                                  width: double.infinity,
+                                                  color: Colors.black.withOpacity(0.04),
                                                 ),
-                                                child: const Text(
-                                                  "Delete",
-                                                  style: TextStyle(
-                                                    color: Colors.red,
+                                              ),
+                                            ),
+                                            Container(
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  begin: Alignment.centerLeft,
+                                                  end: Alignment.centerRight,
+                                                  colors: [Colors.black.withOpacity(0.08), Colors.transparent],
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+
+                                    // Front Cover
+                                    Positioned(
+                                      left: 0,
+                                      top: -1,
+                                      bottom: -1,
+                                      right: 8,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          borderRadius: const BorderRadius.only(
+                                            topRight: Radius.circular(6),
+                                            bottomRight: Radius.circular(6),
+                                            topLeft: Radius.circular(12),
+                                            bottomLeft: Radius.circular(12),
+                                          ),
+                                          border: Border.all(color: themeBorderColor, width: 2.5),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.3),
+                                              blurRadius: 12,
+                                              offset: const Offset(5, 0),
+                                            ),
+                                          ],
+                                        ),
+                                        child: ClipRRect(
+                                          borderRadius: const BorderRadius.only(
+                                            topRight: Radius.circular(4),
+                                            bottomRight: Radius.circular(4),
+                                            topLeft: Radius.circular(10),
+                                            bottomLeft: Radius.circular(10),
+                                          ),
+                                          child: Stack(
+                                            fit: StackFit.expand,
+                                            children: [
+                                              img.isNotEmpty
+                                                  ? Image.network(img, fit: BoxFit.cover)
+                                                  : Container(
+                                                      decoration: const BoxDecoration(
+                                                        gradient: LinearGradient(
+                                                          begin: Alignment.topLeft,
+                                                          end: Alignment.bottomRight,
+                                                          colors: [Color(0xFF2D1B69), Color(0xFF11998E)],
+                                                        ),
+                                                      ),
+                                                      child: const Center(child: Icon(Icons.book_rounded, color: Colors.white54, size: 64)),
+                                                    ),
+                                              // Overlays
+                                              Container(
+                                                decoration: BoxDecoration(
+                                                  gradient: LinearGradient(
+                                                    begin: Alignment.centerLeft,
+                                                    end: Alignment.centerRight,
+                                                    colors: [
+                                                      Colors.black.withOpacity(0.65),
+                                                      Colors.black.withOpacity(0.2),
+                                                      Colors.transparent,
+                                                      Colors.black.withOpacity(0.05),
+                                                      Colors.black.withOpacity(0.35),
+                                                    ],
+                                                    stops: const [0.0, 0.04, 0.2, 0.96, 1.0],
                                                   ),
                                                 ),
+                                              ),
+                                              // Spine shadow
+                                              Positioned(
+                                                left: 0, top: 0, bottom: 0, width: 25,
+                                                child: Container(
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      begin: Alignment.centerLeft,
+                                                      end: Alignment.centerRight,
+                                                      colors: [
+                                                        Colors.black.withOpacity(0.5),
+                                                        Colors.black.withOpacity(0.2),
+                                                        Colors.black.withOpacity(0.4),
+                                                        Colors.black.withOpacity(0.0),
+                                                      ],
+                                                      stops: const [0.0, 0.4, 0.5, 1.0],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              Positioned(left: 22, top: 0, bottom: 0, width: 1.2, child: Container(color: themeSpineColor)),
+                                              // Title Styling (Home page logic)
+                                              Positioned(
+                                                top: 15, left: 10, right: 10,
+                                                child: Builder(builder: (context) {
+                                                  double fs = 15.0;
+                                                  String? ff;
+                                                  Color tc = Colors.white;
+                                                  try {
+                                                    double? parsedFs;
+                                                    Color? parsedTc;
+                                                    String? parsedFf;
+                                                    if (post['titleFontSize'] != null) parsedFs = double.tryParse(post['titleFontSize'].toString());
+                                                    if (post['titleColor'] != null) {
+                                                      int? cv = int.tryParse(post['titleColor'].toString());
+                                                      if (cv != null) parsedTc = Color(cv);
+                                                    }
+                                                    if (post['titleFontFamily'] != null) parsedFf = post['titleFontFamily'].toString();
+
+                                                    // Content JSON fallback
+                                                    dynamic raw = post['content'];
+                                                    if (raw != null) {
+                                                      dynamic dec = raw;
+                                                      if (dec is String) try { dec = jsonDecode(dec); } catch (_) {}
+                                                      if (dec is Map) {
+                                                        if (parsedFs == null && dec['titleFontSize'] != null) parsedFs = double.tryParse(dec['titleFontSize'].toString());
+                                                        if (parsedTc == null && dec['titleColor'] != null) {
+                                                          int? cv = int.tryParse(dec['titleColor'].toString());
+                                                          if (cv != null) parsedTc = Color(cv);
+                                                        }
+                                                        if (parsedFf == null && dec['titleFontFamily'] != null) parsedFf = dec['titleFontFamily'].toString();
+                                                      }
+                                                    }
+                                                    if (parsedFs != null) fs = (parsedFs * 0.6).clamp(12.0, 45.0);
+                                                    if (parsedTc != null) tc = parsedTc;
+                                                    if (parsedFf != null) ff = parsedFf;
+                                                  } catch (_) {}
+                                                  return Text(
+                                                    post['title']?.toString() ?? '',
+                                                    textAlign: TextAlign.center,
+                                                    maxLines: 3,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      color: tc,
+                                                      fontSize: fs,
+                                                      fontFamily: ff,
+                                                      fontWeight: FontWeight.bold,
+                                                      shadows: [Shadow(color: Colors.black.withOpacity(0.6), blurRadius: 10, offset: const Offset(1, 1))],
+                                                    ),
+                                                  );
+                                                }),
                                               ),
                                             ],
                                           ),
-                                        );
-                                        if (confirm == true) {
-                                          try {
-                                            final response = await http.delete(
-                                              Uri.parse(
-                                                "https://bigiluu.com/api/posts/deletePost/${post['post_id']}",
-                                              ),
-                                            );
-                                            if (response.statusCode == 200) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    "Post deleted successfully",
-                                                  ),
-                                                ),
-                                              );
-                                              setState(() {
-                                                posts.removeAt(index);
-                                              });
-                                              if (posts.isEmpty) {
-                                                Navigator.pop(
-                                                  context,
-                                                  post['post_id'].toString(),
-                                                );
-                                              }
-                                            }
-                                          } catch (e) {
-                                            print("Delete error: $e");
-                                          }
-                                        }
-                                      },
-                                    ),
-                                  // Readers count chip
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(
-                                        0xFFB11226,
-                                      ).withOpacity(0.08),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(
-                                          Icons.auto_stories_rounded,
-                                          color: Color(0xFFB11226),
-                                          size: 14,
                                         ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          "$readersCount",
-                                          style: const TextStyle(
-                                            color: Color(0xFFB11226),
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
 
-                            // ─── BOOK COVER ───────────────────────────────────
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () async {
-                                  await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => FullScreenPostViewer(
-                                        pages: extractPages(post['content']),
-                                        username: post['username'] ?? "",
-                                        profileImage:
-                                            post['profile_image'] ?? "",
-                                        postId: post['post_id'],
-                                      ),
-                                    ),
-                                  );
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                  ),
-                                  child: Hero(
-                                    tag: "feed_post_${post['post_id']}",
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        borderRadius: const BorderRadius.only(
-                                          topRight: Radius.circular(12),
-                                          bottomRight: Radius.circular(12),
-                                          topLeft: Radius.circular(6),
-                                          bottomLeft: Radius.circular(6),
+                                    // Badge
+                                    if (badgeLabel.isNotEmpty)
+                                      Positioned(
+                                        top: -22,
+                                        right: 0,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(colors: badgeGradients, begin: Alignment.topLeft, end: Alignment.bottomRight),
+                                            borderRadius: BorderRadius.circular(20),
+                                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 8, offset: const Offset(0, 3))],
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.stars_rounded, color: Colors.white, size: 18),
+                                              const SizedBox(width: 8),
+                                              Text(badgeLabel, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                                            ],
+                                          ),
                                         ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(
-                                              0.35,
-                                            ),
-                                            blurRadius: 20,
-                                            offset: const Offset(10, 14),
-                                          ),
-                                        ],
                                       ),
-                                      child: Stack(
-                                        children: [
-                                          // Page edges
-                                          Positioned(
-                                            right: 0,
-                                            top: 6,
-                                            bottom: 6,
-                                            width: 14,
-                                            child: Container(
-                                              decoration: BoxDecoration(
-                                                color: Colors.white,
-                                                borderRadius:
-                                                    const BorderRadius.horizontal(
-                                                      right: Radius.circular(8),
-                                                    ),
-                                                border: Border.all(
-                                                  color: Colors.grey
-                                                      .withOpacity(0.2),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          // Front cover
-                                          Positioned.fill(
-                                            child: Padding(
-                                              padding: const EdgeInsets.only(
-                                                right: 12,
-                                              ),
-                                              child: ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                                child: Stack(
-                                                  fit: StackFit.expand,
-                                                  children: [
-                                                    if (img.isNotEmpty)
-                                                      Image.network(
-                                                        img,
-                                                        fit: BoxFit.cover,
-                                                        loadingBuilder:
-                                                            (
-                                                              ctx,
-                                                              child,
-                                                              progress,
-                                                            ) {
-                                                              if (progress ==
-                                                                  null) {
-                                                                return child;
-                                                              }
-                                                              return Container(
-                                                                color: Colors
-                                                                    .grey
-                                                                    .shade100,
-                                                              );
-                                                            },
-                                                        errorBuilder:
-                                                            (
-                                                              _,
-                                                              _,
-                                                              _,
-                                                            ) => Container(
-                                                              color: Colors
-                                                                  .grey
-                                                                  .shade200,
-                                                              child: const Icon(
-                                                                Icons
-                                                                    .book_rounded,
-                                                                color:
-                                                                    Colors.grey,
-                                                                size: 40,
-                                                              ),
-                                                            ),
-                                                      )
-                                                    else
-                                                      Container(
-                                                        color: Colors
-                                                            .grey
-                                                            .shade200,
-                                                        child: const Icon(
-                                                          Icons.book_rounded,
-                                                          color: Colors.grey,
-                                                          size: 40,
-                                                        ),
-                                                      ),
-                                                    // Depth overlay
-                                                    Container(
-                                                      decoration: BoxDecoration(
-                                                        gradient: LinearGradient(
-                                                          begin: Alignment
-                                                              .centerLeft,
-                                                          end: Alignment
-                                                              .centerRight,
-                                                          colors: [
-                                                            Colors.black
-                                                                .withOpacity(
-                                                                  0.5,
-                                                                ),
-                                                            Colors.black
-                                                                .withOpacity(
-                                                                  0.1,
-                                                                ),
-                                                            Colors.transparent,
-                                                            Colors.black
-                                                                .withOpacity(
-                                                                  0.3,
-                                                                ),
-                                                          ],
-                                                          stops: const [
-                                                            0.0,
-                                                            0.05,
-                                                            0.25,
-                                                            1.0,
-                                                          ],
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    // Title overlay
-                                                    Positioned(
-                                                      bottom: 32,
-                                                      left: 20,
-                                                      right: 16,
-                                                      child: Text(
-                                                        caption,
-                                                        maxLines: 3,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        style: const TextStyle(
-                                                          color: Colors.white,
-                                                          fontSize: 22,
-                                                          fontWeight:
-                                                              FontWeight.w900,
-                                                          fontFamily: 'serif',
-                                                          height: 1.2,
-                                                          shadows: [
-                                                            Shadow(
-                                                              color: Colors
-                                                                  .black87,
-                                                              blurRadius: 16,
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
+                                  ],
                                 ),
                               ),
                             ),
-
-                            // ─── METADATA ─────────────────────────────────────
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (caption.isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(bottom: 6),
-                                      child: Text(
-                                        caption,
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                          color: Color(0xFF4A4A4A),
-                                          height: 1.4,
-                                        ),
-                                      ),
-                                    ),
-                                  Row(
-                                    children: [
-                                      if (hashtag.isNotEmpty)
-                                        Expanded(
-                                          child: Text(
-                                            hashtag,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              color: Color(0xFFB11226),
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            // ─── ACTION BUTTONS ────────────────────────────────
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: OutlinedButton.icon(
-                                      onPressed: () async {
-                                        await Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                FullScreenPostViewer(
-                                                  pages: extractPages(
-                                                    post['content'],
-                                                  ),
-                                                  username:
-                                                      post['username'] ?? "",
-                                                  profileImage:
-                                                      post['profile_image'] ??
-                                                      "",
-                                                  postId: post['post_id'],
-                                                ),
-                                          ),
-                                        );
-                                      },
-                                      icon: const Icon(
-                                        Icons.menu_book_rounded,
-                                        size: 16,
-                                      ),
-                                      label: const Text("Read"),
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: const Color(
-                                          0xFFB11226,
-                                        ),
-                                        side: const BorderSide(
-                                          color: Color(0xFFB11226),
-                                          width: 1.2,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 10,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  if (widget.title == "Saved")
-                                    Expanded(
-                                      child: OutlinedButton.icon(
-                                        onPressed: () async {
-                                          try {
-                                            final response = await http.delete(
-                                              Uri.parse(
-                                                "https://bigiluu.com/api/posts/removeSavedPost/${widget.userId}/${post['post_id']}",
-                                              ),
-                                            );
-                                            if (response.statusCode == 200) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    "Removed from saved",
-                                                  ),
-                                                ),
-                                              );
-                                              setState(() {
-                                                posts.removeAt(index);
-                                              });
-                                              if (posts.isEmpty) {
-                                                Navigator.pop(
-                                                  context,
-                                                  post['post_id'].toString(),
-                                                );
-                                              }
-                                            }
-                                          } catch (e) {
-                                            print("Remove saved error: $e");
-                                          }
-                                        },
-                                        icon: const Icon(
-                                          Icons.bookmark_remove_outlined,
-                                          size: 16,
-                                        ),
-                                        label: const Text("Unsave"),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: Colors.grey.shade600,
-                                          side: BorderSide(
-                                            color: Colors.grey.shade300,
-                                            width: 1.2,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 10,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-
-                            const Divider(thickness: 0.4, height: 1),
-                          ],
+                          ),
                         ),
-                      ),
-                    );
-                  },
+
+                        // Caption & Hashtag
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (caption.isNotEmpty)
+                                Text(
+                                  caption,
+                                  style: TextStyle(fontSize: 14, color: Colors.grey.shade800, fontWeight: FontWeight.w500, height: 1.5),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              if (hashtag.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 10),
+                                  child: Text(
+                                    hashtag,
+                                    style: const TextStyle(fontSize: 13, color: brandColor, fontWeight: FontWeight.w700, letterSpacing: 0.2),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+
+                        // Action row
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              _buildActionButton(
+                                icon: Icons.touch_app_rounded,
+                                topLabel: (post['support_count'] ?? 0).toString(),
+                                label: "Support",
+                                color: isLiked ? brandColor : null,
+                                onTap: () => toggleLike(postIdStr),
+                              ),
+                              const SizedBox(width: 8),
+                              _buildActionButton(
+                                icon: Icons.share_rounded,
+                                label: "Share",
+                                onTap: () => Share.share("https://bigiluu.com/post/$postIdStr"),
+                              ),
+                              const SizedBox(width: 8),
+                              _buildActionButton(
+                                icon: isSaved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
+                                label: isSaved ? "Saved" : "Save",
+                                color: isSaved ? brandColor : null,
+                                onTap: () => toggleSave(postIdStr),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 );
               },
             ),

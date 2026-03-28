@@ -1241,64 +1241,7 @@ class _WritePageState extends State<WritePage> {
     _saveToHistory(immediate: true);
   }
 
-  void _addNewTextBlock(int pageIndex) {
-    if (pageIndex >= _pages.length) return;
 
-    // Rule: Cannot add text to a page that already has an image
-    if (_pages[pageIndex].blocks.any((b) => b.type == "image")) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Cannot add text to an image page")),
-      );
-      return;
-    }
-
-    _flushHistoryIfPending();
-
-    // Add a new empty text block to the current page so the user can type independently
-    setState(() {
-      int insertIndex = (_focusedBlockIndex ?? -1) + 1;
-      if (insertIndex > 0 && insertIndex < _pages[pageIndex].blocks.length) {
-        _pages[pageIndex].blocks.insert(
-          insertIndex,
-          PageBlock.text(
-            "",
-            isHeadline: _activeHeadline,
-            fontColor: _activeColor,
-          ),
-        );
-      } else {
-        _pages[pageIndex].blocks.add(
-          PageBlock.text(
-            "",
-            isHeadline: _activeHeadline,
-            fontColor: _activeColor,
-          ),
-        );
-      }
-    });
-
-    // Auto focus the new block
-    Future.delayed(const Duration(milliseconds: 100), () {
-      int insertIndex = (_focusedBlockIndex ?? -1) + 1;
-      int newBlockIndex =
-          (insertIndex > 0 && insertIndex < _pages[pageIndex].blocks.length)
-          ? insertIndex
-          : _pages[pageIndex].blocks.length - 1;
-
-      String key = "$pageIndex-$newBlockIndex";
-
-      if (!_controllers.containsKey(key)) {
-        _controllers[key] = TextEditingController(text: "");
-      }
-      if (!_focusNodes.containsKey(key)) {
-        _focusNodes[key] = FocusNode();
-      }
-
-      FocusScope.of(context).requestFocus(_focusNodes[key]);
-      _onFocusChanged(newBlockIndex, true);
-    });
-    _saveToHistory(immediate: true);
-  }
 
   void _applyStyleToSelection({
     double? fontSize,
@@ -2038,24 +1981,7 @@ class _WritePageState extends State<WritePage> {
                               Icons.add_photo_alternate_outlined,
                             ),
                           ),
-                          FloatingActionButton.small(
-                            backgroundColor:
-                                _pages[_currentPage].blocks.any(
-                                  (b) => b.type == "image",
-                                )
-                                ? Colors.grey.shade100
-                                : Colors.white,
-                            foregroundColor:
-                                _pages[_currentPage].blocks.any(
-                                  (b) => b.type == "image",
-                                )
-                                ? Colors.grey.shade400
-                                : const Color(0xFF2196F3),
-                            elevation: 4,
-                            heroTag: "addText",
-                            onPressed: () => _addNewTextBlock(_currentPage),
-                            child: const Icon(Icons.short_text_rounded),
-                          ),
+
                         ],
                       ),
                     ),

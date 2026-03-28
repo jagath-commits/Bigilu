@@ -1797,9 +1797,7 @@ class _WritePageState extends State<WritePage> {
                                                   child: Image.network(
                                                     block.imageUrl!,
                                                     width: double.infinity,
-                                                    height:
-                                                        200, // 🔥 ADD FIXED HEIGHT
-                                                    fit: BoxFit.cover,
+                                                    fit: BoxFit.contain,
                                                     loadingBuilder:
                                                         (
                                                           context,

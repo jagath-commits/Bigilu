@@ -10,7 +10,7 @@ import 'package:bigilu/hashtag.dart';
 import 'package:bigilu/profile1.dart';
 import 'package:bigilu/write.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:bigilu/notifications.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -417,51 +417,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
           ),
           actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Center(
-                child: InkWell(
-                  onTap: () async {
-                    String? userId = await getUserId();
-                    if (userId != null) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => NotificationsPage(userId: userId),
-                        ),
-                      );
-                    }
-                  },
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          const Color(0xFFB11226).withOpacity(0.9),
-                          const Color(0xFF8A0C20).withOpacity(0.9),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFB11226).withOpacity(0.2),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.notifications_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: Center(

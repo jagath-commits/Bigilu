@@ -1072,6 +1072,37 @@ class _WritePageState extends State<WritePage> {
     }
   }
 
+  Future<void> _showSaveDraftConfirmation() async {
+    final bool? result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Save Draft?"),
+        content: const Text("Do you want to save this as a draft?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("NO", style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("YES", style: TextStyle(color: Color(0xFFB11226), fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (result == null) return; // Dismissed by clicking outside
+
+    if (result == true) {
+      await saveDraft();
+    }
+
+    if (mounted) {
+      Navigator.pop(context, true);
+    }
+  }
+
   Future<void> _pickImageForPage(int index) async {
     final XFile? image = await _imagePicker.pickImage(
       source: ImageSource.gallery,
@@ -1482,8 +1513,7 @@ class _WritePageState extends State<WritePage> {
     // ignore: deprecated_member_use
     return WillPopScope(
       onWillPop: () async {
-        await saveDraft();
-        Navigator.pop(context, true);
+        await _showSaveDraftConfirmation();
         return false;
       },
       child: Scaffold(
@@ -1503,10 +1533,7 @@ class _WritePageState extends State<WritePage> {
               ),
               const Spacer(),
               TextButton(
-                onPressed: () async {
-                  await saveDraft();
-                  Navigator.pop(context, true);
-                },
+                onPressed: _showSaveDraftConfirmation,
                 style: TextButton.styleFrom(
                   foregroundColor: const Color(0xFFB11226),
                   padding: const EdgeInsets.symmetric(

@@ -130,6 +130,11 @@ class _WritePageState extends State<WritePage> {
   int _currentPage = 0;
   final PageController _pageController = PageController();
 
+  List<List<PageData>> _historyStack = [];
+  int _historyIndex = -1;
+  bool _isUndoRedoOp = false;
+  Timer? _debounceTimer;
+
   // Active styles for NEW blocks
   int _activeColor = 0xFF000000;
   bool _activeHeadline = false;
@@ -179,11 +184,16 @@ class _WritePageState extends State<WritePage> {
     if (widget.draftCover != null && widget.draftCover!.isNotEmpty) {
       _pages[0].blocks.insert(0, PageBlock.networkImage(widget.draftCover!));
     }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _saveToHistory(immediate: true);
+    });
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+    _debounceTimer?.cancel();
     for (var ctrl in _controllers.values) {
       ctrl.dispose();
     }
@@ -191,6 +201,171 @@ class _WritePageState extends State<WritePage> {
       node.dispose();
     }
     super.dispose();
+  }
+
+  List<PageData> _clonePages(List<PageData> source) {
+    return source.map((p) => PageData(
+      fontSize: p.fontSize,
+      fontFamily: p.fontFamily,
+      fontColor: p.fontColor,
+      lineSpacing: p.lineSpacing,
+      letterSpacing: p.letterSpacing,
+      pageMargin: p.pageMargin,
+      textAlign: p.textAlign,
+    )..blocks = p.blocks.map((b) {
+      if (b.type == "text") {
+        return PageBlock.text(
+          b.text ?? "",
+          isHeadline: b.isHeadline,
+          fontSize: b.fontSize,
+          fontFamily: b.fontFamily,
+          fontColor: b.fontColor,
+          lineSpacing: b.lineSpacing,
+          letterSpacing: b.letterSpacing,
+          textAlign: b.textAlign,
+        );
+      } else {
+        var img = PageBlock.networkImage(b.imageUrl ?? "");
+        img.image = b.image;
+        img.imageWidth = b.imageWidth;
+        img.imagePosition = b.imagePosition;
+        return img;
+      }
+    }).toList()).toList();
+  }
+
+  void _saveToHistory({bool immediate = false}) {
+    if (_isUndoRedoOp) return;
+
+    void save() {
+      if (_historyIndex >= 0 && _historyIndex < _historyStack.length - 1) {
+        _historyStack = _historyStack.sublist(0, _historyIndex + 1);
+      }
+      _historyStack.add(_clonePages(_pages));
+      _historyIndex = _historyStack.length - 1;
+      
+      if (_historyStack.length > 50) {
+        _historyStack.removeAt(0);
+        _historyIndex--;
+      }
+      if (mounted) setState(() {});
+    }
+
+    if (immediate) {
+      _debounceTimer?.cancel();
+      save();
+    } else {
+      _debounceTimer?.cancel();
+      _debounceTimer = Timer(const Duration(milliseconds: 600), save);
+    }
+  }
+
+  void _flushHistoryIfPending() {
+    if (_debounceTimer?.isActive ?? false) {
+      _saveToHistory(immediate: true);
+    }
+  }
+
+  void _applyStateSafety() {
+    if (_currentPage >= _pages.length) {
+      _currentPage = _pages.length > 0 ? _pages.length - 1 : 0;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_pageController.hasClients) {
+          _pageController.jumpToPage(_currentPage);
+        }
+      });
+    }
+    if (_focusedBlockIndex != null) {
+      if (_currentPage < _pages.length) {
+        if (_focusedBlockIndex! >= _pages[_currentPage].blocks.length) {
+          _focusedBlockIndex = null;
+        }
+      } else {
+        _focusedBlockIndex = null;
+      }
+    }
+  }
+
+  void _globalUndo() {
+    if (_historyIndex > 0) {
+      if (_debounceTimer?.isActive ?? false) {
+        _debounceTimer?.cancel();
+        _saveToHistory(immediate: true);
+      }
+      setState(() {
+        _isUndoRedoOp = true;
+        _historyIndex--;
+        _pages = _clonePages(_historyStack[_historyIndex]);
+        _applyStateSafety();
+        _rebuildAllControllers();
+        _isUndoRedoOp = false;
+      });
+    }
+  }
+
+  void _globalRedo() {
+    if (_historyIndex < _historyStack.length - 1) {
+      setState(() {
+        _isUndoRedoOp = true;
+        _historyIndex++;
+        _pages = _clonePages(_historyStack[_historyIndex]);
+        _applyStateSafety();
+        _rebuildAllControllers();
+        _isUndoRedoOp = false;
+      });
+    }
+  }
+
+  void _rebuildAllControllers() {
+    Set<String> activeKeys = {};
+    for (int p = 0; p < _pages.length; p++) {
+      for (int b = 0; b < _pages[p].blocks.length; b++) {
+        if (_pages[p].blocks[b].type == "text") {
+          String key = "$p-$b";
+          activeKeys.add(key);
+          if (_controllers.containsKey(key)) {
+            if (_controllers[key]!.text != _pages[p].blocks[b].text) {
+              _controllers[key]!.text = _pages[p].blocks[b].text ?? "";
+            }
+          } else {
+            final ctrl = TextEditingController(text: _pages[p].blocks[b].text ?? "");
+            ctrl.addListener(() {
+              if (!_isUndoRedoOp && _pages[p].blocks[b].text != ctrl.text) {
+                _handleTextChange(ctrl.text, p, b);
+              }
+            });
+            _controllers[key] = ctrl;
+            _focusNodes[key] = FocusNode();
+          }
+        }
+      }
+    }
+
+    final controllersToDispose = <TextEditingController>[];
+    final nodesToDispose = <FocusNode>[];
+
+    _controllers.removeWhere((key, ctrl) {
+      if (!activeKeys.contains(key)) {
+        controllersToDispose.add(ctrl);
+        if (_focusNodes.containsKey(key)) {
+          nodesToDispose.add(_focusNodes[key]!);
+          _focusNodes.remove(key);
+        }
+        return true;
+      }
+      return false;
+    });
+
+    if (controllersToDispose.isNotEmpty || nodesToDispose.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        for (var c in controllersToDispose) {
+          c.dispose();
+        }
+        for (var n in nodesToDispose) {
+          n.dispose();
+        }
+      });
+    }
   }
 
   void _onFocusChanged(int blockIndex, bool hasFocus) {
@@ -222,7 +397,9 @@ class _WritePageState extends State<WritePage> {
           fontWeight: isHeadline ? FontWeight.w900 : FontWeight.w400,
           fontFamily: fontFamily ?? page.fontFamily,
           height: lineSpacing ?? page.lineSpacing,
-          letterSpacing: isHeadline ? -0.5 : (letterSpacing ?? page.letterSpacing),
+          letterSpacing: isHeadline
+              ? -0.5
+              : (letterSpacing ?? page.letterSpacing),
         ),
       ),
       maxLines: null,
@@ -318,15 +495,31 @@ class _WritePageState extends State<WritePage> {
     }
 
     // Cleanup orphaned controllers
+    final controllersToDispose = <TextEditingController>[];
+    final nodesToDispose = <FocusNode>[];
+
     _controllers.removeWhere((key, ctrl) {
       if (!activeKeys.contains(key)) {
-        ctrl.dispose();
-        _focusNodes[key]?.dispose();
-        _focusNodes.remove(key);
+        controllersToDispose.add(ctrl);
+        if (_focusNodes.containsKey(key)) {
+          nodesToDispose.add(_focusNodes[key]!);
+          _focusNodes.remove(key);
+        }
         return true;
       }
       return false;
     });
+
+    if (controllersToDispose.isNotEmpty || nodesToDispose.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        for (var c in controllersToDispose) {
+          c.dispose();
+        }
+        for (var n in nodesToDispose) {
+          n.dispose();
+        }
+      });
+    }
 
     // Remove trailing empty pages
     while (_pages.length > 1 &&
@@ -369,7 +562,7 @@ class _WritePageState extends State<WritePage> {
               fontSize: _pages[0].fontSize,
               fontFamily: _pages[0].fontFamily,
               fontColor: _pages[0].fontColor,
-            ),
+            )..blocks.clear(),
           );
         }
 
@@ -498,14 +691,19 @@ class _WritePageState extends State<WritePage> {
   }
 
   void _handleTextChange(String value, int pageIndex, int blockIndex) {
-    final page = _pages[pageIndex];
-    double maxWidth = MediaQuery.of(context).size.width - (page.pageMargin * 2);
+    if (_isUndoRedoOp) return;
 
-    // Update text without truncating lines
-    _pages[pageIndex].blocks[blockIndex].text = value;
-    _pages[pageIndex].blocks[blockIndex].previousText = value;
+    setState(() {
+      // Update text without truncating lines
+      _pages[pageIndex].blocks[blockIndex].text = value;
+      _pages[pageIndex].blocks[blockIndex].previousText = value;
+
+      _saveToHistory(immediate: false);
+    });
 
     int oldPageCount = _pages.length;
+    final page = _pages[pageIndex];
+    double maxWidth = MediaQuery.of(context).size.width - (page.pageMargin * 2);
 
     if (_doesTextOverflow(value, page, maxWidth)) {
       _rebalancePagesFromIndex(pageIndex);
@@ -572,6 +770,11 @@ class _WritePageState extends State<WritePage> {
       _pages.removeLast();
       if (_currentPage >= _pages.length) {
         _currentPage = _pages.length - 1;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_pageController.hasClients) {
+            _pageController.jumpToPage(_currentPage);
+          }
+        });
       }
     }
   }
@@ -876,6 +1079,7 @@ class _WritePageState extends State<WritePage> {
     );
 
     if (image != null) {
+      _flushHistoryIfPending();
       setState(() {
         int targetPage = index;
 
@@ -929,10 +1133,12 @@ class _WritePageState extends State<WritePage> {
           _pageController.jumpToPage(targetPage);
         });
       });
+      _saveToHistory(immediate: true);
     }
   }
 
   void _removeImageBlock(int pageIndex, int blockIndex) {
+    _flushHistoryIfPending();
     setState(() {
       final blocks = _pages[pageIndex].blocks;
       blocks.removeAt(blockIndex);
@@ -955,6 +1161,7 @@ class _WritePageState extends State<WritePage> {
       // Trigger rebalance to pull content from next pages into this newly freed space
       _rebalancePagesFromIndex(pageIndex);
     });
+    _saveToHistory(immediate: true);
   }
 
   void _deleteCurrentPage() {
@@ -964,6 +1171,8 @@ class _WritePageState extends State<WritePage> {
       );
       return;
     }
+
+    _flushHistoryIfPending();
 
     int pageToDelete = _currentPage; // ✅ lock the correct page index
 
@@ -1008,9 +1217,11 @@ class _WritePageState extends State<WritePage> {
         ..clear()
         ..addAll(newFocusNodes);
     });
+    _saveToHistory(immediate: true);
   }
 
   void _addNewPage() {
+    _flushHistoryIfPending();
     setState(() {
       final lastPage = _pages.isNotEmpty ? _pages.last : null;
       _pages.add(
@@ -1027,6 +1238,7 @@ class _WritePageState extends State<WritePage> {
       _pageController.jumpToPage(_pages.length - 1);
       _currentPage = _pages.length - 1;
     });
+    _saveToHistory(immediate: true);
   }
 
   void _addNewTextBlock(int pageIndex) {
@@ -1039,6 +1251,8 @@ class _WritePageState extends State<WritePage> {
       );
       return;
     }
+
+    _flushHistoryIfPending();
 
     // Add a new empty text block to the current page so the user can type independently
     setState(() {
@@ -1083,6 +1297,7 @@ class _WritePageState extends State<WritePage> {
       FocusScope.of(context).requestFocus(_focusNodes[key]);
       _onFocusChanged(newBlockIndex, true);
     });
+    _saveToHistory(immediate: true);
   }
 
   void _applyStyleToSelection({
@@ -1104,6 +1319,8 @@ class _WritePageState extends State<WritePage> {
     final key = "$pageIdx-$blockIndex";
     final controller = _controllers[key];
     if (controller == null) return;
+
+    _flushHistoryIfPending();
 
     final selection = controller.selection;
     final text = controller.text;
@@ -1127,6 +1344,7 @@ class _WritePageState extends State<WritePage> {
             fontColor == null &&
             isHeadline == null &&
             letterSpacing == null) {
+          _saveToHistory(immediate: true);
           return;
         }
       }
@@ -1145,6 +1363,7 @@ class _WritePageState extends State<WritePage> {
         if (letterSpacing != null) block.letterSpacing = letterSpacing;
         if (textAlign != null) block.textAlign = textAlign;
       });
+      _saveToHistory(immediate: true);
       return;
     }
 
@@ -1223,6 +1442,7 @@ class _WritePageState extends State<WritePage> {
         }
       }
     });
+    _saveToHistory(immediate: true);
   }
 
   void _applyGlobalStyle({
@@ -1233,6 +1453,7 @@ class _WritePageState extends State<WritePage> {
     TextAlign? textAlign,
     double? pageMargin,
   }) {
+    _flushHistoryIfPending();
     setState(() {
       for (var p in _pages) {
         if (fontSize != null) p.fontSize = fontSize;
@@ -1270,6 +1491,7 @@ class _WritePageState extends State<WritePage> {
         }
       }
     });
+    _saveToHistory(immediate: true);
   }
 
   void _applyStyleSmartly({
@@ -1494,18 +1716,17 @@ class _WritePageState extends State<WritePage> {
                                             if (block.type == "text") {
                                               String key = "$index-$blockIndex";
 
-                                              if (!_controllers.containsKey(
-                                                key,
-                                              )) {
-                                                _controllers[key] =
-                                                    TextEditingController(
-                                                      text: block.text ?? "",
-                                                    );
+                                              if (!_controllers.containsKey(key)) {
+                                                final ctrl = TextEditingController(text: block.text ?? "");
+                                                ctrl.addListener(() {
+                                                  if (!_isUndoRedoOp && _pages[index].blocks[blockIndex].text != ctrl.text) {
+                                                    _handleTextChange(ctrl.text, index, blockIndex);
+                                                  }
+                                                });
+                                                _controllers[key] = ctrl;
                                               }
 
-                                              if (!_focusNodes.containsKey(
-                                                key,
-                                              )) {
+                                              if (!_focusNodes.containsKey(key)) {
                                                 _focusNodes[key] = FocusNode();
                                               }
 
@@ -1541,7 +1762,8 @@ class _WritePageState extends State<WritePage> {
                                                       blockIndex,
                                                     );
                                                   },
-                                                  textAlign: block.textAlign ??
+                                                  textAlign:
+                                                      block.textAlign ??
                                                       _pages[index].textAlign,
                                                   style: GoogleFonts.getFont(
                                                     block.fontFamily ??
@@ -1550,8 +1772,8 @@ class _WritePageState extends State<WritePage> {
                                                     fontSize: block.isHeadline
                                                         ? 28
                                                         : (block.fontSize ??
-                                                            _pages[index]
-                                                                .fontSize),
+                                                              _pages[index]
+                                                                  .fontSize),
                                                     fontWeight: block.isHeadline
                                                         ? FontWeight.w900
                                                         : FontWeight.w400,
@@ -1560,15 +1782,16 @@ class _WritePageState extends State<WritePage> {
                                                           _pages[index]
                                                               .fontColor,
                                                     ),
-                                                    height: block.lineSpacing ??
+                                                    height:
+                                                        block.lineSpacing ??
                                                         _pages[index]
                                                             .lineSpacing,
-                                                    letterSpacing: block
-                                                            .isHeadline
+                                                    letterSpacing:
+                                                        block.isHeadline
                                                         ? -0.5
                                                         : (block.letterSpacing ??
-                                                            _pages[index]
-                                                                .letterSpacing),
+                                                              _pages[index]
+                                                                  .letterSpacing),
                                                     backgroundColor: null,
                                                   ),
                                                   decoration: InputDecoration(
@@ -1848,8 +2071,18 @@ class _WritePageState extends State<WritePage> {
                 ],
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
+                  _buildToolbarButton(
+                    context,
+                    Icons.undo_rounded,
+                    "Undo",
+                    () {
+                      HapticFeedback.lightImpact();
+                      _globalUndo();
+                    },
+                    disabled: _historyIndex <= 0,
+                  ),
                   _buildToolbarButton(
                     context,
                     Icons.text_format_rounded,
@@ -1858,6 +2091,16 @@ class _WritePageState extends State<WritePage> {
                       HapticFeedback.lightImpact();
                       _showStylePicker();
                     },
+                  ),
+                  _buildToolbarButton(
+                    context,
+                    Icons.redo_rounded,
+                    "Redo",
+                    () {
+                      HapticFeedback.lightImpact();
+                      _globalRedo();
+                    },
+                    disabled: _historyIndex >= _historyStack.length - 1,
                   ),
                 ],
               ),
@@ -1874,9 +2117,14 @@ class _WritePageState extends State<WritePage> {
     String label,
     VoidCallback onTap, {
     bool isActive = false,
+    bool disabled = false,
   }) {
+    final Color color = disabled 
+        ? Colors.grey.withOpacity(0.3)
+        : (isActive ? const Color(0xFFB11226) : Colors.grey.shade700);
+
     return InkWell(
-      onTap: onTap,
+      onTap: disabled ? null : onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1889,7 +2137,7 @@ class _WritePageState extends State<WritePage> {
           children: [
             Icon(
               icon,
-              color: isActive ? const Color(0xFFB11226) : Colors.grey.shade700,
+              color: color,
               size: 24,
             ),
             const SizedBox(height: 4),
@@ -1898,9 +2146,7 @@ class _WritePageState extends State<WritePage> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
-                color: isActive
-                    ? const Color(0xFFB11226)
-                    : Colors.grey.shade700,
+                color: color,
               ),
             ),
           ],
@@ -1965,17 +2211,17 @@ class _WritePageState extends State<WritePage> {
                           ),
                         ),
                         TextButton(
-                            onPressed: () {
-                              _applyGlobalStyle(
-                                fontSize: 22,
-                                lineSpacing: 1.4,
-                                letterSpacing: 0.0,
-                                fontFamily: "Mukta Malar",
-                                textAlign: TextAlign.left,
-                                pageMargin: 50.0,
-                              );
-                              setModalState(() {});
-                            },
+                          onPressed: () {
+                            _applyGlobalStyle(
+                              fontSize: 22,
+                              lineSpacing: 1.4,
+                              letterSpacing: 0.0,
+                              fontFamily: "Mukta Malar",
+                              textAlign: TextAlign.left,
+                              pageMargin: 50.0,
+                            );
+                            setModalState(() {});
+                          },
                           child: const Text(
                             "RESET",
                             style: TextStyle(
@@ -1998,11 +2244,14 @@ class _WritePageState extends State<WritePage> {
                         _buildSectionHeaderLabel("FONT SIZE"),
                         const SizedBox(height: 16),
                         _buildStepper(
-                          value: "${(focusedBlock?.fontSize ?? page.fontSize).toInt()} px",
+                          value:
+                              "${(focusedBlock?.fontSize ?? page.fontSize).toInt()} px",
                           onDecrement: () {
                             if (page.fontSize > 16) {
                               _applyStyleSmartly(
-                                fontSize: (focusedBlock?.fontSize ?? page.fontSize) - 1,
+                                fontSize:
+                                    (focusedBlock?.fontSize ?? page.fontSize) -
+                                    1,
                               );
                               setModalState(() {});
                             }
@@ -2010,7 +2259,9 @@ class _WritePageState extends State<WritePage> {
                           onIncrement: () {
                             if (page.fontSize < 48) {
                               _applyStyleSmartly(
-                                fontSize: (focusedBlock?.fontSize ?? page.fontSize) + 1,
+                                fontSize:
+                                    (focusedBlock?.fontSize ?? page.fontSize) +
+                                    1,
                               );
                               setModalState(() {});
                             }
@@ -2031,8 +2282,8 @@ class _WritePageState extends State<WritePage> {
                               final font = _fontFamilies[idx];
                               final isSelected = (focusedBlock != null)
                                   ? (focusedBlock.fontFamily ??
-                                          page.fontFamily) ==
-                                      font
+                                            page.fontFamily) ==
+                                        font
                                   : page.fontFamily == font;
                               return GestureDetector(
                                 onTap: () {
@@ -2091,12 +2342,17 @@ class _WritePageState extends State<WritePage> {
                             Expanded(
                               child: _buildTypographyStepper(
                                 label: "LINE SPACING",
-                                value: (focusedBlock?.lineSpacing ?? page.lineSpacing)
-                                    .toStringAsFixed(1),
+                                value:
+                                    (focusedBlock?.lineSpacing ??
+                                            page.lineSpacing)
+                                        .toStringAsFixed(1),
                                 onDecrement: () {
                                   if (page.lineSpacing > 1.0) {
                                     _applyStyleSmartly(
-                                      lineSpacing: (focusedBlock?.lineSpacing ?? page.lineSpacing) - 0.1,
+                                      lineSpacing:
+                                          (focusedBlock?.lineSpacing ??
+                                              page.lineSpacing) -
+                                          0.1,
                                     );
                                     setModalState(() {});
                                   }
@@ -2104,7 +2360,10 @@ class _WritePageState extends State<WritePage> {
                                 onIncrement: () {
                                   if (page.lineSpacing < 3.0) {
                                     _applyStyleSmartly(
-                                      lineSpacing: (focusedBlock?.lineSpacing ?? page.lineSpacing) + 0.1,
+                                      lineSpacing:
+                                          (focusedBlock?.lineSpacing ??
+                                              page.lineSpacing) +
+                                          0.1,
                                     );
                                     setModalState(() {});
                                   }
@@ -2115,12 +2374,17 @@ class _WritePageState extends State<WritePage> {
                             Expanded(
                               child: _buildTypographyStepper(
                                 label: "LETTERING",
-                                value: (focusedBlock?.letterSpacing ?? page.letterSpacing)
-                                    .toStringAsFixed(1),
+                                value:
+                                    (focusedBlock?.letterSpacing ??
+                                            page.letterSpacing)
+                                        .toStringAsFixed(1),
                                 onDecrement: () {
                                   if (page.letterSpacing > -2.0) {
                                     _applyStyleSmartly(
-                                      letterSpacing: (focusedBlock?.letterSpacing ?? page.letterSpacing) - 0.1,
+                                      letterSpacing:
+                                          (focusedBlock?.letterSpacing ??
+                                              page.letterSpacing) -
+                                          0.1,
                                     );
                                     setModalState(() {});
                                   }
@@ -2128,7 +2392,10 @@ class _WritePageState extends State<WritePage> {
                                 onIncrement: () {
                                   if (page.letterSpacing < 5.0) {
                                     _applyStyleSmartly(
-                                      letterSpacing: (focusedBlock?.letterSpacing ?? page.letterSpacing) + 0.1,
+                                      letterSpacing:
+                                          (focusedBlock?.letterSpacing ??
+                                              page.letterSpacing) +
+                                          0.1,
                                     );
                                     setModalState(() {});
                                   }
@@ -2159,7 +2426,8 @@ class _WritePageState extends State<WritePage> {
                                       children: [
                                         _buildAlignButton(
                                           TextAlign.left,
-                                          focusedBlock?.textAlign ?? page.textAlign,
+                                          focusedBlock?.textAlign ??
+                                              page.textAlign,
                                           (val) {
                                             _applyStyleSmartly(textAlign: val);
                                             setModalState(() {});
@@ -2168,7 +2436,8 @@ class _WritePageState extends State<WritePage> {
                                         ),
                                         _buildAlignButton(
                                           TextAlign.center,
-                                          focusedBlock?.textAlign ?? page.textAlign,
+                                          focusedBlock?.textAlign ??
+                                              page.textAlign,
                                           (val) {
                                             _applyStyleSmartly(textAlign: val);
                                             setModalState(() {});
@@ -2177,7 +2446,8 @@ class _WritePageState extends State<WritePage> {
                                         ),
                                         _buildAlignButton(
                                           TextAlign.right,
-                                          focusedBlock?.textAlign ?? page.textAlign,
+                                          focusedBlock?.textAlign ??
+                                              page.textAlign,
                                           (val) {
                                             _applyStyleSmartly(textAlign: val);
                                             setModalState(() {});
@@ -2197,13 +2467,17 @@ class _WritePageState extends State<WritePage> {
                                 value: page.pageMargin.toInt().toString(),
                                 onDecrement: () {
                                   if (page.pageMargin > 10) {
-                                    _applyGlobalStyle(pageMargin: page.pageMargin - 5);
+                                    _applyGlobalStyle(
+                                      pageMargin: page.pageMargin - 5,
+                                    );
                                     setModalState(() {});
                                   }
                                 },
                                 onIncrement: () {
                                   if (page.pageMargin < 100) {
-                                    _applyGlobalStyle(pageMargin: page.pageMargin + 5);
+                                    _applyGlobalStyle(
+                                      pageMargin: page.pageMargin + 5,
+                                    );
                                     setModalState(() {});
                                   }
                                 },

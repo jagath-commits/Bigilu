@@ -9,6 +9,9 @@ import 'package:bigilu/hashtag.dart';
 import 'package:bigilu/profile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
 
 List<dynamic> extractPages(dynamic rawContent) {
   if (rawContent == null) return [];
@@ -1686,7 +1689,47 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
   late PageController controller;
   Set<String> likedPosts = {};
   Set<String> savedPosts = {};
-  bool _isOpeningPost = false; // ✅ Guard against double-tap
+  bool _isOpeningPost = false;
+  int currentPage = 0;
+  final GlobalKey _cardKey = GlobalKey();
+
+  Future<void> _sharePostAsImage(String postId) async {
+    try {
+      final boundary =
+          _cardKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) {
+        // ignore: deprecated_member_use
+        await Share.share(
+          "Check out this story on Bigiluu! https://bigiluu.com/post/$postId",
+        );
+        return;
+      }
+
+      final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+      final ByteData? byteData = await image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
+      if (byteData == null) return;
+      final Uint8List pngBytes = byteData.buffer.asUint8List();
+
+      final tempDir = Directory.systemTemp;
+      final file = File(
+        '${tempDir.path}/bigilu_post_${DateTime.now().millisecondsSinceEpoch}.png',
+      );
+      await file.writeAsBytes(pngBytes);
+
+      // ignore: deprecated_member_use
+      await Share.shareXFiles([
+        XFile(file.path),
+      ], text: 'Check out this story on Bigiluu! https://bigiluu.com/post/$postId');
+    } catch (e) {
+      debugPrint("Error sharing post image: $e");
+      // ignore: deprecated_member_use
+      await Share.share(
+        "Check out this story on Bigiluu! https://bigiluu.com/post/$postId",
+      );
+    }
+  }
 
   Future<String?> getUserId() async {
     final prefs = await SharedPreferences.getInstance();
@@ -1846,6 +1889,7 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
   void initState() {
     super.initState();
     posts = List.from(widget.posts);
+    currentPage = widget.initialIndex;
     controller = PageController(initialPage: widget.initialIndex);
     _loadInteractionsLocal();
     fetchUserInteractions();
@@ -1939,6 +1983,7 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
               controller: controller,
               scrollDirection: Axis.vertical,
               itemCount: posts.length,
+              onPageChanged: (idx) => setState(() => currentPage = idx),
               itemBuilder: (context, index) {
                 final post = posts[index];
                 final String postIdStr = post['post_id']?.toString() ?? "";
@@ -1977,8 +2022,10 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                 }
 
                 return SingleChildScrollView(
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  child: RepaintBoundary(
+                    key: index == currentPage ? _cardKey : null,
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
@@ -2437,7 +2484,7 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                               _buildActionButton(
                                 icon: Icons.share_rounded,
                                 label: "Share",
-                                onTap: () => Share.share("https://bigiluu.com/post/$postIdStr"),
+                                onTap: () => _sharePostAsImage(postIdStr),
                               ),
                               const SizedBox(width: 8),
                               _buildActionButton(
@@ -2452,8 +2499,9 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                       ],
                     ),
                   ),
-                );
-              },
+                ),
+              );
+            },
             ),
     );
   }

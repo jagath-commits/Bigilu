@@ -730,7 +730,50 @@ class PostContainer extends StatefulWidget {
 }
 
 class _PostContainerState extends State<PostContainer> {
-  bool _isOpeningPost = false; // ✅ Guard against double-tap
+  bool _isOpeningPost = false;
+  final GlobalKey _cardKey = GlobalKey();
+
+  Future<void> _sharePostAsImage() async {
+    try {
+      // Small delay ensures frame is settled for capture
+      await Future.delayed(const Duration(milliseconds: 50));
+      
+      final boundary =
+          _cardKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      
+      if (boundary == null) {
+        // ignore: deprecated_member_use
+        await Share.share(
+          "Check out this story on Bigiluu! https://bigiluu.com/post/${widget.post['post_id']}",
+        );
+        return;
+      }
+
+      final ui.Image image = await boundary.toImage(pixelRatio: 2.5); // Slightly lower for stability
+      final ByteData? byteData = await image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
+      if (byteData == null) return;
+      final Uint8List pngBytes = byteData.buffer.asUint8List();
+
+      final tempDir = Directory.systemTemp;
+      final file = File(
+        '${tempDir.path}/bigilu_card_${DateTime.now().millisecondsSinceEpoch}.png',
+      );
+      await file.writeAsBytes(pngBytes);
+
+      // ignore: deprecated_member_use
+      await Share.shareXFiles([
+        XFile(file.path, name: 'bigilu_story.png'),
+      ], text: 'Check out this story on Bigiluu! https://bigiluu.com/post/${widget.post['post_id']}');
+    } catch (e) {
+      debugPrint("Error sharing post card image: $e");
+      // ignore: deprecated_member_use
+      await Share.share(
+        "Check out this story on Bigiluu! https://bigiluu.com/post/${widget.post['post_id']}",
+      );
+    }
+  }
 
   String fullUrl(String? path) {
     if (path == null || path.isEmpty) {
@@ -919,26 +962,28 @@ class _PostContainerState extends State<PostContainer> {
           }
         }
       },
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: Colors.black.withOpacity(0.05), // Reverted to subtle gray
-            width: 1.0,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
+      child: RepaintBoundary(
+        key: _cardKey,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: Colors.black.withOpacity(0.05), // Reverted to subtle gray
+              width: 1.0,
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             // Header Section
             Padding(
               padding: EdgeInsets.all(paddingHorizontal),
@@ -1509,9 +1554,7 @@ class _PostContainerState extends State<PostContainer> {
                   _buildActionButton(
                     icon: Icons.share_rounded,
                     label: "Share",
-                    onTap: () =>
-                        // ignore: deprecated_member_use
-                        Share.share("https://bigiluu.com/post/$postIdStr"),
+                    onTap: () => _sharePostAsImage(),
                   ),
                   const SizedBox(width: 8),
                   _buildActionButton(
@@ -1528,8 +1571,9 @@ class _PostContainerState extends State<PostContainer> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildActionButton({
     required IconData icon,
@@ -1629,13 +1673,30 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
   bool readerCounted = false;
 
   final GlobalKey _summaryKey = GlobalKey();
+  final GlobalKey _pageKey = GlobalKey();
 
-  Future<void> _shareSummaryImage() async {
+  Future<void> _shareAsImage() async {
     try {
-      final boundary =
-          _summaryKey.currentContext?.findRenderObject()
-              as RenderRepaintBoundary?;
-      if (boundary == null) return;
+      RenderRepaintBoundary? boundary;
+      
+      // Try current page key if we're not on summary index
+      if (currentPage == 0) {
+        boundary = _summaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      } else {
+        boundary = _pageKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      }
+
+      // Fallback
+      if (boundary == null) {
+        boundary = _summaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      }
+
+      if (boundary == null) {
+        // Fallback to simple text/link share if capture fails
+        // ignore: deprecated_member_use
+        await Share.share("Read this interesting story on Bigiluu! https://bigiluu.com/post/${widget.postId}");
+        return;
+      }
 
       final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
       final ByteData? byteData = await image.toByteData(
@@ -1647,16 +1708,18 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
 
       final tempDir = Directory.systemTemp;
       final file = File(
-        '${tempDir.path}/summary_share_${DateTime.now().millisecondsSinceEpoch}.png',
+        '${tempDir.path}/bigilu_share_${DateTime.now().millisecondsSinceEpoch}.png',
       );
       await file.writeAsBytes(pngBytes);
 
       // ignore: deprecated_member_use
       await Share.shareXFiles([
         XFile(file.path),
-      ], text: 'Read this interesting story on Bigiluu!');
+      ], text: 'Read this interesting story on Bigiluu! https://bigiluu.com/post/${widget.postId}');
     } catch (e) {
       debugPrint("Error sharing image: $e");
+      // ignore: deprecated_member_use
+      await Share.share("Read this interesting story on Bigiluu! https://bigiluu.com/post/${widget.postId}");
     }
   }
 
@@ -1941,16 +2004,7 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
                   color: textColor.withOpacity(0.8),
                   size: 22,
                 ),
-                onPressed: () {
-                  if (currentPage == 0) {
-                    _shareSummaryImage();
-                  } else {
-                    // ignore: deprecated_member_use
-                    Share.share(
-                      "Read this post on Bigiluu: https://bigiluu.com/post/${widget.postId}",
-                    );
-                  }
-                },
+                onPressed: () => _shareAsImage(),
               ),
               const SizedBox(width: 8),
             ],
@@ -2026,8 +2080,10 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
                       final blocks = page['blocks'] ?? [];
 
                       return SizedBox.expand(
-                        child: Container(
-                          margin: const EdgeInsets.fromLTRB(16, 8, 16, 75),
+                        child: RepaintBoundary(
+                          key: index == currentPage ? _pageKey : null,
+                          child: Container(
+                            margin: const EdgeInsets.fromLTRB(16, 8, 16, 75),
                           decoration: BoxDecoration(
                             color: paperColor,
                             borderRadius: BorderRadius.circular(24),
@@ -2345,8 +2401,9 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
                             ),
                           ),
                         ),
-                      );
-                    },
+                      ),
+                    );
+                  },
                   ),
                 ),
               ],

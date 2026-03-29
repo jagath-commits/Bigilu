@@ -204,34 +204,40 @@ class _WritePageState extends State<WritePage> {
   }
 
   List<PageData> _clonePages(List<PageData> source) {
-    return source.map((p) => PageData(
-      fontSize: p.fontSize,
-      fontFamily: p.fontFamily,
-      fontColor: p.fontColor,
-      lineSpacing: p.lineSpacing,
-      letterSpacing: p.letterSpacing,
-      pageMargin: p.pageMargin,
-      textAlign: p.textAlign,
-    )..blocks = p.blocks.map((b) {
-      if (b.type == "text") {
-        return PageBlock.text(
-          b.text ?? "",
-          isHeadline: b.isHeadline,
-          fontSize: b.fontSize,
-          fontFamily: b.fontFamily,
-          fontColor: b.fontColor,
-          lineSpacing: b.lineSpacing,
-          letterSpacing: b.letterSpacing,
-          textAlign: b.textAlign,
-        );
-      } else {
-        var img = PageBlock.networkImage(b.imageUrl ?? "");
-        img.image = b.image;
-        img.imageWidth = b.imageWidth;
-        img.imagePosition = b.imagePosition;
-        return img;
-      }
-    }).toList()).toList();
+    return source
+        .map(
+          (p) =>
+              PageData(
+                  fontSize: p.fontSize,
+                  fontFamily: p.fontFamily,
+                  fontColor: p.fontColor,
+                  lineSpacing: p.lineSpacing,
+                  letterSpacing: p.letterSpacing,
+                  pageMargin: p.pageMargin,
+                  textAlign: p.textAlign,
+                )
+                ..blocks = p.blocks.map((b) {
+                  if (b.type == "text") {
+                    return PageBlock.text(
+                      b.text ?? "",
+                      isHeadline: b.isHeadline,
+                      fontSize: b.fontSize,
+                      fontFamily: b.fontFamily,
+                      fontColor: b.fontColor,
+                      lineSpacing: b.lineSpacing,
+                      letterSpacing: b.letterSpacing,
+                      textAlign: b.textAlign,
+                    );
+                  } else {
+                    var img = PageBlock.networkImage(b.imageUrl ?? "");
+                    img.image = b.image;
+                    img.imageWidth = b.imageWidth;
+                    img.imagePosition = b.imagePosition;
+                    return img;
+                  }
+                }).toList(),
+        )
+        .toList();
   }
 
   void _saveToHistory({bool immediate = false}) {
@@ -243,7 +249,7 @@ class _WritePageState extends State<WritePage> {
       }
       _historyStack.add(_clonePages(_pages));
       _historyIndex = _historyStack.length - 1;
-      
+
       if (_historyStack.length > 50) {
         _historyStack.removeAt(0);
         _historyIndex--;
@@ -328,7 +334,9 @@ class _WritePageState extends State<WritePage> {
               _controllers[key]!.text = _pages[p].blocks[b].text ?? "";
             }
           } else {
-            final ctrl = TextEditingController(text: _pages[p].blocks[b].text ?? "");
+            final ctrl = TextEditingController(
+              text: _pages[p].blocks[b].text ?? "",
+            );
             ctrl.addListener(() {
               if (!_isUndoRedoOp && _pages[p].blocks[b].text != ctrl.text) {
                 _handleTextChange(ctrl.text, p, b);
@@ -726,10 +734,19 @@ class _WritePageState extends State<WritePage> {
         });
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _pageController.jumpToPage(newPageIndex);
+          if (_pageController.hasClients) {
+            _pageController.jumpToPage(newPageIndex);
+          }
         });
 
         Future.delayed(const Duration(milliseconds: 100), () {
+          if (!mounted) return;
+
+          // Double check page and blocks existence to prevent crash
+          if (newPageIndex >= _pages.length ||
+              _pages[newPageIndex].blocks.isEmpty)
+            return;
+
           // Find first text block in next page
           int targetBlockIndex = 0;
           for (int b = 0; b < _pages[newPageIndex].blocks.length; b++) {
@@ -979,96 +996,118 @@ class _WritePageState extends State<WritePage> {
   final ImagePicker _imagePicker = ImagePicker();
 
   Future<void> saveDraft() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getString("user_id");
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString("user_id");
 
-    final uri = Uri.parse("https://bigiluu.com/api/draft/saveDraft");
+      final uri = Uri.parse("https://bigiluu.com/api/draft/saveDraft");
 
-    var request = http.MultipartRequest("POST", uri);
+      var request = http.MultipartRequest("POST", uri);
 
-    request.fields["user_id"] = userId ?? "";
+      request.fields["user_id"] = userId ?? "";
 
-    if (_draftId != null) {
-      request.fields["draft_id"] = _draftId!;
-    }
+      if (_draftId != null) {
+        request.fields["draft_id"] = _draftId!;
+      }
 
-    List<Map<String, dynamic>> pagesJson = [];
+      List<Map<String, dynamic>> pagesJson = [];
 
-    for (var page in _pages) {
-      List<Map<String, dynamic>> blocksJson = [];
+      for (var page in _pages) {
+        List<Map<String, dynamic>> blocksJson = [];
 
-      for (var block in page.blocks) {
-        String? imageName;
+        for (var block in page.blocks) {
+          String? imageName;
 
-        if (block.type == "image") {
-          // ✅ CASE 1: NEW IMAGE (picked from gallery)
-          if (block.image != null) {
-            print("📤 Uploading NEW image: ${block.image!.path}");
+          if (block.type == "image") {
+            // ✅ CASE 1: NEW IMAGE (picked from gallery)
+            if (block.image != null) {
+              print("📤 Uploading NEW image: ${block.image!.path}");
 
-            request.files.add(
-              await http.MultipartFile.fromPath(
-                "page_images", // 🔥 must match backend
-                block.image!.path,
-              ),
-            );
+              request.files.add(
+                await http.MultipartFile.fromPath(
+                  "page_images",
+                  block.image!.path,
+                ),
+              );
 
-            imageName = null; // backend will assign filename
+              imageName = null; // backend will assign filename
+            }
+            // ✅ CASE 2: OLD IMAGE (already from server)
+            else if (block.imageUrl != null && block.imageUrl!.isNotEmpty) {
+              print("🌐 Using EXISTING image: ${block.imageUrl}");
+
+              // 🔥 IMPORTANT: Only send the filename part, not the whole URL!
+              imageName = block.imageUrl!.split('/').last;
+            }
           }
-          // ✅ CASE 2: OLD IMAGE (already from server)
-          else if (block.imageUrl != null) {
-            print("🌐 Using EXISTING image: ${block.imageUrl}");
 
-            imageName = block.imageUrl; // keep existing
-          }
+          blocksJson.add({
+            "type": block.type,
+            "text": block.text,
+            "image": imageName,
+            "imageWidth": block.imageWidth,
+            "imagePosX": block.imagePosition?.dx,
+            "imagePosY": block.imagePosition?.dy,
+            "isHeadline": block.isHeadline,
+            "fontColor": block.fontColor,
+            "fontSize": block.fontSize,
+            "fontFamily": block.fontFamily,
+            "lineSpacing": block.lineSpacing,
+            "letterSpacing": block.letterSpacing,
+            "textAlign": block.textAlign?.index,
+          });
         }
 
-        blocksJson.add({
-          "type": block.type,
-          "text": block.text,
-          "image": imageName,
-          "imageWidth": block.imageWidth,
-          "imagePosX": block.imagePosition?.dx,
-          "imagePosY": block.imagePosition?.dy,
-          "isHeadline": block.isHeadline,
-          "fontColor": block.fontColor,
-          "fontSize": block.fontSize,
-          "fontFamily": block.fontFamily,
-          "lineSpacing": block.lineSpacing,
-          "letterSpacing": block.letterSpacing,
-          "textAlign": block.textAlign?.index,
+        pagesJson.add({
+          "fontSize": page.fontSize,
+          "fontFamily": page.fontFamily,
+          "fontColor": page.fontColor,
+          "lineSpacing": page.lineSpacing,
+          "letterSpacing": page.letterSpacing,
+          "pageMargin": page.pageMargin,
+          "textAlign": page.textAlign.index,
+          "blocks": blocksJson,
         });
       }
 
-      pagesJson.add({
-        "fontSize": page.fontSize,
-        "fontFamily": page.fontFamily,
-        "fontColor": page.fontColor,
-        "lineSpacing": page.lineSpacing,
-        "letterSpacing": page.letterSpacing,
-        "pageMargin": page.pageMargin,
-        "textAlign": page.textAlign.index,
-        "blocks": blocksJson,
-      });
-    }
+      request.fields["content"] = jsonEncode(pagesJson);
 
-    request.fields["content"] = jsonEncode(pagesJson);
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
 
-    var streamedResponse = await request.send();
-    var response = await http.Response.fromStream(streamedResponse);
+      print("STATUS: ${response.statusCode}");
+      print("BODY: ${response.body}");
 
-    print("STATUS: ${response.statusCode}");
-    print("BODY: ${response.body}");
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
+      if (!mounted) return;
 
-      // 🔥 VERY IMPORTANT
-      if (data["draft_id"] != null) {
-        _draftId = data["draft_id"]; // STORE IT
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        // 🔥 VERY IMPORTANT
+        if (data["draft_id"] != null) {
+          _draftId = data["draft_id"]; // STORE IT
+        }
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Draft Saved")));
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Save failed: ${response.statusCode}"),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Draft Saved")));
+    } catch (e) {
+      print("❌ CRITICAL ERROR in saveDraft: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Failed to save draft: $e")));
+      }
     }
   }
 
@@ -1086,7 +1125,13 @@ class _WritePageState extends State<WritePage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text("YES", style: TextStyle(color: Color(0xFFB11226), fontWeight: FontWeight.bold)),
+            child: const Text(
+              "YES",
+              style: TextStyle(
+                color: Color(0xFFB11226),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -1271,8 +1316,6 @@ class _WritePageState extends State<WritePage> {
     });
     _saveToHistory(immediate: true);
   }
-
-
 
   void _applyStyleToSelection({
     double? fontSize,
@@ -1686,17 +1729,32 @@ class _WritePageState extends State<WritePage> {
                                             if (block.type == "text") {
                                               String key = "$index-$blockIndex";
 
-                                              if (!_controllers.containsKey(key)) {
-                                                final ctrl = TextEditingController(text: block.text ?? "");
+                                              if (!_controllers.containsKey(
+                                                key,
+                                              )) {
+                                                final ctrl =
+                                                    TextEditingController(
+                                                      text: block.text ?? "",
+                                                    );
                                                 ctrl.addListener(() {
-                                                  if (!_isUndoRedoOp && _pages[index].blocks[blockIndex].text != ctrl.text) {
-                                                    _handleTextChange(ctrl.text, index, blockIndex);
+                                                  if (!_isUndoRedoOp &&
+                                                      _pages[index]
+                                                              .blocks[blockIndex]
+                                                              .text !=
+                                                          ctrl.text) {
+                                                    _handleTextChange(
+                                                      ctrl.text,
+                                                      index,
+                                                      blockIndex,
+                                                    );
                                                   }
                                                 });
                                                 _controllers[key] = ctrl;
                                               }
 
-                                              if (!_focusNodes.containsKey(key)) {
+                                              if (!_focusNodes.containsKey(
+                                                key,
+                                              )) {
                                                 _focusNodes[key] = FocusNode();
                                               }
 
@@ -2006,7 +2064,6 @@ class _WritePageState extends State<WritePage> {
                               Icons.add_photo_alternate_outlined,
                             ),
                           ),
-
                         ],
                       ),
                     ),
@@ -2030,16 +2087,10 @@ class _WritePageState extends State<WritePage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _buildToolbarButton(
-                    context,
-                    Icons.undo_rounded,
-                    "Undo",
-                    () {
-                      HapticFeedback.lightImpact();
-                      _globalUndo();
-                    },
-                    disabled: _historyIndex <= 0,
-                  ),
+                  _buildToolbarButton(context, Icons.undo_rounded, "Undo", () {
+                    HapticFeedback.lightImpact();
+                    _globalUndo();
+                  }, disabled: _historyIndex <= 0),
                   _buildToolbarButton(
                     context,
                     Icons.text_format_rounded,
@@ -2076,7 +2127,7 @@ class _WritePageState extends State<WritePage> {
     bool isActive = false,
     bool disabled = false,
   }) {
-    final Color color = disabled 
+    final Color color = disabled
         ? Colors.grey.withOpacity(0.3)
         : (isActive ? const Color(0xFFB11226) : Colors.grey.shade700);
 
@@ -2092,11 +2143,7 @@ class _WritePageState extends State<WritePage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: color,
-              size: 24,
-            ),
+            Icon(icon, color: color, size: 24),
             const SizedBox(height: 4),
             Text(
               label,
@@ -2186,7 +2233,7 @@ class _WritePageState extends State<WritePage> {
                                   color: const Color(0xFFB11226).withAlpha(60),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
-                                )
+                                ),
                               ]
                             : null,
                       ),

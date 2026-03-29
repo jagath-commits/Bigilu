@@ -238,6 +238,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
               return {
                 "post_id": e['draft_id'].toString(),
+                "title": e['title'] ?? "",
                 "texts": previewTexts,
                 "images": previewImages,
                 "rawContent": rawContent,
@@ -647,19 +648,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             ),
                           )
                         else
-                          Container(
-                            color: Colors.grey.shade200,
-                            child: Center(
-                              child: Text(
-                                title.isNotEmpty ? title : "No Cover",
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ),
-                          ),
+                          _buildDraftPreview(post, title),
 
                         // Depth Overlay
                         Container(
@@ -759,6 +748,62 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildDraftPreview(Map<String, dynamic> post, String title) {
+    String firstImg = "";
+    if (post['images'] != null && (post['images'] as List).isNotEmpty) {
+      firstImg = post['images'][0];
+    }
+
+    if (firstImg.isNotEmpty) {
+      return Image.network(
+        firstImg,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) =>
+            _buildDraftTextPreview(post, title),
+      );
+    }
+
+    return _buildDraftTextPreview(post, title);
+  }
+
+  Widget _buildDraftTextPreview(Map<String, dynamic> post, String title) {
+    String firstText = "";
+    if (post['texts'] != null && (post['texts'] as List).isNotEmpty) {
+      firstText = post['texts'][0];
+    }
+
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.all(12),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (firstText.isNotEmpty)
+            Text(
+              firstText,
+              maxLines: 6,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 9,
+                color: Colors.black.withOpacity(0.6),
+                fontFamily: 'serif',
+                fontStyle: FontStyle.italic,
+                height: 1.4,
+              ),
+            )
+          else
+            Icon(
+              Icons.edit_note_rounded,
+              color: Colors.grey.shade300,
+              size: 40,
+            ),
+        ],
+      ),
     );
   }
 

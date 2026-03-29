@@ -25,6 +25,7 @@ class PageBlock {
   double? lineSpacing;
   double? letterSpacing;
   TextAlign? textAlign;
+  String? blockId; // 🔥 MANDATORY FOR BACKEND
 
   PageBlock({
     required this.type,
@@ -38,7 +39,12 @@ class PageBlock {
     this.lineSpacing,
     this.letterSpacing,
     this.textAlign,
-  });
+    this.blockId,
+  }) {
+    // Generate unique ID if missing
+    blockId ??=
+        "${DateTime.now().millisecondsSinceEpoch}_${(100 + (100 * (DateTime.now().microsecond / 1000000))).toInt()}";
+  }
 
   PageBlock.text(
     this.text, {
@@ -49,29 +55,39 @@ class PageBlock {
     this.lineSpacing,
     this.letterSpacing,
     this.textAlign,
+    this.blockId,
   }) : type = "text",
        image = null,
        imageUrl = null,
        imageWidth = null,
-       previousText = text;
+       previousText = text {
+    blockId ??=
+        "${DateTime.now().millisecondsSinceEpoch}_${(100 + (100 * (DateTime.now().microsecond / 1000000))).toInt()}";
+  }
 
-  PageBlock.image(this.image)
+  PageBlock.image(this.image, {this.blockId})
     : type = "image",
       text = null,
       imageUrl = null,
       isHeadline = false,
       imageWidth = 200,
       imagePosition = const Offset(0, 0),
-      previousText = null;
+      previousText = null {
+    blockId ??=
+        "${DateTime.now().millisecondsSinceEpoch}_${(100 + (100 * (DateTime.now().microsecond / 1000000))).toInt()}";
+  }
 
-  PageBlock.networkImage(this.imageUrl)
+  PageBlock.networkImage(this.imageUrl, {this.blockId})
     : type = "image",
       text = null,
       isHeadline = false,
       image = null,
       imageWidth = 200,
       imagePosition = const Offset(0, 0),
-      previousText = null;
+      previousText = null {
+    blockId ??=
+        "${DateTime.now().millisecondsSinceEpoch}_${(100 + (100 * (DateTime.now().microsecond / 1000000))).toInt()}";
+  }
 }
 
 class PageData {
@@ -867,9 +883,14 @@ class _WritePageState extends State<WritePage> {
     }
   }
 
-  void _loadDraftContent(String content) {
+  void _loadDraftContent(dynamic content) {
     try {
-      final decoded = jsonDecode(content);
+      dynamic decoded;
+      if (content is String) {
+        decoded = jsonDecode(content);
+      } else {
+        decoded = content;
+      }
 
       List<dynamic> pagesData = [];
 
@@ -910,6 +931,7 @@ class _WritePageState extends State<WritePage> {
                   textAlign: block['textAlign'] != null
                       ? TextAlign.values[(block['textAlign'] as num).toInt()]
                       : null,
+                  blockId: block['blockId'],
                 ),
               );
             }
@@ -938,7 +960,10 @@ class _WritePageState extends State<WritePage> {
 
               print("✅ FINAL URL: $finalUrl");
 
-              final imgBlock = PageBlock.networkImage(finalUrl);
+              final imgBlock = PageBlock.networkImage(
+                finalUrl,
+                blockId: block['blockId'],
+              );
 
               imgBlock.imageWidth = (block['imageWidth'] ?? 200).toDouble();
 
@@ -1025,7 +1050,7 @@ class _WritePageState extends State<WritePage> {
 
               request.files.add(
                 await http.MultipartFile.fromPath(
-                  "page_images",
+                  "page_images", // Revert to standard name
                   block.image!.path,
                 ),
               );
@@ -1045,6 +1070,7 @@ class _WritePageState extends State<WritePage> {
             "type": block.type,
             "text": block.text,
             "image": imageName,
+            "blockId": block.blockId,
             "imageWidth": block.imageWidth,
             "imagePosX": block.imagePosition?.dx,
             "imagePosY": block.imagePosition?.dy,
@@ -1083,9 +1109,13 @@ class _WritePageState extends State<WritePage> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
-        // 🔥 VERY IMPORTANT
         if (data["draft_id"] != null) {
-          _draftId = data["draft_id"]; // STORE IT
+          _draftId = data["draft_id"].toString();
+        }
+
+        // ✅ IMPORTANT: If backend returned updated content with official filenames, load it!
+        if (data["content"] != null) {
+          _loadDraftContent(data["content"]);
         }
 
         ScaffoldMessenger.of(
@@ -3366,11 +3396,19 @@ class _PostPageState extends State<PostPage> {
         String? imageServerPath;
 
         if (block.type == "image" && block.image != null) {
+          String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+          String originalName = block.image!.path.split('/').last;
+          String uniqueName = "${timestamp}_$originalName";
+
           request.files.add(
-            await http.MultipartFile.fromPath("page_images", block.image!.path),
+            await http.MultipartFile.fromPath(
+              "page_images", // Standard name
+              block.image!.path,
+              filename: uniqueName,
+            ),
           );
 
-          imageServerPath = block.image!.path.split('/').last;
+          imageServerPath = uniqueName;
         }
 
         blocksJson.add({

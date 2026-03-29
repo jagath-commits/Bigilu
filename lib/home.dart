@@ -417,7 +417,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
           ),
           actions: [
-
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: Center(
@@ -737,10 +736,10 @@ class _PostContainerState extends State<PostContainer> {
     try {
       // Small delay ensures frame is settled for capture
       await Future.delayed(const Duration(milliseconds: 50));
-      
+
       final boundary =
           _cardKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      
+
       if (boundary == null) {
         // ignore: deprecated_member_use
         await Share.share(
@@ -749,7 +748,9 @@ class _PostContainerState extends State<PostContainer> {
         return;
       }
 
-      final ui.Image image = await boundary.toImage(pixelRatio: 2.5); // Slightly lower for stability
+      final ui.Image image = await boundary.toImage(
+        pixelRatio: 2.5,
+      ); // Slightly lower for stability
       final ByteData? byteData = await image.toByteData(
         format: ui.ImageByteFormat.png,
       );
@@ -763,9 +764,11 @@ class _PostContainerState extends State<PostContainer> {
       await file.writeAsBytes(pngBytes);
 
       // ignore: deprecated_member_use
-      await Share.shareXFiles([
-        XFile(file.path, name: 'bigilu_story.png'),
-      ], text: 'Check out this story on Bigiluu! https://bigiluu.com/post/${widget.post['post_id']}');
+      await Share.shareXFiles(
+        [XFile(file.path, name: 'bigilu_story.png')],
+        text:
+            'Check out this story on Bigiluu! https://bigiluu.com/post/${widget.post['post_id']}',
+      );
     } catch (e) {
       debugPrint("Error sharing post card image: $e");
       // ignore: deprecated_member_use
@@ -984,596 +987,604 @@ class _PostContainerState extends State<PostContainer> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-            // Header Section
-            Padding(
-              padding: EdgeInsets.all(paddingHorizontal),
-              child: GestureDetector(
-                onTap: () {
-                  final userId = widget.post['user_id']?.toString();
+              // Header Section
+              Padding(
+                padding: EdgeInsets.all(paddingHorizontal),
+                child: GestureDetector(
+                  onTap: () {
+                    final userId = widget.post['user_id']?.toString();
 
-                  if (userId != null && userId.isNotEmpty) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ProfilePage(
-                          userId: userId,
-                          isPublicView: true, // 🔥 ADD THIS
+                    if (userId != null && userId.isNotEmpty) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ProfilePage(
+                            userId: userId,
+                            isPublicView: true, // 🔥 ADD THIS
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFFB11226).withOpacity(0.2),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: CircleAvatar(
+                          radius: 20,
+                          backgroundColor: Colors.grey.shade100,
+                          backgroundImage: NetworkImage(
+                            fullUrl(widget.post['profile_image'] ?? ''),
+                          ),
                         ),
                       ),
-                    );
-                  }
-                },
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: const Color(0xFFB11226).withOpacity(0.2),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: CircleAvatar(
-                        radius: 20,
-                        backgroundColor: Colors.grey.shade100,
-                        backgroundImage: NetworkImage(
-                          fullUrl(widget.post['profile_image'] ?? ''),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
+                      const SizedBox(width: 12),
 
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.post['username'] ?? "Bigiluu Member",
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.post['username'] ?? "Bigiluu Member",
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
-                          ),
-                          Text(
-                            "Storyteller",
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey.shade500,
+                            Text(
+                              "Storyteller",
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade500,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFB11226).withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.auto_stories_rounded,
-                            color: Color(0xFFB11226),
-                            size: 14,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            "${widget.post['readers_count'] ?? 0}",
-                            style: const TextStyle(
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFB11226).withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.auto_stories_rounded,
                               color: Color(0xFFB11226),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
+                              size: 14,
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Hyper-Realistic 3D Book Cover
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: paddingHorizontal),
-              child: Hero(
-                tag: "post_${widget.post['post_id']}",
-                child: Container(
-                  height: 440, // Reduced height for more balanced feed
-                  decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.only(
-                      topRight: Radius.circular(12),
-                      bottomRight: Radius.circular(12),
-                      topLeft: Radius.circular(16),
-                      bottomLeft: Radius.circular(16),
-                    ),
-                    color: const Color(
-                      0xFFFDFCF2,
-                    ), // Creamy paper color instead of dark
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.25),
-                        blurRadius: 20,
-                        offset: const Offset(8, 8),
+                            const SizedBox(width: 4),
+                            Text(
+                              "${widget.post['readers_count'] ?? 0}",
+                              style: const TextStyle(
+                                color: Color(0xFFB11226),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
-                  child: Stack(
-                    clipBehavior: Clip.none, // Allow badge to overflow
-                    children: [
-                      // Page Edges Effect (Simulating stacked pages on the right)
-                      Positioned(
-                        right: 0,
-                        top: 8,
-                        bottom: 8,
-                        width: 12,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFDFCF2),
-                            borderRadius: const BorderRadius.horizontal(
-                              right: Radius.circular(12),
-                            ),
-                          ),
-                          child: Stack(
-                            children: [
-                              // Subtle page line grain
-                              Column(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceEvenly,
-                                children: List.generate(
-                                  30,
-                                  (i) => Container(
-                                    height: 0.5,
-                                    width: double.infinity,
-                                    color: Colors.black.withOpacity(0.04),
-                                  ),
-                                ),
-                              ),
-                              // Inset shadow for page depth
-                              Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.centerLeft,
-                                    end: Alignment.centerRight,
-                                    colors: [
-                                      Colors.black.withOpacity(0.08),
-                                      Colors.transparent,
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                ),
+              ),
 
-                      // Front Cover (Offset slightly to show page edges)
-                      Positioned(
-                        left: 0,
-                        top: -1,
-                        bottom: -1,
-                        right: 8, // Thinner gap for more realistic page edge
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: const BorderRadius.only(
-                              topRight: Radius.circular(6),
-                              bottomRight: Radius.circular(6),
-                              topLeft: Radius.circular(12), // Rounder spine
-                              bottomLeft: Radius.circular(12),
-                            ),
-                            border: Border.all(
-                              color: themeBorderColor, // Dynamic border color
-                              width: 2.5,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
-                                blurRadius: 12,
-                                offset: const Offset(5, 0),
+              // Hyper-Realistic 3D Book Cover
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: paddingHorizontal),
+                child: Hero(
+                  tag: "post_${widget.post['post_id']}",
+                  child: Container(
+                    height: 440, // Reduced height for more balanced feed
+                    decoration: BoxDecoration(
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(12),
+                        bottomRight: Radius.circular(12),
+                        topLeft: Radius.circular(16),
+                        bottomLeft: Radius.circular(16),
+                      ),
+                      color: const Color(
+                        0xFFFDFCF2,
+                      ), // Creamy paper color instead of dark
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.25),
+                          blurRadius: 20,
+                          offset: const Offset(8, 8),
+                        ),
+                      ],
+                    ),
+                    child: Stack(
+                      clipBehavior: Clip.none, // Allow badge to overflow
+                      children: [
+                        // Page Edges Effect (Simulating stacked pages on the right)
+                        Positioned(
+                          right: 0,
+                          top: 8,
+                          bottom: 8,
+                          width: 12,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFDFCF2),
+                              borderRadius: const BorderRadius.horizontal(
+                                right: Radius.circular(12),
                               ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: const BorderRadius.only(
-                              topRight: Radius.circular(4),
-                              bottomRight: Radius.circular(4),
-                              topLeft: Radius.circular(10),
-                              bottomLeft: Radius.circular(10),
                             ),
                             child: Stack(
-                              fit: StackFit.expand,
                               children: [
-                                // Cover Image — guard against empty/null URL
-                                Builder(
-                                  builder: (context) {
-                                    final coverUrl = fullUrl(
-                                      widget.post['cover_img'],
-                                    );
-                                    if (coverUrl.isEmpty) {
-                                      // No cover image — show nice placeholder
-                                      return Container(
-                                        decoration: const BoxDecoration(
-                                          gradient: LinearGradient(
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                            colors: [
-                                              Color(0xFF2D1B69),
-                                              Color(0xFF11998E),
-                                            ],
-                                          ),
-                                        ),
-                                        child: const Center(
-                                          child: Icon(
-                                            Icons.book_rounded,
-                                            color: Colors.white54,
-                                            size: 64,
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                    return Image.network(
-                                      coverUrl,
-                                      fit: BoxFit.cover,
-                                      loadingBuilder:
-                                          (context, child, progress) {
-                                            if (progress == null) return child;
-                                            return Container(
-                                              color: const Color(0xFFF8F8F8),
-                                              child: const Center(
-                                                child:
-                                                    CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                      color: brandColor,
-                                                    ),
-                                              ),
-                                            );
-                                          },
-                                      errorBuilder: (_, __, ___) => Container(
-                                        decoration: const BoxDecoration(
-                                          gradient: LinearGradient(
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                            colors: [
-                                              Color(0xFF2D1B69),
-                                              Color(0xFF11998E),
-                                            ],
-                                          ),
-                                        ),
-                                        child: const Center(
-                                          child: Icon(
-                                            Icons.book_rounded,
-                                            color: Colors.white54,
-                                            size: 64,
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
+                                // Subtle page line grain
+                                Column(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceEvenly,
+                                  children: List.generate(
+                                    30,
+                                    (i) => Container(
+                                      height: 0.5,
+                                      width: double.infinity,
+                                      color: Colors.black.withOpacity(0.04),
+                                    ),
+                                  ),
                                 ),
-
-                                // Premium Overlay (Subtle gradient and leather texture look)
+                                // Inset shadow for page depth
                                 Container(
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
                                       begin: Alignment.centerLeft,
                                       end: Alignment.centerRight,
                                       colors: [
-                                        Colors.black.withOpacity(0.65),
-                                        Colors.black.withOpacity(0.2),
+                                        Colors.black.withOpacity(0.08),
                                         Colors.transparent,
-                                        Colors.black.withOpacity(0.05),
-                                        Colors.black.withOpacity(0.35),
                                       ],
-                                      stops: const [0.0, 0.04, 0.2, 0.96, 1.0],
                                     ),
                                   ),
                                 ),
+                              ],
+                            ),
+                          ),
+                        ),
 
-                                // Realistic Spine Curve (Gradient Shadow)
-                                Positioned(
-                                  left: 0,
-                                  top: 0,
-                                  bottom: 0,
-                                  width: 25,
-                                  child: Container(
+                        // Front Cover (Offset slightly to show page edges)
+                        Positioned(
+                          left: 0,
+                          top: -1,
+                          bottom: -1,
+                          right: 8, // Thinner gap for more realistic page edge
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: const BorderRadius.only(
+                                topRight: Radius.circular(6),
+                                bottomRight: Radius.circular(6),
+                                topLeft: Radius.circular(12), // Rounder spine
+                                bottomLeft: Radius.circular(12),
+                              ),
+                              border: Border.all(
+                                color: themeBorderColor, // Dynamic border color
+                                width: 2.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  blurRadius: 12,
+                                  offset: const Offset(5, 0),
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: const BorderRadius.only(
+                                topRight: Radius.circular(4),
+                                bottomRight: Radius.circular(4),
+                                topLeft: Radius.circular(10),
+                                bottomLeft: Radius.circular(10),
+                              ),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  // Cover Image — guard against empty/null URL
+                                  Builder(
+                                    builder: (context) {
+                                      final coverUrl = fullUrl(
+                                        widget.post['cover_img'],
+                                      );
+                                      if (coverUrl.isEmpty) {
+                                        // No cover image — show nice placeholder
+                                        return Container(
+                                          decoration: const BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: [
+                                                Color(0xFF2D1B69),
+                                                Color(0xFF11998E),
+                                              ],
+                                            ),
+                                          ),
+                                          child: const Center(
+                                            child: Icon(
+                                              Icons.book_rounded,
+                                              color: Colors.white54,
+                                              size: 64,
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                      return Image.network(
+                                        coverUrl,
+                                        fit: BoxFit.cover,
+                                        loadingBuilder:
+                                            (context, child, progress) {
+                                              if (progress == null)
+                                                return child;
+                                              return Container(
+                                                color: const Color(0xFFF8F8F8),
+                                                child: const Center(
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                        color: brandColor,
+                                                      ),
+                                                ),
+                                              );
+                                            },
+                                        errorBuilder: (_, __, ___) => Container(
+                                          decoration: const BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: [
+                                                Color(0xFF2D1B69),
+                                                Color(0xFF11998E),
+                                              ],
+                                            ),
+                                          ),
+                                          child: const Center(
+                                            child: Icon(
+                                              Icons.book_rounded,
+                                              color: Colors.white54,
+                                              size: 64,
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+
+                                  // Premium Overlay (Subtle gradient and leather texture look)
+                                  Container(
                                     decoration: BoxDecoration(
                                       gradient: LinearGradient(
                                         begin: Alignment.centerLeft,
                                         end: Alignment.centerRight,
                                         colors: [
-                                          Colors.black.withOpacity(0.5),
+                                          Colors.black.withOpacity(0.65),
                                           Colors.black.withOpacity(0.2),
-                                          Colors.black.withOpacity(0.4),
-                                          Colors.black.withOpacity(0.0),
+                                          Colors.transparent,
+                                          Colors.black.withOpacity(0.05),
+                                          Colors.black.withOpacity(0.35),
                                         ],
-                                        stops: const [0.0, 0.4, 0.5, 1.0],
+                                        stops: const [
+                                          0.0,
+                                          0.04,
+                                          0.2,
+                                          0.96,
+                                          1.0,
+                                        ],
                                       ),
                                     ),
                                   ),
-                                ),
-                                // Dynamic Spine Accent
-                                Positioned(
-                                  left: 22,
-                                  top: 0,
-                                  bottom: 0,
-                                  width: 1.2,
-                                  child: Container(color: themeSpineColor),
-                                ),
 
-                                // 📖 Book Title — matching Cover Design exactly
-                                if ((widget.post['title']?.toString() ?? '')
-                                    .isNotEmpty)
+                                  // Realistic Spine Curve (Gradient Shadow)
                                   Positioned(
-                                    top: 15,
-                                    left: 10,
-                                    right: 10,
-                                    child: Builder(
-                                      builder: (context) {
-                                        // Parse title style from top-level and content JSON
-                                        double fs = 15.0;
-                                        String? ff;
-                                        Color tc = Colors.white;
-                                        try {
-                                          double? parsedFs;
-                                          Color? parsedTc;
-                                          String? parsedFf;
-
-                                          // 1. Try top-level post fields (stored by API)
-                                          if (widget.post['titleFontSize'] !=
-                                                  null &&
-                                              widget.post['titleFontSize']
-                                                  .toString()
-                                                  .isNotEmpty) {
-                                            parsedFs = double.tryParse(
-                                              widget.post['titleFontSize']
-                                                  .toString(),
-                                            );
-                                          }
-                                          if (widget.post['titleColor'] !=
-                                                  null &&
-                                              widget.post['titleColor']
-                                                  .toString()
-                                                  .isNotEmpty) {
-                                            int? cv = int.tryParse(
-                                              widget.post['titleColor']
-                                                  .toString(),
-                                            );
-                                            if (cv != null)
-                                              parsedTc = Color(cv);
-                                          }
-                                          if (widget.post['titleFontFamily'] !=
-                                                  null &&
-                                              widget.post['titleFontFamily']
-                                                  .toString()
-                                                  .isNotEmpty) {
-                                            parsedFf = widget
-                                                .post['titleFontFamily']
-                                                .toString();
-                                          }
-
-                                          // 2. Fallback to Content JSON
-                                          dynamic raw = widget.post['content'];
-                                          if (raw != null) {
-                                            dynamic dec = raw;
-                                            if (dec is String) {
-                                              try {
-                                                dec = jsonDecode(dec);
-                                              } catch (_) {}
-                                            }
-                                            if (dec is String) {
-                                              try {
-                                                dec = jsonDecode(dec);
-                                              } catch (_) {}
-                                            }
-
-                                            if (dec is Map) {
-                                              if (parsedFs == null &&
-                                                  dec['titleFontSize'] !=
-                                                      null) {
-                                                parsedFs = double.tryParse(
-                                                  dec['titleFontSize']
-                                                      .toString(),
-                                                );
-                                              }
-                                              if (parsedTc == null &&
-                                                  dec['titleColor'] != null) {
-                                                int? cv = int.tryParse(
-                                                  dec['titleColor'].toString(),
-                                                );
-                                                if (cv != null)
-                                                  parsedTc = Color(cv);
-                                              }
-                                              if (parsedFf == null &&
-                                                  dec['titleFontFamily'] !=
-                                                      null) {
-                                                parsedFf =
-                                                    dec['titleFontFamily']
-                                                        .toString();
-                                              }
-                                            }
-                                          }
-
-                                          if (parsedFs != null)
-                                            fs = (parsedFs * 0.6).clamp(
-                                              12.0,
-                                              45.0,
-                                            );
-                                          if (parsedTc != null) tc = parsedTc;
-                                          if (parsedFf != null &&
-                                              parsedFf.isNotEmpty)
-                                            ff = parsedFf;
-                                        } catch (_) {}
-                                        return Text(
-                                          widget.post['title']?.toString() ??
-                                              '',
-                                          textAlign: TextAlign.center,
-                                          maxLines: 3,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: tc,
-                                            fontSize: fs,
-                                            fontFamily: ff,
-                                            fontWeight: FontWeight.bold,
-                                            shadows: [
-                                              Shadow(
-                                                color: Colors.black.withOpacity(
-                                                  0.6,
-                                                ),
-                                                blurRadius: 10,
-                                                offset: const Offset(1, 1),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      },
+                                    left: 0,
+                                    top: 0,
+                                    bottom: 0,
+                                    width: 25,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.centerLeft,
+                                          end: Alignment.centerRight,
+                                          colors: [
+                                            Colors.black.withOpacity(0.5),
+                                            Colors.black.withOpacity(0.2),
+                                            Colors.black.withOpacity(0.4),
+                                            Colors.black.withOpacity(0.0),
+                                          ],
+                                          stops: const [0.0, 0.4, 0.5, 1.0],
+                                        ),
+                                      ),
                                     ),
                                   ),
+                                  // Dynamic Spine Accent
+                                  Positioned(
+                                    left: 22,
+                                    top: 0,
+                                    bottom: 0,
+                                    width: 1.2,
+                                    child: Container(color: themeSpineColor),
+                                  ),
+
+                                  // 📖 Book Title — matching Cover Design exactly
+                                  if ((widget.post['title']?.toString() ?? '')
+                                      .isNotEmpty)
+                                    Positioned(
+                                      top: 15,
+                                      left: 10,
+                                      right: 10,
+                                      child: Builder(
+                                        builder: (context) {
+                                          // Parse title style from top-level and content JSON
+                                          double fs = 15.0;
+                                          String? ff;
+                                          Color tc = Colors.white;
+                                          try {
+                                            double? parsedFs;
+                                            Color? parsedTc;
+                                            String? parsedFf;
+
+                                            // 1. Try top-level post fields (stored by API)
+                                            if (widget.post['titleFontSize'] !=
+                                                    null &&
+                                                widget.post['titleFontSize']
+                                                    .toString()
+                                                    .isNotEmpty) {
+                                              parsedFs = double.tryParse(
+                                                widget.post['titleFontSize']
+                                                    .toString(),
+                                              );
+                                            }
+                                            if (widget.post['titleColor'] !=
+                                                    null &&
+                                                widget.post['titleColor']
+                                                    .toString()
+                                                    .isNotEmpty) {
+                                              int? cv = int.tryParse(
+                                                widget.post['titleColor']
+                                                    .toString(),
+                                              );
+                                              if (cv != null)
+                                                parsedTc = Color(cv);
+                                            }
+                                            if (widget.post['titleFontFamily'] !=
+                                                    null &&
+                                                widget.post['titleFontFamily']
+                                                    .toString()
+                                                    .isNotEmpty) {
+                                              parsedFf = widget
+                                                  .post['titleFontFamily']
+                                                  .toString();
+                                            }
+
+                                            // 2. Fallback to Content JSON
+                                            dynamic raw =
+                                                widget.post['content'];
+                                            if (raw != null) {
+                                              dynamic dec = raw;
+                                              if (dec is String) {
+                                                try {
+                                                  dec = jsonDecode(dec);
+                                                } catch (_) {}
+                                              }
+                                              if (dec is String) {
+                                                try {
+                                                  dec = jsonDecode(dec);
+                                                } catch (_) {}
+                                              }
+
+                                              if (dec is Map) {
+                                                if (parsedFs == null &&
+                                                    dec['titleFontSize'] !=
+                                                        null) {
+                                                  parsedFs = double.tryParse(
+                                                    dec['titleFontSize']
+                                                        .toString(),
+                                                  );
+                                                }
+                                                if (parsedTc == null &&
+                                                    dec['titleColor'] != null) {
+                                                  int? cv = int.tryParse(
+                                                    dec['titleColor']
+                                                        .toString(),
+                                                  );
+                                                  if (cv != null)
+                                                    parsedTc = Color(cv);
+                                                }
+                                                if (parsedFf == null &&
+                                                    dec['titleFontFamily'] !=
+                                                        null) {
+                                                  parsedFf =
+                                                      dec['titleFontFamily']
+                                                          .toString();
+                                                }
+                                              }
+                                            }
+
+                                            if (parsedFs != null)
+                                              fs = (parsedFs * 0.6).clamp(
+                                                12.0,
+                                                45.0,
+                                              );
+                                            if (parsedTc != null) tc = parsedTc;
+                                            if (parsedFf != null &&
+                                                parsedFf.isNotEmpty)
+                                              ff = parsedFf;
+                                          } catch (_) {}
+                                          return Text(
+                                            widget.post['title']?.toString() ??
+                                                '',
+                                            textAlign: TextAlign.center,
+                                            maxLines: 3,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: tc,
+                                              fontSize: fs,
+                                              fontFamily: ff,
+                                              fontWeight: FontWeight.bold,
+                                              shadows: [
+                                                Shadow(
+                                                  color: Colors.black
+                                                      .withOpacity(0.6),
+                                                  blurRadius: 10,
+                                                  offset: const Offset(1, 1),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        // ✅ Dynamic Badge (Refined)
+                        Positioned(
+                          top: -22,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: badgeGradients,
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.25),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.stars_rounded,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  badgeLabel,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
                         ),
-                      ),
-
-                      // ✅ Dynamic Badge (Refined)
-                      Positioned(
-                        top: -22,
-                        right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: badgeGradients,
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.25),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.stars_rounded,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                badgeLabel,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            // Caption Section
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                paddingHorizontal,
-                20,
-                paddingHorizontal,
-                0,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (caption.isNotEmpty)
-                    Text(
-                      caption,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade800,
-                        fontWeight: FontWeight.w500,
-                        height: 1.5,
+              // Caption Section
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  paddingHorizontal,
+                  20,
+                  paddingHorizontal,
+                  0,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (caption.isNotEmpty)
+                      Text(
+                        caption,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade800,
+                          fontWeight: FontWeight.w500,
+                          height: 1.5,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  if (hashtag.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: Text(
-                        hashtag,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: brandColor,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.2,
+                    if (hashtag.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Text(
+                          hashtag,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: brandColor,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.2,
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
-            // Actions
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                paddingHorizontal,
-                24, // Increased top space to prevent touching post area
-                paddingHorizontal,
-                24, // Added bottom padding inside the card
+              // Actions
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  paddingHorizontal,
+                  24, // Increased top space to prevent touching post area
+                  paddingHorizontal,
+                  24, // Added bottom padding inside the card
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    _buildActionButton(
+                      icon: Icons.touch_app_rounded,
+                      topLabel: (widget.post['support_count'] ?? 0).toString(),
+                      label: "Support",
+                      color: widget.isLiked ? brandColor : null,
+                      onTap: widget.onLike,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildActionButton(
+                      icon: Icons.share_rounded,
+                      label: "Share",
+                      onTap: () => _sharePostAsImage(),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildActionButton(
+                      icon: widget.isSaved
+                          ? Icons.bookmark_rounded
+                          : Icons.bookmark_outline_rounded,
+                      label: widget.isSaved ? "Saved" : "Save",
+                      color: widget.isSaved ? brandColor : null,
+                      onTap: widget.onSave,
+                    ),
+                  ],
+                ),
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  _buildActionButton(
-                    icon: Icons.touch_app_rounded,
-                    topLabel: (widget.post['support_count'] ?? 0).toString(),
-                    label: "Support",
-                    color: widget.isLiked ? brandColor : null,
-                    onTap: widget.onLike,
-                  ),
-                  const SizedBox(width: 8),
-                  _buildActionButton(
-                    icon: Icons.share_rounded,
-                    label: "Share",
-                    onTap: () => _sharePostAsImage(),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildActionButton(
-                    icon: widget.isSaved
-                        ? Icons.bookmark_rounded
-                        : Icons.bookmark_outline_rounded,
-                    label: widget.isSaved ? "Saved" : "Save",
-                    color: widget.isSaved ? brandColor : null,
-                    onTap: widget.onSave,
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildActionButton({
     required IconData icon,
@@ -1648,6 +1659,118 @@ class _PostContainerState extends State<PostContainer> {
   }
 }
 
+class _ExpandableImage extends StatelessWidget {
+  final String imageUrl;
+  final Color textColor;
+  const _ExpandableImage({required this.imageUrl, required this.textColor});
+
+  void _showFullImage(BuildContext context) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: "FullImage",
+      barrierColor: Colors.black.withOpacity(0.9),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) {
+        return Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Stack(
+            children: [
+              Center(
+                child: InteractiveViewer(
+                  maxScale: 5.0,
+                  child: Image.network(
+                    imageUrl,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Center(
+                      child: Icon(
+                        Icons.broken_image,
+                        color: Colors.white,
+                        size: 64,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 40,
+                right: 20,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: GestureDetector(
+        onTap: () => _showFullImage(context),
+        child: Container(
+          margin: const EdgeInsets.symmetric(
+            vertical: 24,
+          ), // Increased margin for better spacing
+          width: double.infinity,
+          height: 280,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.12),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: imageUrl.isEmpty
+                ? Container(
+                    color: textColor.withOpacity(0.05),
+                    child: const Center(
+                      child: Icon(
+                        Icons.broken_image_outlined,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  )
+                : Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: textColor.withOpacity(0.05),
+                        child: const Center(
+                          child: Icon(
+                            Icons.broken_image_outlined,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      );
+                    },
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) return child;
+                      return Container(
+                        color: textColor.withOpacity(0.03),
+                        child: const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /* ---------------- FULL SCREEN TEXT VIEW ---------------- */
 
 class FullScreenPostViewer extends StatefulWidget {
@@ -1673,28 +1796,36 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
   bool readerCounted = false;
 
   final GlobalKey _summaryKey = GlobalKey();
-  final GlobalKey _pageKey = GlobalKey();
+  late List<GlobalKey> _pageKeys;
 
   Future<void> _shareAsImage() async {
     try {
       RenderRepaintBoundary? boundary;
-      
+
       // Try current page key if we're not on summary index
       if (currentPage == 0) {
-        boundary = _summaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      } else {
-        boundary = _pageKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+        boundary =
+            _summaryKey.currentContext?.findRenderObject()
+                as RenderRepaintBoundary?;
+      } else if (currentPage <= _pageKeys.length) {
+        boundary =
+            _pageKeys[currentPage - 1].currentContext?.findRenderObject()
+                as RenderRepaintBoundary?;
       }
 
       // Fallback
       if (boundary == null) {
-        boundary = _summaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+        boundary =
+            _summaryKey.currentContext?.findRenderObject()
+                as RenderRepaintBoundary?;
       }
 
       if (boundary == null) {
         // Fallback to simple text/link share if capture fails
         // ignore: deprecated_member_use
-        await Share.share("Read this interesting story on Bigiluu! https://bigiluu.com/post/${widget.postId}");
+        await Share.share(
+          "Read this interesting story on Bigiluu! https://bigiluu.com/post/${widget.postId}",
+        );
         return;
       }
 
@@ -1713,13 +1844,17 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
       await file.writeAsBytes(pngBytes);
 
       // ignore: deprecated_member_use
-      await Share.shareXFiles([
-        XFile(file.path),
-      ], text: 'Read this interesting story on Bigiluu! https://bigiluu.com/post/${widget.postId}');
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text:
+            'Read this interesting story on Bigiluu! https://bigiluu.com/post/${widget.postId}',
+      );
     } catch (e) {
       debugPrint("Error sharing image: $e");
       // ignore: deprecated_member_use
-      await Share.share("Read this interesting story on Bigiluu! https://bigiluu.com/post/${widget.postId}");
+      await Share.share(
+        "Read this interesting story on Bigiluu! https://bigiluu.com/post/${widget.postId}",
+      );
     }
   }
 
@@ -1736,6 +1871,7 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
   void initState() {
     super.initState();
     _controller = PageController();
+    _pageKeys = List.generate(widget.pages.length, (index) => GlobalKey());
     _loadSettings();
     loadLastPage();
   }
@@ -2081,329 +2217,291 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
 
                       return SizedBox.expand(
                         child: RepaintBoundary(
-                          key: index == currentPage ? _pageKey : null,
+                          key: (index > 0 && index - 1 < _pageKeys.length)
+                              ? _pageKeys[index - 1]
+                              : null,
                           child: Container(
                             margin: const EdgeInsets.fromLTRB(16, 8, 16, 75),
-                          decoration: BoxDecoration(
-                            color: paperColor,
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: [
-                              // Main Page Shadow
-                              BoxShadow(
-                                color: Colors.black.withOpacity(
-                                  _currentTheme == "Dark" ? 0.5 : 0.2,
-                                ),
-                                blurRadius: 30,
-                                offset: const Offset(0, 15),
-                                spreadRadius: -8,
-                              ),
-                              // Side Page Stack Effect (Subtle)
-                              BoxShadow(
-                                color: paperColor.withOpacity(0.8),
-                                offset: const Offset(4, 4),
-                                blurRadius: 0,
-                              ),
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                offset: const Offset(5, 5),
-                                blurRadius: 5,
-                              ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                // Subtle Paper Texture
-                                Positioned.fill(
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      image: DecorationImage(
-                                        image: const NetworkImage(
-                                          "https://www.transparenttextures.com/patterns/clean-gray-paper.png",
-                                        ),
-                                        repeat: ImageRepeat.repeat,
-                                        opacity: _currentTheme == "Dark"
-                                            ? 0.02
-                                            : 0.05,
-                                      ),
-                                    ),
+                            decoration: BoxDecoration(
+                              color: paperColor,
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                // Main Page Shadow
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(
+                                    _currentTheme == "Dark" ? 0.5 : 0.2,
                                   ),
+                                  blurRadius: 30,
+                                  offset: const Offset(0, 15),
+                                  spreadRadius: -8,
                                 ),
-
-                                // ✅ Big Watermark Logo
-                                Center(
-                                  child: Opacity(
-                                    opacity: 0.15,
-                                    child: Image.asset(
-                                      "assets/images/bigilu_logo21.png",
-                                      width: 280,
-                                      fit: BoxFit.contain,
-                                    ),
-                                  ),
+                                // Side Page Stack Effect (Subtle)
+                                BoxShadow(
+                                  color: paperColor.withOpacity(0.8),
+                                  offset: const Offset(4, 4),
+                                  blurRadius: 0,
                                 ),
-
-                                // Spine Shade (Curvature)
-                                Positioned(
-                                  left: 0,
-                                  top: 0,
-                                  bottom: 0,
-                                  width: 40,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.centerLeft,
-                                        end: Alignment.centerRight,
-                                        colors: [
-                                          Colors.black.withOpacity(
-                                            _currentTheme == "Dark" ? 0.3 : 0.1,
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  offset: const Offset(5, 5),
+                                  blurRadius: 5,
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  // Subtle Paper Texture
+                                  Positioned.fill(
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        image: DecorationImage(
+                                          image: const NetworkImage(
+                                            "https://www.transparenttextures.com/patterns/clean-gray-paper.png",
                                           ),
-                                          Colors.black.withOpacity(0.0),
-                                        ],
+                                          repeat: ImageRepeat.repeat,
+                                          opacity: _currentTheme == "Dark"
+                                              ? 0.02
+                                              : 0.05,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
 
-                                // Content Height Constraint
-                                SingleChildScrollView(
-                                  physics: const BouncingScrollPhysics(),
-                                  child: Builder(
-                                    builder: (context) {
-                                      final pageAlignIdx =
-                                          (page['textAlign'] is num)
-                                              ? (page['textAlign'] as num)
-                                                  .toInt()
-                                              : (int.tryParse(
+                                  // ✅ Big Watermark Logo
+                                  Center(
+                                    child: Opacity(
+                                      opacity: 0.15,
+                                      child: Image.asset(
+                                        "assets/images/bigilu_logo21.png",
+                                        width: 280,
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
+                                  ),
+
+                                  // Spine Shade (Curvature)
+                                  Positioned(
+                                    left: 0,
+                                    top: 0,
+                                    bottom: 0,
+                                    width: 40,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.centerLeft,
+                                          end: Alignment.centerRight,
+                                          colors: [
+                                            Colors.black.withOpacity(
+                                              _currentTheme == "Dark"
+                                                  ? 0.3
+                                                  : 0.1,
+                                            ),
+                                            Colors.black.withOpacity(0.0),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                  // Content Height Constraint
+                                  SingleChildScrollView(
+                                    physics: const BouncingScrollPhysics(),
+                                    child: Builder(
+                                      builder: (context) {
+                                        final pageAlignIdx =
+                                            (page['textAlign'] is num)
+                                            ? (page['textAlign'] as num).toInt()
+                                            : (int.tryParse(
                                                 page['textAlign']?.toString() ??
                                                     "",
                                               ));
-                                      final TextAlign pageAlignment =
-                                          (pageAlignIdx != null &&
-                                                  pageAlignIdx >= 0 &&
-                                                  pageAlignIdx <
-                                                      TextAlign.values.length)
-                                              ? TextAlign.values[pageAlignIdx]
-                                              : _alignment;
+                                        final TextAlign pageAlignment =
+                                            (pageAlignIdx != null &&
+                                                pageAlignIdx >= 0 &&
+                                                pageAlignIdx <
+                                                    TextAlign.values.length)
+                                            ? TextAlign.values[pageAlignIdx]
+                                            : _alignment;
 
-                                      final CrossAxisAlignment pageCrossAlign =
-                                          pageAlignment == TextAlign.center
-                                              ? CrossAxisAlignment.center
-                                              : (pageAlignment ==
+                                        final CrossAxisAlignment
+                                        pageCrossAlign =
+                                            pageAlignment == TextAlign.center
+                                            ? CrossAxisAlignment.center
+                                            : (pageAlignment ==
                                                       TextAlign.justify
                                                   ? CrossAxisAlignment.stretch
                                                   : CrossAxisAlignment.start);
 
-                                      final double pageMargin =
-                                          (page['pageMargin'] is num)
-                                              ? (page['pageMargin'] as num)
+                                        final double pageMargin =
+                                            (page['pageMargin'] is num)
+                                            ? (page['pageMargin'] as num)
                                                   .toDouble()
-                                              : _horizontalPadding;
+                                            : _horizontalPadding;
 
-                                      final double pageFontSize =
-                                          (page['fontSize'] is num)
-                                              ? (page['fontSize'] as num)
+                                        final double pageFontSize =
+                                            (page['fontSize'] is num)
+                                            ? (page['fontSize'] as num)
                                                   .toDouble()
-                                              : _fontSize;
+                                            : _fontSize;
 
-                                      final double pageLineHeight =
-                                          (page['lineSpacing'] is num)
-                                              ? (page['lineSpacing'] as num)
+                                        final double pageLineHeight =
+                                            (page['lineSpacing'] is num)
+                                            ? (page['lineSpacing'] as num)
                                                   .toDouble()
-                                              : _lineHeight;
+                                            : _lineHeight;
 
-                                      final String pageFontFamily =
-                                          page['fontFamily']?.toString() ??
-                                          _fontFamily;
-                                      final double pageLetterSpacing =
-                                          (page['letterSpacing'] is num)
-                                              ? (page['letterSpacing'] as num)
+                                        final String pageFontFamily =
+                                            page['fontFamily']?.toString() ??
+                                            _fontFamily;
+                                        final double pageLetterSpacing =
+                                            (page['letterSpacing'] is num)
+                                            ? (page['letterSpacing'] as num)
                                                   .toDouble()
-                                              : _letterSpacing;
+                                            : _letterSpacing;
 
-                                      return Padding(
-                                        padding: EdgeInsets.fromLTRB(
-                                          pageMargin,
-                                          40,
-                                          pageMargin,
-                                          40,
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment: pageCrossAlign,
-                                          children: [
-                                            ...blocks.map<Widget>((block) {
-                                              if (block['type'] == 'text') {
-                                                bool isHeadline =
-                                                    block['isHeadline'] ??
-                                                    false;
-                                                return Padding(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        vertical: 4,
-                                                      ),
-                                                  child: SelectableText(
-                                                    isHeadline
-                                                        ? (block['text'] ?? "")
-                                                              .toString()
-                                                              .toUpperCase()
-                                                        : (block['text'] ?? ""),
-                                                    textAlign: block['textAlign'] != null
-                                                        ? TextAlign.values[(block['textAlign'] as num).toInt()]
-                                                        : pageAlignment,
-                                                    style: GoogleFonts.getFont(
-                                                      block['fontFamily']
-                                                              ?.toString() ??
-                                                          pageFontFamily,
-                                                      fontSize: isHeadline
-                                                          ? 28
-                                                          : (block['fontSize']
+                                        return Padding(
+                                          padding: EdgeInsets.fromLTRB(
+                                            pageMargin,
+                                            40,
+                                            pageMargin,
+                                            40,
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment: pageCrossAlign,
+                                            children: [
+                                              ...blocks.map<Widget>((block) {
+                                                if (block['type'] == 'text') {
+                                                  bool isHeadline =
+                                                      block['isHeadline'] ??
+                                                      false;
+                                                  return Padding(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          vertical: 4,
+                                                        ),
+                                                    child: SelectableText(
+                                                      isHeadline
+                                                          ? (block['text'] ??
+                                                                    "")
+                                                                .toString()
+                                                                .toUpperCase()
+                                                          : (block['text'] ??
+                                                                ""),
+                                                      textAlign:
+                                                          block['textAlign'] !=
+                                                              null
+                                                          ? TextAlign
+                                                                .values[(block['textAlign']
+                                                                    as num)
+                                                                .toInt()]
+                                                          : pageAlignment,
+                                                      style: GoogleFonts.getFont(
+                                                        block['fontFamily']
+                                                                ?.toString() ??
+                                                            pageFontFamily,
+                                                        fontSize: isHeadline
+                                                            ? 28
+                                                            : (block['fontSize']
                                                                       is num
                                                                   ? (block['fontSize']
-                                                                          as num)
-                                                                      .toDouble()
+                                                                            as num)
+                                                                        .toDouble()
                                                                   : pageFontSize),
-                                                      backgroundColor: null,
-                                                      color:
-                                                          block['fontColor'] !=
-                                                              null
-                                                          ? Color(
-                                                              (block['fontColor']
+                                                        backgroundColor: null,
+                                                        color:
+                                                            block['fontColor'] !=
+                                                                null
+                                                            ? Color(
+                                                                (block['fontColor']
+                                                                        as num)
+                                                                    .toInt(),
+                                                              )
+                                                            : textColor
+                                                                  .withOpacity(
+                                                                    isHeadline
+                                                                        ? 1.0
+                                                                        : 0.85,
+                                                                  ),
+                                                        height:
+                                                            block['lineSpacing']
+                                                                is num
+                                                            ? (block['lineSpacing']
                                                                       as num)
-                                                                   .toInt(),
-                                                            )
-                                                          : textColor.withOpacity(
-                                                              isHeadline
-                                                                  ? 1.0
-                                                                  : 0.85,
-                                                             ),
-                                                      height: block['lineSpacing']
-                                                                  is num
-                                                          ? (block['lineSpacing']
-                                                                  as num)
-                                                              .toDouble()
-                                                          : pageLineHeight,
-                                                      letterSpacing: isHeadline
-                                                          ? -0.5
-                                                          : (block['letterSpacing']
+                                                                  .toDouble()
+                                                            : pageLineHeight,
+                                                        letterSpacing:
+                                                            isHeadline
+                                                            ? -0.5
+                                                            : (block['letterSpacing']
                                                                       is num
                                                                   ? (block['letterSpacing']
-                                                                          as num)
-                                                                      .toDouble()
+                                                                            as num)
+                                                                        .toDouble()
                                                                   : pageLetterSpacing),
-                                                      fontWeight: isHeadline
-                                                          ? FontWeight.w900
-                                                          : FontWeight.w400,
+                                                        fontWeight: isHeadline
+                                                            ? FontWeight.w900
+                                                            : FontWeight.w400,
+                                                      ),
                                                     ),
-                                                  ),
-                                                );
-                                              }
-                                              if (block['type'] == 'image') {
-                                                return Container(
-                                                  margin:
-                                                      const EdgeInsets.symmetric(
-                                                        vertical: 16,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          8,
-                                                        ),
-                                                    boxShadow: [
-                                                      BoxShadow(
-                                                        color: Colors.black
-                                                            .withOpacity(0.1),
-                                                        blurRadius: 20,
-                                                        offset: const Offset(
-                                                          0,
-                                                          10,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  child: ClipRRect(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          8,
-                                                        ),
-                                                    child: Image.network(
-                                                      fullImageUrl(
-                                                        block['image'],
-                                                      ),
-                                                      fit: BoxFit.cover,
-                                                      loadingBuilder:
-                                                          (
-                                                            context,
-                                                            child,
-                                                            progress,
-                                                          ) {
-                                                            if (progress ==
-                                                                null) {
-                                                              return child;
-                                                            }
-                                                            return Container(
-                                                              height: 200,
-                                                              color: textColor
-                                                                  .withOpacity(
-                                                                    0.03,
-                                                                  ),
-                                                              child: const Center(
-                                                                child:
-                                                                    CircularProgressIndicator(
-                                                                      strokeWidth:
-                                                                          2,
-                                                                    ),
-                                                              ),
-                                                            );
-                                                          },
+                                                  );
+                                                }
+                                                if (block['type'] == 'image') {
+                                                  return _ExpandableImage(
+                                                    imageUrl: fullImageUrl(
+                                                      block['image'],
                                                     ),
-                                                  ),
-                                                );
-                                              }
-                                              return const SizedBox();
-                                            }).toList(),
-                                          ],
-                                        ),
-                                      );
-                                    },
+                                                    textColor: textColor,
+                                                  );
+                                                }
+                                                return const SizedBox();
+                                              }).toList(),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
                                   ),
-                                ),
 
-                                // Elegant Footer Page Number
-                                Positioned(
-                                  bottom: 25,
-                                  left: 0,
-                                  right: 0,
-                                  child: Center(
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: brandColor.withOpacity(0.05),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        "—  ${index + 1}  —",
-                                        style: TextStyle(
-                                          color: brandColor.withOpacity(0.4),
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 12,
-                                          fontFamily: 'serif',
-                                          letterSpacing: 2.0,
+                                  // Elegant Footer Page Number
+                                  Positioned(
+                                    bottom: 25,
+                                    left: 0,
+                                    right: 0,
+                                    child: Center(
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: brandColor.withOpacity(0.05),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          "—  ${index + 1}  —",
+                                          style: TextStyle(
+                                            color: brandColor.withOpacity(0.4),
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 12,
+                                            fontFamily: 'serif',
+                                            letterSpacing: 2.0,
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
                   ),
                 ),
               ],

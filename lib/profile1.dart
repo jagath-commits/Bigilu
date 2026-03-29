@@ -1691,12 +1691,12 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
   Set<String> savedPosts = {};
   bool _isOpeningPost = false;
   int currentPage = 0;
-  final GlobalKey _cardKey = GlobalKey();
+  late List<GlobalKey> _cardKeys;
 
-  Future<void> _sharePostAsImage(String postId) async {
+  Future<void> _sharePostAsImage(String postId, int index) async {
     try {
       final boundary =
-          _cardKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+          _cardKeys[index].currentContext?.findRenderObject() as RenderRepaintBoundary?;
       if (boundary == null) {
         // ignore: deprecated_member_use
         await Share.share(
@@ -1891,6 +1891,7 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
     posts = List.from(widget.posts);
     currentPage = widget.initialIndex;
     controller = PageController(initialPage: widget.initialIndex);
+    _cardKeys = List.generate(widget.posts.length, (index) => GlobalKey());
     _loadInteractionsLocal();
     fetchUserInteractions();
   }
@@ -2023,7 +2024,7 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
 
                 return SingleChildScrollView(
                   child: RepaintBoundary(
-                    key: index == currentPage ? _cardKey : null,
+                    key: index < _cardKeys.length ? _cardKeys[index] : null,
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
@@ -2484,7 +2485,7 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                               _buildActionButton(
                                 icon: Icons.share_rounded,
                                 label: "Share",
-                                onTap: () => _sharePostAsImage(postIdStr),
+                                onTap: () => _sharePostAsImage(postIdStr, index),
                               ),
                               const SizedBox(width: 8),
                               _buildActionButton(

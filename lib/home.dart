@@ -185,7 +185,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> openPostFromDeepLink(String postId) async {
     try {
       final response = await http
-          .get(Uri.parse("https://bigiluu.com/api/posts/getPost/$postId"))
+          .get(Uri.parse("https://bigiluu.com/api/posts/singlePost/$postId"))
           .timeout(
             const Duration(seconds: 10),
             onTimeout: () {
@@ -196,7 +196,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body);
-        final post = jsonData["data"];
+        final post = jsonData; 
 
         final pages = extractPages(post['content']);
 
@@ -247,34 +247,52 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   bool isFetchingPosts = false;
 
-  Future<void> fetchPosts() async {
-    if (isFetchingPosts) return;
+Future<void> fetchPosts() async {
+  if (isFetchingPosts) return;
 
-    isFetchingPosts = true;
+  isFetchingPosts = true;
 
-    try {
-      final response = await http
-          .get(Uri.parse("https://bigiluu.com/api/posts/getAllPosts"))
-          .timeout(Duration(seconds: 25));
+  try {
+    final response = await http
+        .get(Uri.parse("https://bigiluu.com/api/posts/getAllPosts"))
+        .timeout(Duration(seconds: 25));
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+    print("🔥 API RESPONSE: ${response.body}"); // ✅ ADD THIS DEBUG
 
-        setState(() {
-          posts = data["data"] ?? [];
-          isLoading = false; // 🔥 IMPORTANT FIX
-        });
+    if (response.statusCode == 200) {
+      dynamic data;
 
-        // ✅ CALL ONLY AFTER POSTS LOAD
-        await Future.delayed(Duration(milliseconds: 300));
-        await fetchUserInteractions();
-      }
-    } catch (e) {
-      print("❌ ERROR: $e");
-    } finally {
-      isFetchingPosts = false;
+try {
+  data = json.decode(response.body);
+} catch (e) {
+  print("❌ JSON ERROR: $e");
+  setState(() => isLoading = false);
+  return;
+}
+
+      setState(() {
+        posts = data["data"] ?? [];
+        isLoading = false; // ✅ IMPORTANT
+      });
+
+      fetchUserInteractions();
+    } else {
+      // 🔥 HANDLE ERROR STATUS
+      setState(() {
+        isLoading = false;
+      });
     }
+  } catch (e) {
+    print("❌ ERROR: $e");
+
+    // 🔥 THIS IS THE MAIN FIX
+    setState(() {
+      isLoading = false;
+    });
+  } finally {
+    isFetchingPosts = false;
   }
+}
 
   Future<void> toggleLike(String postId) async {
     final isAlreadyLiked = likedPosts.contains(postId);
@@ -536,6 +554,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ? const Center(
                 child: CircularProgressIndicator(color: Color(0xFFB11226)),
               )
+            : posts.isEmpty
+            ? const Center(child: Text("No posts available"))
             : ListView.builder(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
@@ -822,7 +842,7 @@ class _PostContainerState extends State<PostContainer> {
     return "https://bigiluu.com/$path";
   }
 
-  List<dynamic> list_pages() {
+  /*List<dynamic> list_pages() {
     final content = widget.post['content'];
 
     if (content == null) return [];
@@ -851,7 +871,7 @@ class _PostContainerState extends State<PostContainer> {
     }
 
     return [];
-  }
+  }*/
 
   String extractTitle() {
     return widget.post['title']?.toString() ?? "";
@@ -861,7 +881,7 @@ class _PostContainerState extends State<PostContainer> {
   Widget build(BuildContext context) {
     const brandColor = Color(0xFFB11226);
     final caption = widget.post['caption']?.toString() ?? "";
-    final hashtag = widget.post['hastag']?.toString() ?? "";
+    final hashtag = widget.post['hashtag']?.toString() ?? "";
 
     final screenWidth = MediaQuery.of(context).size.width;
     double paddingHorizontal = screenWidth < 360 ? 12 : 20;
@@ -1974,7 +1994,7 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
 
       final verifyResponse = await http
           .get(
-            Uri.parse("https://bigiluu.com/api/posts/getPost/${widget.postId}"),
+            Uri.parse("https://bigiluu.com/api/posts/singlePost/${widget.postId}"),
           )
           .timeout(
             const Duration(seconds: 8),
@@ -1986,7 +2006,7 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
 
       if (verifyResponse.statusCode == 200) {
         final jsonData = jsonDecode(verifyResponse.body);
-        final updatedPost = jsonData["data"];
+        final updatedPost = jsonData;
         print(
           "✅ Verified - Current readers_count in DB: ${updatedPost['readers_count'] ?? 0}",
         );

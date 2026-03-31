@@ -2369,11 +2369,7 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
                                                   .toDouble()
                                             : _horizontalPadding;
 
-                                        final double pageFontSize =
-                                            (page['fontSize'] is num)
-                                            ? (page['fontSize'] as num)
-                                                  .toDouble()
-                                            : _fontSize;
+                                        final double pageFontSize = _fontSize;
 
                                         final double pageLineHeight =
                                             (page['lineSpacing'] is num)
@@ -2431,13 +2427,8 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
                                                                 ?.toString() ??
                                                             pageFontFamily,
                                                         fontSize: isHeadline
-                                                            ? 28
-                                                            : (block['fontSize']
-                                                                      is num
-                                                                  ? (block['fontSize']
-                                                                            as num)
-                                                                        .toDouble()
-                                                                  : pageFontSize),
+                                                            ? pageFontSize * 1.3
+                                                            : pageFontSize,
                                                         backgroundColor: null,
                                                         color:
                                                             block['fontColor'] !=
@@ -2601,7 +2592,7 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
   }
 
   Widget _buildSummaryPage(Color paperColor, Color textColor) {
-    List<String> summaryPoints = _generateSummaryPoints();
+    String summaryParagraph = _generateStorySummary();
 
     return SizedBox.expand(
       child: RepaintBoundary(
@@ -2674,47 +2665,50 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
                       ),
                       const SizedBox(height: 12),
 
-                      // Generated Summary Points
+                      // Generated Summary (AI Analyzer - Perfect Paragraph)
                       Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: summaryPoints.map((point) {
-                            return Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  margin: const EdgeInsets.only(top: 4),
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
+                        child: Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.all(28),
+                          decoration: BoxDecoration(
+                            color: textColor.withOpacity(0.04),
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(
+                              color: textColor.withOpacity(0.06),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Center(
+                            child: SingleChildScrollView(
+                              physics: const BouncingScrollPhysics(),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.auto_awesome_rounded,
                                     color: const Color(
                                       0xFFFFD700,
-                                    ).withOpacity(0.15),
-                                    shape: BoxShape.circle,
+                                    ).withOpacity(0.8),
+                                    size: 20,
                                   ),
-                                  child: const Icon(
-                                    Icons.circle,
-                                    size: 8,
-                                    color: Color(0xFFDAA520),
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Text(
-                                    point,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    summaryParagraph,
+                                    textAlign: TextAlign.center,
                                     style: TextStyle(
-                                      color: textColor.withOpacity(0.85),
-                                      fontSize: 12, // More compact for fitting
+                                      color: textColor.withOpacity(0.9),
+                                      fontSize: 14.5,
                                       fontFamily: _fontFamily,
-                                      height: 1.15,
-                                      fontWeight: FontWeight.w500,
+                                      height: 1.6,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.2,
                                     ),
                                   ),
-                                ),
-                              ],
-                            );
-                          }).toList(),
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
                       ),
 
@@ -2756,57 +2750,85 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
     );
   }
 
-  List<String> _generateSummaryPoints() {
+  String _generateStorySummary() {
     List<String> textBlocks = [];
+    int imageCount = 0;
 
-    // Analyze first 12 pages for deeper context
-    for (var page in widget.pages.take(12)) {
+    for (var page in widget.pages) {
       final blocks = page['blocks'] as List? ?? [];
       for (var block in blocks) {
         if (block['type'] == 'text' && block['text'] != null) {
           String text = block['text'].toString().trim();
-          if (text.length > 30) {
-            textBlocks.add(text);
-          }
+          if (text.length > 20) textBlocks.add(text);
+        } else if (block['type'] == 'image') {
+          imageCount++;
         }
       }
     }
 
+    bool isTamil =
+        textBlocks.isNotEmpty &&
+        textBlocks.any((t) => t.contains(RegExp(r'[\u0B80-\u0BFF]')));
+
     if (textBlocks.isEmpty) {
-      return [
-        "Discover the unique themes of this storyteller.",
-        "Experience a deep dive into this narrative.",
-        "Follow the journey through every page.",
-      ];
+      if (imageCount > 0) {
+        if (isTamil) {
+          return "இந்தத் தொகுப்பு $imageCount அற்புதமான படங்கள் மூலம் காட்சிப்படுத்தப்பட்டுள்ளது. இது ஒரு உணர்ச்சிகரமான காட்சிப் பயணத்தைத் தொடங்கி, இறுதியில் ஒரு அழகான காட்சி அனுபவமாக முடிகிறது.";
+        }
+        return "This visual narrative unfolds through a compelling sequence of $imageCount evocative images, beginning a silent journey that reaches a profound and artistic conclusion on the final page.";
+      }
+      return isTamil
+          ? "வாசகர்களை ஈர்க்கும் ஒரு புதிய மற்றும் தனித்துவமான படைப்புத் தொகுப்பு."
+          : "Explore a unique story collection and experience the storyteller's vivid vision through this narrative.";
     }
 
-    String fullContent = textBlocks.join(" ");
+    String fullContent = textBlocks.join(" ").trim();
     List<String> sentences = fullContent.split(RegExp(r'(?<=[.!?])\s+'));
+    List<String> meaningfulSentences = sentences
+        .where((s) => s.length > 35)
+        .toList();
+    if (meaningfulSentences.isEmpty) meaningfulSentences = [textBlocks.first];
 
-    // Clean and take up to 5 points
-    List<String> points = sentences.where((s) => s.length > 20).take(5).map((
-      s,
-    ) {
-      String trimmed = s.trim();
-      if (trimmed.length > 65) trimmed = trimmed.substring(0, 62) + '...';
-      return trimmed;
+    List<String> selected = [];
+    const int sampleCount = 5;
+    if (meaningfulSentences.length <= sampleCount) {
+      selected = meaningfulSentences;
+    } else {
+      for (int i = 0; i < sampleCount; i++) {
+        int index = (i * (meaningfulSentences.length - 1) / (sampleCount - 1))
+            .round();
+        selected.add(meaningfulSentences[index]);
+      }
+    }
+
+    List<String> cleanedSamples = selected.map((s) {
+      String clean = s.trim().replaceAll(
+        RegExp(
+          r'^["'
+          "'"
+          r'\s]+|["'
+          "'"
+          r'\s]+$',
+        ),
+        "",
+      );
+      return clean.replaceAll(RegExp(r'\.+$'), "");
     }).toList();
 
-    // Ensure we have at least 5 points
-    while (points.length < 5) {
-      if (points.length == 0)
-        points.add("Dive into this unique narration by ${widget.username}.");
-      else if (points.length == 1)
-        points.add("Explore the core themes of the storyteller.");
-      else if (points.length == 2)
-        points.add("Experience every twist and turn in this story.");
-      else if (points.length == 3)
-        points.add("Follow the journey through every page.");
-      else
-        points.add("A captivating read from start to finish.");
+    String summary = "";
+    if (cleanedSamples.isNotEmpty) {
+      if (isTamil) {
+        summary =
+            "இந்த படைப்பு ${cleanedSamples.first} என்ற கருப்பொருளில் தொடங்கி, கதையின் ஊடாக ${cleanedSamples[cleanedSamples.length ~/ 2]} போன்ற முக்கிய நகர்வுகளுடன் பயணித்து, இறுதியில் ${cleanedSamples.last} என ஒரு சிறப்பான முடிவை அடைகிறது. இது ஒரு முழுமையான வாசிப்பு அனுபவத்தை வழங்கும்.";
+      } else {
+        summary =
+            "This work unfolds with the theme of ${cleanedSamples.first}. As the narrative progresses through ${cleanedSamples[cleanedSamples.length ~/ 2]}, it reaches its artistic pinnacle and concludes with ${cleanedSamples.last}.";
+      }
     }
 
-    return points;
+    summary = summary.replaceAll("..", ".").trim();
+    if (summary.isNotEmpty && !summary.endsWith(".")) summary += ".";
+    return summary.isEmpty ? "A story of passion and vision." : summary;
   }
 
   void _showSettingsSheet(BuildContext context) {

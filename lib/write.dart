@@ -496,58 +496,12 @@ class _WritePageState extends State<WritePage> {
       _distributeBlocksToPages(pageIndex, originalTextBlocks);
     }
 
-    // Track current keys to avoid disposing active controllers
-    Set<String> activeKeys = {};
+    // 🔥 FIX: Ensure each page has at least one text block if it has no images
+    // This prevents the "unable to write" issue when rebalancing empty content.
     for (int p = pageIndex; p < _pages.length; p++) {
-      for (int b = 0; b < _pages[p].blocks.length; b++) {
-        if (_pages[p].blocks[b].type == "text") {
-          activeKeys.add("$p-$b");
-        }
+      if (_pages[p].blocks.isEmpty) {
+        _pages[p].blocks.add(PageBlock.text(""));
       }
-    }
-
-    // Update or create controllers, keeping track of what we use
-    for (int p = pageIndex; p < _pages.length; p++) {
-      for (int b = 0; b < _pages[p].blocks.length; b++) {
-        if (_pages[p].blocks[b].type == "text") {
-          String key = "$p-$b";
-          if (_controllers.containsKey(key)) {
-            _controllers[key]!.text = _pages[p].blocks[b].text ?? "";
-          } else {
-            _controllers[key] = TextEditingController(
-              text: _pages[p].blocks[b].text ?? "",
-            );
-            _focusNodes[key] = FocusNode();
-          }
-        }
-      }
-    }
-
-    // Cleanup orphaned controllers
-    final controllersToDispose = <TextEditingController>[];
-    final nodesToDispose = <FocusNode>[];
-
-    _controllers.removeWhere((key, ctrl) {
-      if (!activeKeys.contains(key)) {
-        controllersToDispose.add(ctrl);
-        if (_focusNodes.containsKey(key)) {
-          nodesToDispose.add(_focusNodes[key]!);
-          _focusNodes.remove(key);
-        }
-        return true;
-      }
-      return false;
-    });
-
-    if (controllersToDispose.isNotEmpty || nodesToDispose.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        for (var c in controllersToDispose) {
-          c.dispose();
-        }
-        for (var n in nodesToDispose) {
-          n.dispose();
-        }
-      });
     }
 
     // Remove trailing empty pages
@@ -561,6 +515,11 @@ class _WritePageState extends State<WritePage> {
         _currentPage = _pages.length - 1;
       }
     }
+
+    // Refresh all controllers to match the final block structure
+    _rebuildAllControllers();
+
+    if (mounted) setState(() {});
   }
 
   /// distribute blocks starting at [startPage] across pages, creating
@@ -873,13 +832,10 @@ class _WritePageState extends State<WritePage> {
             );
             nextPage.blocks.remove(blockToMove);
 
-            // Update controller
-            int newBlockIndex = currentPage.blocks.length - 1;
-            String newKey = "$pageIndex-$newBlockIndex";
-            _controllers[newKey] = TextEditingController(
-              text: blockToMove.text ?? "",
-            );
-            _focusNodes[newKey] = FocusNode();
+            // Update controllers
+            _rebuildAllControllers();
+
+            if (mounted) setState(() {});
 
             // Recursively try to pull more if still has space
             _pullContentUpIfSpace(pageIndex);
@@ -3325,6 +3281,77 @@ class _PostPageState extends State<PostPage> {
         .toList();
   }
 
+  String _generateStorySummary() {
+    List<String> textBlocks = [];
+    int imageCount = 0;
+
+    for (var page in widget.pages) {
+      final blocks = page.blocks;
+      for (var block in blocks) {
+        if (block.type == 'text' && block.text != null) {
+          String t = block.text!.trim();
+          if (t.length > 20) textBlocks.add(t);
+        } else if (block.type == 'image') {
+          imageCount++;
+        }
+      }
+    }
+
+    bool isTamil = textBlocks.isNotEmpty &&
+        textBlocks.any((t) => t.contains(RegExp(r'[\u0B80-\u0BFF]')));
+
+    if (textBlocks.isEmpty) {
+      if (imageCount > 0) {
+        if (isTamil) {
+          return "இந்தத் தொகுப்பு $imageCount அற்புதமான படங்கள் மூலம் காட்சிப்படுத்தப்பட்டுள்ளது. இது ஒரு உணர்ச்சிகரமான காட்சிப் பயணத்தைத் தொடங்கி, இறுதியில் ஒரு அழகான காட்சி அனுபவமாக முடிகிறது.";
+        }
+        return "This visual narrative unfolds through a compelling sequence of $imageCount evocative images, beginning a silent journey that reaches a profound conclusion on the final page.";
+      }
+      return isTamil
+          ? "வாசகர்களை ஈர்க்கும் ஒரு புதிய மற்றும் தனித்துவமான படைப்புத் தொகுப்பு."
+          : "Explore a unique story collection and experience the storyteller's vivid vision through this narrative.";
+    }
+
+    String fullContent = textBlocks.join(" ").trim();
+    List<String> sentences = fullContent.split(RegExp(r'(?<=[.!?])\s+'));
+    List<String> meaningfulSentences =
+        sentences.where((s) => s.length > 35).toList();
+    if (meaningfulSentences.isEmpty) meaningfulSentences = [textBlocks.first];
+
+    List<String> selected = [];
+    const int sampleCount = 5;
+    if (meaningfulSentences.length <= sampleCount) {
+      selected = meaningfulSentences;
+    } else {
+      for (int i = 0; i < sampleCount; i++) {
+        int index =
+            (i * (meaningfulSentences.length - 1) / (sampleCount - 1)).round();
+        selected.add(meaningfulSentences[index]);
+      }
+    }
+
+    List<String> cleanedSamples = selected.map((s) {
+      String clean = s.trim().replaceAll(
+          RegExp(r'^["' "'" r'\s]+|["' "'" r'\s]+$'), "");
+      return clean.replaceAll(RegExp(r'\.+$'), "");
+    }).toList();
+
+    String summary = "";
+    if (cleanedSamples.isNotEmpty) {
+      if (isTamil) {
+        summary =
+            "இந்த படைப்பு ${cleanedSamples.first} என்ற கருப்பொருளில் தொடங்கி, அதன் ஊடாக ${cleanedSamples[cleanedSamples.length ~/ 2]} போன்ற முக்கிய நகர்வுகளுடன் பயணித்து கடைசியாக ${cleanedSamples.last} என்ற ஒரு மனநிறைவான முடிவை எட்டுகிறது.";
+      } else {
+        summary =
+            "Starting with ${cleanedSamples.first}, the story develops through ${cleanedSamples[cleanedSamples.length ~/ 2]} and eventually reaches its profound conclusion with ${cleanedSamples.last}.";
+      }
+    }
+
+    summary = summary.replaceAll("..", ".").trim();
+    if (summary.isNotEmpty && !summary.endsWith(".")) summary += ".";
+    return summary.isEmpty ? "A story of passion and vision." : summary;
+  }
+
   Future<void> _submitPost() async {
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getString("user_id");
@@ -3796,13 +3823,87 @@ class _PostPageState extends State<PostPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "Story Caption",
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 16,
-            color: Color(0xFF1A1A1A),
+        // AI Analysis Summary Section
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFFB11226).withOpacity(0.03),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: const Color(0xFFB11226).withOpacity(0.1),
+              width: 1,
+            ),
           ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.insights_rounded, color: Color(0xFFB11226), size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    "Smart Story Analysis",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 14,
+                      color: const Color(0xFFB11226).withOpacity(0.9),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                "Our AI will analyze all your reading pages (from start to finish) and generate a perfect, crystal-clear one-paragraph summary for your post.",
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                  height: 1.5,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 32),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              "Story Caption",
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+                color: Color(0xFF1A1A1A),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () {
+                final summary = _generateStorySummary();
+                setState(() => _captionController.text = summary);
+              },
+              icon: const Icon(
+                Icons.auto_awesome_rounded,
+                size: 16,
+                color: Color(0xFFB11226),
+              ),
+              label: const Text(
+                "AI Suggest",
+                style: TextStyle(
+                  color: Color(0xFFB11226),
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                ),
+              ),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                backgroundColor: const Color(0xFFB11226).withOpacity(0.08),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         TextField(

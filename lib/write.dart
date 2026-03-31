@@ -243,9 +243,13 @@ class _WritePageState extends State<WritePage> {
                       lineSpacing: b.lineSpacing,
                       letterSpacing: b.letterSpacing,
                       textAlign: b.textAlign,
+                      blockId: b.blockId, // 🔥 FIX: Preserve blockId
                     );
                   } else {
-                    var img = PageBlock.networkImage(b.imageUrl ?? "");
+                    var img = PageBlock.networkImage(
+                      b.imageUrl ?? "",
+                      blockId: b.blockId, // 🔥 FIX: Preserve blockId
+                    );
                     img.image = b.image;
                     img.imageWidth = b.imageWidth;
                     img.imagePosition = b.imagePosition;
@@ -473,6 +477,7 @@ class _WritePageState extends State<WritePage> {
               lineSpacing: block.lineSpacing,
               letterSpacing: block.letterSpacing,
               textAlign: block.textAlign,
+              blockId: block.blockId, // 🔥 FIX: Preserve blockId
             ),
           );
         } else if (block.type == "image") {
@@ -863,6 +868,7 @@ class _WritePageState extends State<WritePage> {
                 lineSpacing: blockToMove.lineSpacing,
                 letterSpacing: blockToMove.letterSpacing,
                 textAlign: blockToMove.textAlign,
+                blockId: blockToMove.blockId, // 🔥 FIX: Preserve blockId
               ),
             );
             nextPage.blocks.remove(blockToMove);
@@ -883,7 +889,7 @@ class _WritePageState extends State<WritePage> {
     }
   }
 
-  void _loadDraftContent(dynamic content) {
+  void _loadDraftContent(dynamic content, {bool stayOnPage = false}) {
     try {
       dynamic decoded;
       if (content is String) {
@@ -994,9 +1000,11 @@ class _WritePageState extends State<WritePage> {
         );
       }
 
-      setState(() {
-        _currentPage = 0;
-      });
+      if (!stayOnPage) {
+        setState(() {
+          _currentPage = 0;
+        });
+      }
     } catch (e) {
       print("❌ Draft load crash: $e");
 
@@ -1050,8 +1058,10 @@ class _WritePageState extends State<WritePage> {
 
               request.files.add(
                 await http.MultipartFile.fromPath(
-                  "page_images", // Revert to standard name
+                  "page_images", // Standard field name that backend Multer expects as an array
                   block.image!.path,
+                  filename:
+                      "${block.blockId}.jpg", // 🔥 FIX: Move the unique ID to the filename for mapping
                 ),
               );
 
@@ -1115,7 +1125,7 @@ class _WritePageState extends State<WritePage> {
 
         // ✅ IMPORTANT: If backend returned updated content with official filenames, load it!
         if (data["content"] != null) {
-          _loadDraftContent(data["content"]);
+          _loadDraftContent(data["content"], stayOnPage: true);
         }
 
         ScaffoldMessenger.of(

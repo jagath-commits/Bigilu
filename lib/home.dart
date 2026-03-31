@@ -255,7 +255,13 @@ Future<void> fetchPosts() async {
   try {
     final response = await http
         .get(Uri.parse("https://bigiluu.com/api/posts/getAllPosts"))
-        .timeout(Duration(seconds: 25));
+        .timeout(
+  const Duration(seconds: 10),
+  onTimeout: () {
+    print("❌ API TIMEOUT");
+    throw TimeoutException("API timeout");
+  },
+);
 
     print("🔥 API RESPONSE: ${response.body}"); // ✅ ADD THIS DEBUG
 

@@ -37,12 +37,12 @@ class ProfilePage extends StatefulWidget {
   final bool isPublicView; // 👈 ADD THIS
   final String? initialPostId;
 
-const ProfilePage({
-  super.key,
-  required this.userId,
-  this.isPublicView = false,
-  this.initialPostId, // ✅ ONLY THIS
-});
+  const ProfilePage({
+    super.key,
+    required this.userId,
+    this.isPublicView = false,
+    this.initialPostId, // ✅ ONLY THIS
+  });
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -117,41 +117,41 @@ class _ProfilePageState extends State<ProfilePage> {
     print("PROFILE USER ID: ${widget.userId}");
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-  if (widget.initialPostId != null) {
-    await Future.delayed(const Duration(milliseconds: 800));
-    _openSpecificPost(widget.initialPostId!);
-  }
-});
+      if (widget.initialPostId != null) {
+        await Future.delayed(const Duration(milliseconds: 800));
+        _openSpecificPost(widget.initialPostId!);
+      }
+    });
   }
 
   void _openSpecificPost(String postId) async {
-  print("🔥 OPEN PROFILE POST: $postId");
+    print("🔥 OPEN PROFILE POST: $postId");
 
-  try {
-    final response = await http.get(
-      Uri.parse("https://bigiluu.com/api/posts/singlePost/$postId"),
-    );
-
-    if (response.statusCode == 200) {
-      final postData = jsonDecode(response.body);
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ProfileFeedViewer(
-            posts: [postData],
-            initialIndex: 0,
-            title: "Post",
-            userId: widget.userId,
-            isPublicView: widget.isPublicView,
-          ),
-        ),
+    try {
+      final response = await http.get(
+        Uri.parse("https://bigiluu.com/api/posts/singlePost/$postId"),
       );
+
+      if (response.statusCode == 200) {
+        final postData = jsonDecode(response.body);
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ProfileFeedViewer(
+              posts: [postData],
+              initialIndex: 0,
+              title: "Post",
+              userId: widget.userId,
+              isPublicView: widget.isPublicView,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print("❌ Error opening profile post: $e");
     }
-  } catch (e) {
-    print("❌ Error opening profile post: $e");
   }
-}
 
   final String baseUrl = "https://bigiluu.com/api/profile/profile/";
 
@@ -536,8 +536,9 @@ class _ProfilePageState extends State<ProfilePage> {
               }
 
               // Normal Posts & Saved
-              List<Map<String, dynamic>> sourceList =
-                  selectedTab == 0 ? myPosts : savedPosts;
+              List<Map<String, dynamic>> sourceList = selectedTab == 0
+                  ? myPosts
+                  : savedPosts;
               int clickedIndex = sourceList.indexWhere(
                 (p) => p['post_id'] == postId,
               );
@@ -862,89 +863,96 @@ class _ProfilePageState extends State<ProfilePage> {
 
                           // Stats Row
                           Row(
-  mainAxisAlignment: MainAxisAlignment.center,
-  children: widget.isPublicView
-      ? [
-          _buildStatItem("${myPosts.length}", "Books"),
-        ]
-      : [
-          _buildStatItem("${myPosts.length}", "Books"),
-          _buildStatVerticalDivider(),
-          _buildStatItem("${savedPosts.length}", "Saved"),
-          _buildStatVerticalDivider(),
-          _buildStatItem("${draftPosts.length}", "Drafts"),
-        ],
-),
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: widget.isPublicView
+                                ? [_buildStatItem("${myPosts.length}", "Books")]
+                                : [
+                                    _buildStatItem(
+                                      "${myPosts.length}",
+                                      "Books",
+                                    ),
+                                    _buildStatVerticalDivider(),
+                                    _buildStatItem(
+                                      "${savedPosts.length}",
+                                      "Saved",
+                                    ),
+                                    _buildStatVerticalDivider(),
+                                    _buildStatItem(
+                                      "${draftPosts.length}",
+                                      "Drafts",
+                                    ),
+                                  ],
+                          ),
 
                           const SizedBox(height: 32),
 
                           // Action Buttons
                           if (!widget.isPublicView)
-  Row(
-    children: [
-      Expanded(
-        child: ElevatedButton.icon(
-                                  onPressed: () async {
-                                    final result = await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => EditProfilePage(
-                                          userId: widget.userId,
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    onPressed: () async {
+                                      final result = await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => EditProfilePage(
+                                            userId: widget.userId,
+                                          ),
                                         ),
-                                      ),
-                                    );
-                                    if (result != null && result is Map) {
-                                      setState(() {
-                                        userName =
-                                            result['username'] ?? userName;
-                                        _networkImageUrl =
-                                            result['profile_image'] ??
-                                            _networkImageUrl;
-                                        _image = null;
-                                      });
-                                    }
-                                  },
-                                  icon: const Icon(
-                                    Icons.edit_note_rounded,
-                                    size: 20,
-                                    color: Colors.white,
-                                  ),
-                                  label: const Text(
-                                    "Edit Profile",
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w700,
+                                      );
+                                      if (result != null && result is Map) {
+                                        setState(() {
+                                          userName =
+                                              result['username'] ?? userName;
+                                          _networkImageUrl =
+                                              result['profile_image'] ??
+                                              _networkImageUrl;
+                                          _image = null;
+                                        });
+                                      }
+                                    },
+                                    icon: const Icon(
+                                      Icons.edit_note_rounded,
+                                      size: 20,
                                       color: Colors.white,
                                     ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFFB11226),
-                                    elevation: 0,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 14,
+                                    label: const Text(
+                                      "Edit Profile",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
                                     ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFFB11226),
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: IconButton(
-                                  onPressed: _confirmLogout,
-                                  icon: const Icon(
-                                    Icons.logout_rounded,
-                                    color: Color(0xFFE53935),
+                                const SizedBox(width: 12),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(16),
                                   ),
-                                  padding: const EdgeInsets.all(12),
+                                  child: IconButton(
+                                    onPressed: _confirmLogout,
+                                    icon: const Icon(
+                                      Icons.logout_rounded,
+                                      color: Color(0xFFE53935),
+                                    ),
+                                    padding: const EdgeInsets.all(12),
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
+                              ],
+                            ),
                         ],
                       ),
                     ),
@@ -979,16 +987,16 @@ class _ProfilePageState extends State<ProfilePage> {
                         ],
                       ),
                       child: Row(
-  children: widget.isPublicView
-      ? [
-          _buildModernTab("Books", 0), // 👈 only this
-        ]
-      : [
-          _buildModernTab("Books", 0),
-          _buildModernTab("Drafts", 1),
-          _buildModernTab("Saved", 2),
-        ],
-),
+                        children: widget.isPublicView
+                            ? [
+                                _buildModernTab("Books", 0), // 👈 only this
+                              ]
+                            : [
+                                _buildModernTab("Books", 0),
+                                _buildModernTab("Drafts", 1),
+                                _buildModernTab("Saved", 2),
+                              ],
+                      ),
                     ),
                   ),
                 ),
@@ -1002,8 +1010,8 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       ),
       bottomNavigationBar: widget.isPublicView
-    ? null
-    : _buildBottomNavigationBar(context),
+          ? null
+          : _buildBottomNavigationBar(context),
     );
   }
 
@@ -1116,13 +1124,13 @@ class _ProfilePageState extends State<ProfilePage> {
   // ============================
   // Tabs
   // ============================
-List<Map<String, dynamic>> _getSelectedList() {
-  if (widget.isPublicView) return myPosts; // 👈 FIX
+  List<Map<String, dynamic>> _getSelectedList() {
+    if (widget.isPublicView) return myPosts; // 👈 FIX
 
-  if (selectedTab == 0) return myPosts;
-  if (selectedTab == 1) return draftPosts;
-  return savedPosts;
-}
+    if (selectedTab == 0) return myPosts;
+    if (selectedTab == 1) return draftPosts;
+    return savedPosts;
+  }
 
   // ============================
   // Bottom Navigation
@@ -1741,7 +1749,8 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
   Future<void> _sharePostAsImage(String postId, int index) async {
     try {
       final boundary =
-          _cardKeys[index].currentContext?.findRenderObject() as RenderRepaintBoundary?;
+          _cardKeys[index].currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
       if (boundary == null) {
         // ignore: deprecated_member_use
         await Share.share(
@@ -1764,9 +1773,11 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
       await file.writeAsBytes(pngBytes);
 
       // ignore: deprecated_member_use
-      await Share.shareXFiles([
-        XFile(file.path),
-      ], text: 'Check out this story on Bigiluu! https://bigiluu.com/post/$postId');
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text:
+            'Check out this story on Bigiluu! https://bigiluu.com/post/$postId',
+      );
     } catch (e) {
       debugPrint("Error sharing post image: $e");
       // ignore: deprecated_member_use
@@ -1821,7 +1832,9 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
     // 2. Fetch Supported Posts
     try {
       final likedResponse = await http
-          .get(Uri.parse("https://bigiluu.com/api/posts/supportedPosts/$userId"))
+          .get(
+            Uri.parse("https://bigiluu.com/api/posts/supportedPosts/$userId"),
+          )
           .timeout(const Duration(seconds: 10));
 
       if (likedResponse.statusCode == 200) {
@@ -1853,8 +1866,11 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
 
       for (var p in posts) {
         if (p['post_id']?.toString() == postId) {
-          int current = int.tryParse(p['support_count']?.toString() ?? "0") ?? 0;
-          p['support_count'] = isAlreadyLiked ? (current - 1).clamp(0, 999999) : (current + 1);
+          int current =
+              int.tryParse(p['support_count']?.toString() ?? "0") ?? 0;
+          p['support_count'] = isAlreadyLiked
+              ? (current - 1).clamp(0, 999999)
+              : (current + 1);
           break;
         }
       }
@@ -1886,7 +1902,11 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
     try {
       if (isAlreadySaved) {
         final response = await http
-            .delete(Uri.parse("https://bigiluu.com/api/posts/removeSavedPost/$userId/$postId"))
+            .delete(
+              Uri.parse(
+                "https://bigiluu.com/api/posts/removeSavedPost/$userId/$postId",
+              ),
+            )
             .timeout(const Duration(seconds: 8));
 
         if (response.statusCode == 200) {
@@ -1989,7 +2009,11 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(icon, color: isHighlighted ? color : Colors.grey.shade700, size: 18),
+                    Icon(
+                      icon,
+                      color: isHighlighted ? color : Colors.grey.shade700,
+                      size: 18,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       label,
@@ -2036,7 +2060,8 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                 final String img = _fullUrl(post['cover_img'] ?? '');
                 final String caption = (post['caption'] ?? '').toString();
                 final String hashtag = (post['hastag'] ?? '').toString();
-                final String username = (post['username'] ?? 'Storyteller').toString();
+                final String username = (post['username'] ?? 'Storyteller')
+                    .toString();
                 final String profileImg = _fullUrl(post['profile_image'] ?? '');
                 final int readersCount = post['readers_count'] ?? 0;
 
@@ -2044,7 +2069,9 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                 final bool isSaved = savedPosts.contains(postIdStr);
 
                 // 🏆 Badge Variants Logic
-                String ack = (post['acknowledgment'] ?? "").toString().toUpperCase();
+                String ack = (post['acknowledgment'] ?? "")
+                    .toString()
+                    .toUpperCase();
                 String badgeLabel = "";
                 List<Color> badgeGradients = [Colors.white, Colors.white];
                 Color themeBorderColor = Colors.white;
@@ -2052,17 +2079,26 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
 
                 if (ack == "GOAT") {
                   badgeLabel = "GOAT";
-                  badgeGradients = [const Color(0xFFFFD700), const Color(0xFFDAA520)];
+                  badgeGradients = [
+                    const Color(0xFFFFD700),
+                    const Color(0xFFDAA520),
+                  ];
                   themeBorderColor = const Color(0xFFFFD700);
                   themeSpineColor = const Color(0xFFFFD700).withOpacity(0.2);
                 } else if (ack == "MERSAL") {
                   badgeLabel = "MERSAL";
-                  badgeGradients = [const Color(0xFFE0E0E0), const Color(0xFF9E9E9E)];
+                  badgeGradients = [
+                    const Color(0xFFE0E0E0),
+                    const Color(0xFF9E9E9E),
+                  ];
                   themeBorderColor = const Color(0xFFC0C0C0);
                   themeSpineColor = const Color(0xFFE0E0E0).withOpacity(0.25);
                 } else if (ack == "THERI") {
                   badgeLabel = "THERI";
-                  badgeGradients = [const Color(0xFFCD7F32), const Color(0xFF8B4513)];
+                  badgeGradients = [
+                    const Color(0xFFCD7F32),
+                    const Color(0xFF8B4513),
+                  ];
                   themeBorderColor = const Color(0xFFCD7F32);
                   themeSpineColor = const Color(0xFFCD7F32).withOpacity(0.2);
                 }
@@ -2071,483 +2107,684 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                   child: RepaintBoundary(
                     key: index < _cardKeys.length ? _cardKeys[index] : null,
                     child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: Colors.black.withOpacity(0.05),
-                        width: 1.0,
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.06),
-                          blurRadius: 24,
-                          offset: const Offset(0, 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: Colors.black.withOpacity(0.05),
+                          width: 1.0,
                         ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Header Section
-                        Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: brandColor.withOpacity(0.2),
-                                    width: 1.5,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.06),
+                            blurRadius: 24,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Header Section
+                          Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: brandColor.withOpacity(0.2),
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: CircleAvatar(
+                                    radius: 20,
+                                    backgroundColor: Colors.grey.shade100,
+                                    backgroundImage: NetworkImage(profileImg),
                                   ),
                                 ),
-                                child: CircleAvatar(
-                                  radius: 20,
-                                  backgroundColor: Colors.grey.shade100,
-                                  backgroundImage: NetworkImage(profileImg),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      username,
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    Text(
-                                      "Storyteller",
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey.shade500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (!widget.isPublicView && 
-                                  (widget.title == "My Stories" ||
-                                   widget.title == "Post" ||
-                                   widget.title == "My Books"))
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.delete_outline_rounded,
-                                    color: Colors.redAccent,
-                                    size: 22,
-                                  ),
-                                  onPressed: () async {
-                                    final confirm = await showDialog<bool>(
-                                      context: context,
-                                      builder: (_) => AlertDialog(
-                                        title: const Text("Delete Post"),
-                                        content: const Text(
-                                          "Are you sure you want to delete this post?",
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        username,
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w800,
                                         ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () =>
-                                                Navigator.pop(context, false),
-                                            child: const Text("Cancel"),
+                                      ),
+                                      Text(
+                                        "Storyteller",
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.grey.shade500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (!widget.isPublicView &&
+                                    (widget.title == "My Stories" ||
+                                        widget.title == "Post" ||
+                                        widget.title == "My Books"))
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete_outline_rounded,
+                                      color: Colors.redAccent,
+                                      size: 22,
+                                    ),
+                                    onPressed: () async {
+                                      final confirm = await showDialog<bool>(
+                                        context: context,
+                                        builder: (_) => AlertDialog(
+                                          title: const Text("Delete Post"),
+                                          content: const Text(
+                                            "Are you sure you want to delete this post?",
                                           ),
-                                          TextButton(
-                                            onPressed: () =>
-                                                Navigator.pop(context, true),
-                                            child: const Text(
-                                              "Delete",
-                                              style: TextStyle(
-                                                color: Colors.red,
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context, false),
+                                              child: const Text("Cancel"),
+                                            ),
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context, true),
+                                              child: const Text(
+                                                "Delete",
+                                                style: TextStyle(
+                                                  color: Colors.red,
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                    if (confirm == true) {
-                                      try {
-                                        final response = await http.delete(
-                                          Uri.parse(
-                                            "https://bigiluu.com/api/posts/deletePost/${post['post_id']}",
-                                          ),
-                                        );
-                                        if (response.statusCode == 200) {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                "Post deleted successfully",
-                                              ),
+                                          ],
+                                        ),
+                                      );
+                                      if (confirm == true) {
+                                        try {
+                                          final response = await http.delete(
+                                            Uri.parse(
+                                              "https://bigiluu.com/api/posts/deletePost/${post['post_id']}",
                                             ),
                                           );
-                                          setState(() {
-                                            posts.removeAt(index);
-                                          });
-                                          if (posts.isEmpty) {
-                                            Navigator.pop(
+                                          if (response.statusCode == 200) {
+                                            ScaffoldMessenger.of(
                                               context,
-                                              post['post_id'].toString(),
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  "Post deleted successfully",
+                                                ),
+                                              ),
                                             );
+                                            setState(() {
+                                              posts.removeAt(index);
+                                            });
+                                            if (posts.isEmpty) {
+                                              Navigator.pop(
+                                                context,
+                                                post['post_id'].toString(),
+                                              );
+                                            }
                                           }
+                                        } catch (e) {
+                                          print("Delete error: $e");
                                         }
-                                      } catch (e) {
-                                        print("Delete error: $e");
                                       }
-                                    }
-                                  },
-                                ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: brandColor.withOpacity(0.08),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.auto_stories_rounded,
-                                      color: brandColor,
-                                      size: 14,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      "$readersCount",
-                                      style: const TextStyle(
+                                    },
+                                  ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: brandColor.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.auto_stories_rounded,
                                         color: brandColor,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w800,
+                                        size: 14,
                                       ),
-                                    ),
-                                  ],
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        "$readersCount",
+                                        style: const TextStyle(
+                                          color: brandColor,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
 
-                        // Hyper-Realistic 3D Book Cover
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: GestureDetector(
-                            onTap: () async {
-                              if (_isOpeningPost) return;
-                              setState(() => _isOpeningPost = true);
+                          // Hyper-Realistic 3D Book Cover
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: GestureDetector(
+                              onTap: () async {
+                                if (_isOpeningPost) return;
+                                setState(() => _isOpeningPost = true);
 
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => FullScreenPostViewer(
-                                    pages: extractPages(post['content']),
-                                    username: post['username'] ?? "",
-                                    profileImage: post['profile_image'] ?? "",
-                                    postId: postIdStr,
-                                  ),
-                                ),
-                              );
-
-                              if (mounted) {
-                                setState(() => _isOpeningPost = false);
-                              }
-                            },
-                            child: Hero(
-                              tag: "post_${post['post_id']}",
-                              child: Container(
-                                height: 440,
-                                decoration: BoxDecoration(
-                                  borderRadius: const BorderRadius.only(
-                                    topRight: Radius.circular(12),
-                                    bottomRight: Radius.circular(12),
-                                    topLeft: Radius.circular(16),
-                                    bottomLeft: Radius.circular(16),
-                                  ),
-                                  color: const Color(0xFFFDFCF2),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.25),
-                                      blurRadius: 20,
-                                      offset: const Offset(8, 8),
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => FullScreenPostViewer(
+                                      pages: extractPages(post['content']),
+                                      username: post['username'] ?? "",
+                                      profileImage: post['profile_image'] ?? "",
+                                      postId: postIdStr,
                                     ),
-                                  ],
-                                ),
-                                child: Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    // Page Edges effect (Home page logic)
-                                    Positioned(
-                                      right: 0,
-                                      top: 8,
-                                      bottom: 8,
-                                      width: 12,
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFFDFCF2),
-                                          borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
-                                        ),
-                                        child: Stack(
-                                          children: [
-                                            Column(
-                                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                              children: List.generate(
-                                                30,
-                                                (i) => Container(
-                                                  height: 0.5,
-                                                  width: double.infinity,
-                                                  color: Colors.black.withOpacity(0.04),
-                                                ),
-                                              ),
-                                            ),
-                                            Container(
-                                              decoration: BoxDecoration(
-                                                gradient: LinearGradient(
-                                                  begin: Alignment.centerLeft,
-                                                  end: Alignment.centerRight,
-                                                  colors: [Colors.black.withOpacity(0.08), Colors.transparent],
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                  ),
+                                );
+
+                                if (mounted) {
+                                  setState(() => _isOpeningPost = false);
+                                }
+                              },
+                              child: Hero(
+                                tag: "post_${post['post_id']}",
+                                child: Container(
+                                  height: 440,
+                                  decoration: BoxDecoration(
+                                    borderRadius: const BorderRadius.only(
+                                      topRight: Radius.circular(12),
+                                      bottomRight: Radius.circular(12),
+                                      topLeft: Radius.circular(16),
+                                      bottomLeft: Radius.circular(16),
+                                    ),
+                                    color: const Color(0xFFFDFCF2),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.25),
+                                        blurRadius: 20,
+                                        offset: const Offset(8, 8),
                                       ),
-                                    ),
-
-                                    // Front Cover
-                                    Positioned(
-                                      left: 0,
-                                      top: -1,
-                                      bottom: -1,
-                                      right: 8,
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          borderRadius: const BorderRadius.only(
-                                            topRight: Radius.circular(6),
-                                            bottomRight: Radius.circular(6),
-                                            topLeft: Radius.circular(12),
-                                            bottomLeft: Radius.circular(12),
-                                          ),
-                                          border: Border.all(color: themeBorderColor, width: 2.5),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(0.3),
-                                              blurRadius: 12,
-                                              offset: const Offset(5, 0),
-                                            ),
-                                          ],
-                                        ),
-                                        child: ClipRRect(
-                                          borderRadius: const BorderRadius.only(
-                                            topRight: Radius.circular(4),
-                                            bottomRight: Radius.circular(4),
-                                            topLeft: Radius.circular(10),
-                                            bottomLeft: Radius.circular(10),
+                                    ],
+                                  ),
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      // Page Edges effect (Home page logic)
+                                      Positioned(
+                                        right: 0,
+                                        top: 8,
+                                        bottom: 8,
+                                        width: 12,
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFFDFCF2),
+                                            borderRadius:
+                                                const BorderRadius.horizontal(
+                                                  right: Radius.circular(12),
+                                                ),
                                           ),
                                           child: Stack(
-                                            fit: StackFit.expand,
                                             children: [
-                                              img.isNotEmpty
-                                                  ? Image.network(img, fit: BoxFit.cover)
-                                                  : Container(
-                                                      decoration: const BoxDecoration(
-                                                        gradient: LinearGradient(
-                                                          begin: Alignment.topLeft,
-                                                          end: Alignment.bottomRight,
-                                                          colors: [Color(0xFF2D1B69), Color(0xFF11998E)],
-                                                        ),
-                                                      ),
-                                                      child: const Center(child: Icon(Icons.book_rounded, color: Colors.white54, size: 64)),
-                                                    ),
-                                              // Overlays
+                                              Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceEvenly,
+                                                children: List.generate(
+                                                  30,
+                                                  (i) => Container(
+                                                    height: 0.5,
+                                                    width: double.infinity,
+                                                    color: Colors.black
+                                                        .withOpacity(0.04),
+                                                  ),
+                                                ),
+                                              ),
                                               Container(
                                                 decoration: BoxDecoration(
                                                   gradient: LinearGradient(
                                                     begin: Alignment.centerLeft,
                                                     end: Alignment.centerRight,
                                                     colors: [
-                                                      Colors.black.withOpacity(0.65),
-                                                      Colors.black.withOpacity(0.2),
+                                                      Colors.black.withOpacity(
+                                                        0.08,
+                                                      ),
                                                       Colors.transparent,
-                                                      Colors.black.withOpacity(0.05),
-                                                      Colors.black.withOpacity(0.35),
                                                     ],
-                                                    stops: const [0.0, 0.04, 0.2, 0.96, 1.0],
                                                   ),
                                                 ),
                                               ),
-                                              // Spine shadow
-                                              Positioned(
-                                                left: 0, top: 0, bottom: 0, width: 25,
-                                                child: Container(
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+
+                                      // Front Cover
+                                      Positioned(
+                                        left: 0,
+                                        top: -1,
+                                        bottom: -1,
+                                        right: 8,
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            borderRadius:
+                                                const BorderRadius.only(
+                                                  topRight: Radius.circular(6),
+                                                  bottomRight: Radius.circular(
+                                                    6,
+                                                  ),
+                                                  topLeft: Radius.circular(12),
+                                                  bottomLeft: Radius.circular(
+                                                    12,
+                                                  ),
+                                                ),
+                                            border: Border.all(
+                                              color: themeBorderColor,
+                                              width: 2.5,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(
+                                                  0.3,
+                                                ),
+                                                blurRadius: 12,
+                                                offset: const Offset(5, 0),
+                                              ),
+                                            ],
+                                          ),
+                                          child: ClipRRect(
+                                            borderRadius:
+                                                const BorderRadius.only(
+                                                  topRight: Radius.circular(4),
+                                                  bottomRight: Radius.circular(
+                                                    4,
+                                                  ),
+                                                  topLeft: Radius.circular(10),
+                                                  bottomLeft: Radius.circular(
+                                                    10,
+                                                  ),
+                                                ),
+                                            child: Stack(
+                                              fit: StackFit.expand,
+                                              children: [
+                                                img.isNotEmpty
+                                                    ? Image.network(
+                                                        img,
+                                                        fit: BoxFit.cover,
+                                                      )
+                                                    : Container(
+                                                        decoration:
+                                                            const BoxDecoration(
+                                                              gradient: LinearGradient(
+                                                                begin: Alignment
+                                                                    .topLeft,
+                                                                end: Alignment
+                                                                    .bottomRight,
+                                                                colors: [
+                                                                  Color(
+                                                                    0xFF2D1B69,
+                                                                  ),
+                                                                  Color(
+                                                                    0xFF11998E,
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                        child: const Center(
+                                                          child: Icon(
+                                                            Icons.book_rounded,
+                                                            color:
+                                                                Colors.white54,
+                                                            size: 64,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                // Overlays
+                                                Container(
                                                   decoration: BoxDecoration(
                                                     gradient: LinearGradient(
-                                                      begin: Alignment.centerLeft,
-                                                      end: Alignment.centerRight,
+                                                      begin:
+                                                          Alignment.centerLeft,
+                                                      end:
+                                                          Alignment.centerRight,
                                                       colors: [
-                                                        Colors.black.withOpacity(0.5),
-                                                        Colors.black.withOpacity(0.2),
-                                                        Colors.black.withOpacity(0.4),
-                                                        Colors.black.withOpacity(0.0),
+                                                        Colors.black
+                                                            .withOpacity(0.65),
+                                                        Colors.black
+                                                            .withOpacity(0.2),
+                                                        Colors.transparent,
+                                                        Colors.black
+                                                            .withOpacity(0.05),
+                                                        Colors.black
+                                                            .withOpacity(0.35),
                                                       ],
-                                                      stops: const [0.0, 0.4, 0.5, 1.0],
+                                                      stops: const [
+                                                        0.0,
+                                                        0.04,
+                                                        0.2,
+                                                        0.96,
+                                                        1.0,
+                                                      ],
                                                     ),
                                                   ),
                                                 ),
-                                              ),
-                                              Positioned(left: 22, top: 0, bottom: 0, width: 1.2, child: Container(color: themeSpineColor)),
-                                              // Title Styling (Home page logic)
-                                              Positioned(
-                                                top: 15, left: 10, right: 10,
-                                                child: Builder(builder: (context) {
-                                                  double fs = 15.0;
-                                                  String? ff;
-                                                  Color tc = Colors.white;
-                                                  try {
-                                                    double? parsedFs;
-                                                    Color? parsedTc;
-                                                    String? parsedFf;
-                                                    if (post['titleFontSize'] != null) parsedFs = double.tryParse(post['titleFontSize'].toString());
-                                                    if (post['titleColor'] != null) {
-                                                      int? cv = int.tryParse(post['titleColor'].toString());
-                                                      if (cv != null) parsedTc = Color(cv);
-                                                    }
-                                                    if (post['titleFontFamily'] != null) parsedFf = post['titleFontFamily'].toString();
-
-                                                    // Content JSON fallback
-                                                    dynamic raw = post['content'];
-                                                    if (raw != null) {
-                                                      dynamic dec = raw;
-                                                      if (dec is String) try { dec = jsonDecode(dec); } catch (_) {}
-                                                      if (dec is Map) {
-                                                        if (parsedFs == null && dec['titleFontSize'] != null) parsedFs = double.tryParse(dec['titleFontSize'].toString());
-                                                        if (parsedTc == null && dec['titleColor'] != null) {
-                                                          int? cv = int.tryParse(dec['titleColor'].toString());
-                                                          if (cv != null) parsedTc = Color(cv);
-                                                        }
-                                                        if (parsedFf == null && dec['titleFontFamily'] != null) parsedFf = dec['titleFontFamily'].toString();
-                                                      }
-                                                    }
-                                                    if (parsedFs != null) fs = (parsedFs * 0.6).clamp(12.0, 45.0);
-                                                    if (parsedTc != null) tc = parsedTc;
-                                                    if (parsedFf != null) ff = parsedFf;
-                                                  } catch (_) {}
-                                                  return Text(
-                                                    post['title']?.toString() ?? '',
-                                                    textAlign: TextAlign.center,
-                                                    maxLines: 3,
-                                                    overflow: TextOverflow.ellipsis,
-                                                    style: TextStyle(
-                                                      color: tc,
-                                                      fontSize: fs,
-                                                      fontFamily: ff,
-                                                      fontWeight: FontWeight.bold,
-                                                      shadows: [Shadow(color: Colors.black.withOpacity(0.6), blurRadius: 10, offset: const Offset(1, 1))],
+                                                // Spine shadow
+                                                Positioned(
+                                                  left: 0,
+                                                  top: 0,
+                                                  bottom: 0,
+                                                  width: 25,
+                                                  child: Container(
+                                                    decoration: BoxDecoration(
+                                                      gradient: LinearGradient(
+                                                        begin: Alignment
+                                                            .centerLeft,
+                                                        end: Alignment
+                                                            .centerRight,
+                                                        colors: [
+                                                          Colors.black
+                                                              .withOpacity(0.5),
+                                                          Colors.black
+                                                              .withOpacity(0.2),
+                                                          Colors.black
+                                                              .withOpacity(0.4),
+                                                          Colors.black
+                                                              .withOpacity(0.0),
+                                                        ],
+                                                        stops: const [
+                                                          0.0,
+                                                          0.4,
+                                                          0.5,
+                                                          1.0,
+                                                        ],
+                                                      ),
                                                     ),
-                                                  );
-                                                }),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+                                                  ),
+                                                ),
+                                                Positioned(
+                                                  left: 22,
+                                                  top: 0,
+                                                  bottom: 0,
+                                                  width: 1.2,
+                                                  child: Container(
+                                                    color: themeSpineColor,
+                                                  ),
+                                                ),
+                                                // Title Styling (Home page logic)
+                                                Positioned(
+                                                  top: 15,
+                                                  left: 10,
+                                                  right: 10,
+                                                  child: Builder(
+                                                    builder: (context) {
+                                                      double fs = 15.0;
+                                                      String? ff;
+                                                      Color tc = Colors.white;
+                                                      try {
+                                                        double? parsedFs;
+                                                        Color? parsedTc;
+                                                        String? parsedFf;
+                                                        if (post['titleFontSize'] !=
+                                                            null)
+                                                          parsedFs =
+                                                              double.tryParse(
+                                                                post['titleFontSize']
+                                                                    .toString(),
+                                                              );
+                                                        if (post['titleColor'] !=
+                                                            null) {
+                                                          int?
+                                                          cv = int.tryParse(
+                                                            post['titleColor']
+                                                                .toString(),
+                                                          );
+                                                          if (cv != null)
+                                                            parsedTc = Color(
+                                                              cv,
+                                                            );
+                                                        }
+                                                        if (post['titleFontFamily'] !=
+                                                            null)
+                                                          parsedFf =
+                                                              post['titleFontFamily']
+                                                                  .toString();
 
-                                    // Badge
-                                    if (badgeLabel.isNotEmpty)
-                                      Positioned(
-                                        top: -22,
-                                        right: 0,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(colors: badgeGradients, begin: Alignment.topLeft, end: Alignment.bottomRight),
-                                            borderRadius: BorderRadius.circular(20),
-                                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 8, offset: const Offset(0, 3))],
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(Icons.stars_rounded, color: Colors.white, size: 18),
-                                              const SizedBox(width: 8),
-                                              Text(badgeLabel, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
-                                            ],
+                                                        // Content JSON fallback
+                                                        dynamic raw =
+                                                            post['content'];
+                                                        if (raw != null) {
+                                                          dynamic dec = raw;
+                                                          if (dec is String)
+                                                            try {
+                                                              dec = jsonDecode(
+                                                                dec,
+                                                              );
+                                                            } catch (_) {}
+                                                          if (dec is Map) {
+                                                            if (parsedFs ==
+                                                                    null &&
+                                                                dec['titleFontSize'] !=
+                                                                    null)
+                                                              parsedFs = double.tryParse(
+                                                                dec['titleFontSize']
+                                                                    .toString(),
+                                                              );
+                                                            if (parsedTc ==
+                                                                    null &&
+                                                                dec['titleColor'] !=
+                                                                    null) {
+                                                              int?
+                                                              cv = int.tryParse(
+                                                                dec['titleColor']
+                                                                    .toString(),
+                                                              );
+                                                              if (cv != null)
+                                                                parsedTc =
+                                                                    Color(cv);
+                                                            }
+                                                            if (parsedFf ==
+                                                                    null &&
+                                                                dec['titleFontFamily'] !=
+                                                                    null)
+                                                              parsedFf =
+                                                                  dec['titleFontFamily']
+                                                                      .toString();
+                                                          }
+                                                        }
+                                                        if (parsedFs != null)
+                                                          fs = (parsedFs * 0.6)
+                                                              .clamp(
+                                                                12.0,
+                                                                45.0,
+                                                              );
+                                                        if (parsedTc != null)
+                                                          tc = parsedTc;
+                                                        if (parsedFf != null)
+                                                          ff = parsedFf;
+                                                      } catch (_) {}
+                                                      return Text(
+                                                        post['title']
+                                                                ?.toString() ??
+                                                            '',
+                                                        textAlign:
+                                                            TextAlign.center,
+                                                        maxLines: 3,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        style: TextStyle(
+                                                          color: tc,
+                                                          fontSize: fs,
+                                                          fontFamily: ff,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          shadows: [
+                                                            Shadow(
+                                                              color: Colors
+                                                                  .black
+                                                                  .withOpacity(
+                                                                    0.6,
+                                                                  ),
+                                                              blurRadius: 10,
+                                                              offset:
+                                                                  const Offset(
+                                                                    1,
+                                                                    1,
+                                                                  ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ),
                                       ),
-                                  ],
+
+                                      // Badge
+                                      if (badgeLabel.isNotEmpty)
+                                        Positioned(
+                                          top: -22,
+                                          right: 0,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 14,
+                                              vertical: 8,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                colors: badgeGradients,
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black
+                                                      .withOpacity(0.25),
+                                                  blurRadius: 8,
+                                                  offset: const Offset(0, 3),
+                                                ),
+                                              ],
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(
+                                                  Icons.stars_rounded,
+                                                  color: Colors.white,
+                                                  size: 18,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  badgeLabel,
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w900,
+                                                    letterSpacing: 0.5,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
 
-                        // Caption & Hashtag
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (caption.isNotEmpty)
-                                Text(
-                                  caption,
-                                  style: TextStyle(fontSize: 14, color: Colors.grey.shade800, fontWeight: FontWeight.w500, height: 1.5),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              if (hashtag.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 10),
-                                  child: Text(
-                                    hashtag,
-                                    style: const TextStyle(fontSize: 13, color: brandColor, fontWeight: FontWeight.w700, letterSpacing: 0.2),
+                          // Caption & Hashtag
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (caption.isNotEmpty)
+                                  Text(
+                                    caption,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade800,
+                                      fontWeight: FontWeight.w500,
+                                      height: 1.5,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ),
-                            ],
+                                if (hashtag.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 10),
+                                    child: Text(
+                                      hashtag,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: brandColor,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.2,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
 
-                        // Action row
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              _buildActionButton(
-                                icon: Icons.touch_app_rounded,
-                                topLabel: (post['support_count'] ?? 0).toString(),
-                                label: "Support",
-                                color: isLiked ? brandColor : null,
-                                onTap: () => toggleLike(postIdStr),
-                              ),
-                              const SizedBox(width: 8),
-                              _buildActionButton(
-                                icon: Icons.share_rounded,
-                                label: "Share",
-                                onTap: () => _sharePostAsImage(postIdStr, index),
-                              ),
-                              const SizedBox(width: 8),
-                              _buildActionButton(
-                                icon: isSaved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
-                                label: isSaved ? "Saved" : "Save",
-                                color: isSaved ? brandColor : null,
-                                onTap: () => toggleSave(postIdStr),
-                              ),
-                            ],
+                          // Action row
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                _buildActionButton(
+                                  icon: Icons.touch_app_rounded,
+                                  topLabel: (post['support_count'] ?? 0)
+                                      .toString(),
+                                  label: "Support",
+                                  color: isLiked ? brandColor : null,
+                                  onTap: () => toggleLike(postIdStr),
+                                ),
+                                const SizedBox(width: 8),
+                                _buildActionButton(
+                                  icon: Icons.share_rounded,
+                                  label: "Share",
+                                  onTap: () =>
+                                      _sharePostAsImage(postIdStr, index),
+                                ),
+                                const SizedBox(width: 8),
+                                _buildActionButton(
+                                  icon: isSaved
+                                      ? Icons.bookmark_rounded
+                                      : Icons.bookmark_outline_rounded,
+                                  label: isSaved ? "Saved" : "Save",
+                                  color: isSaved ? brandColor : null,
+                                  onTap: () => toggleSave(postIdStr),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
             ),
     );
   }

@@ -196,7 +196,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body);
-        final post = jsonData; 
+        final post = jsonData;
 
         final pages = extractPages(post['content']);
 
@@ -247,58 +247,58 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   bool isFetchingPosts = false;
 
-Future<void> fetchPosts() async {
-  if (isFetchingPosts) return;
+  Future<void> fetchPosts() async {
+    if (isFetchingPosts) return;
 
-  isFetchingPosts = true;
+    isFetchingPosts = true;
 
-  try {
-    final response = await http
-        .get(Uri.parse("https://bigiluu.com/api/posts/getAllPosts"))
-        .timeout(
-  const Duration(seconds: 10),
-  onTimeout: () {
-    print("❌ API TIMEOUT");
-    throw TimeoutException("API timeout");
-  },
-);
+    try {
+      final response = await http
+          .get(Uri.parse("https://bigiluu.com/api/posts/getAllPosts"))
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              print("❌ API TIMEOUT");
+              throw TimeoutException("API timeout");
+            },
+          );
 
-    print("🔥 API RESPONSE: ${response.body}"); // ✅ ADD THIS DEBUG
+      print("🔥 API RESPONSE: ${response.body}"); // ✅ ADD THIS DEBUG
 
-    if (response.statusCode == 200) {
-      dynamic data;
+      if (response.statusCode == 200) {
+        dynamic data;
 
-try {
-  data = json.decode(response.body);
-} catch (e) {
-  print("❌ JSON ERROR: $e");
-  setState(() => isLoading = false);
-  return;
-}
+        try {
+          data = json.decode(response.body);
+        } catch (e) {
+          print("❌ JSON ERROR: $e");
+          setState(() => isLoading = false);
+          return;
+        }
 
-      setState(() {
-        posts = data["data"] ?? [];
-        isLoading = false; // ✅ IMPORTANT
-      });
+        setState(() {
+          posts = data["data"] ?? [];
+          isLoading = false; // ✅ IMPORTANT
+        });
 
-      fetchUserInteractions();
-    } else {
-      // 🔥 HANDLE ERROR STATUS
+        fetchUserInteractions();
+      } else {
+        // 🔥 HANDLE ERROR STATUS
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      print("❌ ERROR: $e");
+
+      // 🔥 THIS IS THE MAIN FIX
       setState(() {
         isLoading = false;
       });
+    } finally {
+      isFetchingPosts = false;
     }
-  } catch (e) {
-    print("❌ ERROR: $e");
-
-    // 🔥 THIS IS THE MAIN FIX
-    setState(() {
-      isLoading = false;
-    });
-  } finally {
-    isFetchingPosts = false;
   }
-}
 
   Future<void> toggleLike(String postId) async {
     final isAlreadyLiked = likedPosts.contains(postId);
@@ -2000,7 +2000,9 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
 
       final verifyResponse = await http
           .get(
-            Uri.parse("https://bigiluu.com/api/posts/singlePost/${widget.postId}"),
+            Uri.parse(
+              "https://bigiluu.com/api/posts/singlePost/${widget.postId}",
+            ),
           )
           .timeout(
             const Duration(seconds: 8),

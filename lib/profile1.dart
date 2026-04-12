@@ -63,46 +63,25 @@ class _ProfilePageState extends State<ProfilePage> {
   List<Map<String, dynamic>> savedPosts = [];
 
   String fullUrl(String? path) {
-    if (path == null || path.isEmpty) {
-      return "";
+    if (path == null || path.isEmpty) return "";
+
+    path = path.trim();
+
+    // 🚨 FIX: remove double domain
+    if (path.contains("https://bigiluu.com/https://")) {
+      path = path.replaceFirst("https://bigiluu.com/", "");
     }
 
-    // ✅ If already a complete URL (http or https), return as-is
-    if (path.startsWith("http://") || path.startsWith("https://")) {
-      String normalizedPath = path.replaceFirst("http://", "https://");
-      // Extract the path part after the domain
-      int domainEnd = normalizedPath.indexOf('/', 8); // After https://
-      if (domainEnd != -1) {
-        String domain = normalizedPath.substring(0, domainEnd);
-        String pathPart = normalizedPath.substring(domainEnd);
-        // Normalize the path part
-        pathPart = pathPart
-            .replaceAll("\\", "/")
-            .replaceAll(RegExp(r'^/+'), "");
-        pathPart = pathPart.replaceAll("Uploads", "uploads");
-        pathPart = pathPart.replaceAll("Profile_images", "profile_images");
-        pathPart = pathPart.replaceAll("Cover_images", "cover_images");
-        pathPart = pathPart.replaceAll("Page_images", "page_images");
-        return "$domain/$pathPart";
-      }
-      return normalizedPath;
+    if (path.startsWith("http")) {
+      return path;
     }
 
-    // ✅ Clean up path - normalize slashes and case
     path = path.replaceAll("\\", "/").replaceAll(RegExp(r'^/+'), "");
 
-    // ✅ Normalize folder names to lowercase for consistency
-    path = path.replaceAll("Uploads", "uploads");
-    path = path.replaceAll("Profile_images", "profile_images");
-    path = path.replaceAll("Cover_images", "cover_images");
-    path = path.replaceAll("Page_images", "page_images");
-
-    // ✅ If only filename, prepend correct folder
     if (!path.contains("/")) {
       path = "uploads/profile_images/$path";
     }
 
-    // ✅ Return complete HTTPS URL
     return "https://bigiluu.com/$path";
   }
 
@@ -134,6 +113,10 @@ class _ProfilePageState extends State<ProfilePage> {
 
       if (response.statusCode == 200) {
         final postData = jsonDecode(response.body);
+
+        // ✅ FIX HERE
+        postData['profile_image'] = fullUrl(postData['profile_image']);
+        postData['cover_img'] = fullUrl(postData['cover_img']);
 
         Navigator.push(
           context,
@@ -170,6 +153,7 @@ class _ProfilePageState extends State<ProfilePage> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
+        if (!mounted) return;
         setState(() {
           myPosts = List<Map<String, dynamic>>.from(
             (data['data'] ?? []).map(
@@ -178,12 +162,17 @@ class _ProfilePageState extends State<ProfilePage> {
                 "cover_img": e['cover_img'] ?? "",
                 "title": e['title'] ?? "",
                 "title_style": e['title_style'],
+                "titleFontSize": e['titleFontSize'],
+                "titleColor": e['titleColor'],
+                "titleFontFamily": e['titleFontFamily'],
                 "caption": e['caption'] ?? "",
                 "hastag": e['hastag'] ?? "",
                 "content": e['content'] ?? [],
+                "summary": e['summary'] ?? "",
                 "username": e['username'] ?? "",
-                "profile_image": e['profile_image'] ?? "",
+                "profile_image": fullUrl(e['profile_image']),
                 "readers_count": e['readers_count'] ?? 0,
+                "support_count": e['support_count'] ?? 0,
                 "acknowledgment": e['acknowledgment'] ?? "",
               },
             ),
@@ -210,6 +199,7 @@ class _ProfilePageState extends State<ProfilePage> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
+        if (!mounted) return;
         setState(() {
           draftPosts = List<Map<String, dynamic>>.from(
             data['drafts'].map((e) {
@@ -302,6 +292,7 @@ class _ProfilePageState extends State<ProfilePage> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
+        if (!mounted) return;
         setState(() {
           savedPosts = List<Map<String, dynamic>>.from(
             (data['data'] ?? []).map(
@@ -310,11 +301,18 @@ class _ProfilePageState extends State<ProfilePage> {
                 "cover_img": e['cover_img'] ?? "",
                 "title": e['title'] ?? "",
                 "title_style": e['title_style'],
+                "titleFontSize": e['titleFontSize'],
+                "titleColor": e['titleColor'],
+                "titleFontFamily": e['titleFontFamily'],
                 "caption": e['caption'] ?? "",
                 "content": e['content'] ?? [],
                 "username": e['username'] ?? "",
-                "profile_image": e['profile_image'] ?? "",
+                "profile_image": fullUrl(e['profile_image']),
                 "hastag": e['hastag'] ?? "",
+                "readers_count": e['readers_count'] ?? 0,
+                "support_count": e['support_count'] ?? 0,
+                "acknowledgment": e['acknowledgment'] ?? "",
+                "summary": e['summary'] ?? "",
               },
             ),
           );
@@ -336,6 +334,7 @@ class _ProfilePageState extends State<ProfilePage> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
+        if (!mounted) return;
         setState(() {
           userName = data['username'] ?? "";
           _networkImageUrl = data['profile_image'] != null
@@ -359,6 +358,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _loadLocalProfile() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       // Username
       userName = prefs.getString("username") ?? "";
@@ -543,36 +543,11 @@ class _ProfilePageState extends State<ProfilePage> {
                 (p) => p['post_id'] == postId,
               );
 
-              // Loading Overlay
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (_) => const Center(
-                  child: CircularProgressIndicator(color: Color(0xFFB11226)),
-                ),
-              );
-
-              List<Map<String, dynamic>> fullPosts = [];
-              try {
-                for (var p in sourceList) {
-                  final response = await http.get(
-                    Uri.parse(
-                      "https://bigiluu.com/api/posts/singlePost/${p['post_id']}",
-                    ),
-                  );
-                  if (response.statusCode == 200) {
-                    fullPosts.add(jsonDecode(response.body));
-                  }
-                }
-              } finally {
-                Navigator.pop(context); // Close loading
-              }
-
               final removedPostId = await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) => ProfileFeedViewer(
-                    posts: fullPosts,
+                    posts: sourceList,
                     initialIndex: clickedIndex < 0 ? 0 : clickedIndex,
                     title: selectedTab == 0 ? "My Books" : "Saved",
                     userId: widget.userId,
@@ -1232,6 +1207,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 }
 
+
 class FullPostPage extends StatefulWidget {
   final String postId;
   final bool showDelete; // ✅ ADD THIS
@@ -1277,6 +1253,7 @@ class _FullPostPageState extends State<FullPostPage> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
+        if (!mounted) return;
         setState(() {
           coverImg = data['cover_img'];
           caption = data['caption'];
@@ -1473,31 +1450,8 @@ class _FullPostPageState extends State<FullPostPage> {
                                             CrossAxisAlignment.stretch,
                                         children: [
                                           if (coverImg != null)
-                                            ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              child: Image.network(
-                                                coverImg!,
-                                                fit: BoxFit.contain,
-                                                loadingBuilder:
-                                                    (context, child, progress) {
-                                                      if (progress == null) {
-                                                        return child;
-                                                      }
-                                                      return Container(
-                                                        height: 200,
-                                                        color: Colors
-                                                            .grey
-                                                            .shade100,
-                                                        child: const Center(
-                                                          child:
-                                                              CircularProgressIndicator(
-                                                                strokeWidth: 2,
-                                                              ),
-                                                        ),
-                                                      );
-                                                    },
-                                              ),
+                                            ExpandablePostImage(
+                                              imageUrl: coverImg!,
                                             ),
                                           if (caption != null &&
                                               caption!.isNotEmpty)
@@ -1592,79 +1546,8 @@ class _FullPostPageState extends State<FullPostPage> {
                                                     block['image']
                                                         .toString()
                                                         .isNotEmpty) {
-                                                  return Container(
-                                                    margin:
-                                                        const EdgeInsets.only(
-                                                          bottom: 20,
-                                                          top: 4,
-                                                        ),
-                                                    decoration: BoxDecoration(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            14,
-                                                          ),
-                                                      boxShadow: [
-                                                        BoxShadow(
-                                                          color: Colors.black
-                                                              .withOpacity(0.1),
-                                                          blurRadius: 8,
-                                                          offset: const Offset(
-                                                            0,
-                                                            4,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    child: ClipRRect(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            14,
-                                                          ),
-                                                      child: Image.network(
-                                                        block['image'],
-                                                        fit: BoxFit.cover,
-                                                        loadingBuilder:
-                                                            (
-                                                              context,
-                                                              child,
-                                                              progress,
-                                                            ) {
-                                                              if (progress ==
-                                                                  null) {
-                                                                return child;
-                                                              }
-                                                              return Container(
-                                                                height: 200,
-                                                                color: Colors
-                                                                    .grey
-                                                                    .shade100,
-                                                                child: const Center(
-                                                                  child: CircularProgressIndicator(
-                                                                    strokeWidth:
-                                                                        2,
-                                                                  ),
-                                                                ),
-                                                              );
-                                                            },
-                                                        errorBuilder:
-                                                            (
-                                                              _,
-                                                              _,
-                                                              _,
-                                                            ) => Container(
-                                                              height: 100,
-                                                              color: Colors
-                                                                  .grey
-                                                                  .shade100,
-                                                              child: const Icon(
-                                                                Icons
-                                                                    .broken_image,
-                                                                color:
-                                                                    Colors.grey,
-                                                              ),
-                                                            ),
-                                                      ),
-                                                    ),
+                                                  return ExpandablePostImage(
+                                                    imageUrl: block['image'],
                                                   );
                                                 }
                                                 return const SizedBox();
@@ -1936,17 +1819,26 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
     }
   }
 
-  String _fullUrl(String? path) {
+  String fullUrl(String? path) {
     if (path == null || path.isEmpty) return "";
-    if (path.startsWith("http://") || path.startsWith("https://")) {
-      return path.replaceFirst("http://", "https://");
+
+    path = path.trim();
+
+    // 🚨 FIX: remove double domain
+    if (path.contains("https://bigiluu.com/https://")) {
+      path = path.replaceFirst("https://bigiluu.com/", "");
     }
+
+    if (path.startsWith("http")) {
+      return path;
+    }
+
     path = path.replaceAll("\\", "/").replaceAll(RegExp(r'^/+'), "");
-    path = path.replaceAll("Uploads", "uploads");
-    path = path.replaceAll("Profile_images", "profile_images");
-    path = path.replaceAll("Cover_images", "cover_images");
-    path = path.replaceAll("Page_images", "page_images");
-    if (!path.contains("/")) path = "uploads/cover_images/$path";
+
+    if (!path.contains("/")) {
+      path = "uploads/profile_images/$path";
+    }
+
     return "https://bigiluu.com/$path";
   }
 
@@ -2057,12 +1949,13 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
               itemBuilder: (context, index) {
                 final post = posts[index];
                 final String postIdStr = post['post_id']?.toString() ?? "";
-                final String img = _fullUrl(post['cover_img'] ?? '');
+                final String img = post['cover_img'] ?? '';
                 final String caption = (post['caption'] ?? '').toString();
                 final String hashtag = (post['hastag'] ?? '').toString();
                 final String username = (post['username'] ?? 'Storyteller')
                     .toString();
-                final String profileImg = _fullUrl(post['profile_image'] ?? '');
+                final String profileImg = (post['profile_image'] ?? '')
+                    .toString();
                 final int readersCount = post['readers_count'] ?? 0;
 
                 final bool isLiked = likedPosts.contains(postIdStr);
@@ -2146,7 +2039,14 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                                   child: CircleAvatar(
                                     radius: 20,
                                     backgroundColor: Colors.grey.shade100,
-                                    backgroundImage: NetworkImage(profileImg),
+                                    backgroundImage: NetworkImage(
+                                      profileImg.startsWith("http")
+                                          ? profileImg.replaceFirst(
+                                              "https://bigiluu.com/https://",
+                                              "https://",
+                                            )
+                                          : fullUrl(profileImg),
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
@@ -2291,6 +2191,8 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                                       username: post['username'] ?? "",
                                       profileImage: post['profile_image'] ?? "",
                                       postId: postIdStr,
+                                      //summary:
+                                      //post['summary']?.toString() ?? "",
                                     ),
                                   ),
                                 );

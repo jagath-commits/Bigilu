@@ -41,7 +41,7 @@ class _HashtagPageState extends State<HashtagPage> {
       );
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        setState(() => hashtags = List<Map<String, dynamic>>.from(data));
+        if (mounted) setState(() => hashtags = List<Map<String, dynamic>>.from(data));
       }
     } catch (_) {
     } finally {
@@ -632,6 +632,8 @@ class _HashtagPostsPageState extends State<HashtagPostsPage> {
   }
 }
 
+
+
 class PostDetailPage extends StatefulWidget {
   final String postId;
 
@@ -840,54 +842,8 @@ class _PostDetailPageState extends State<PostDetailPage> {
                                               block['image']
                                                   .toString()
                                                   .isNotEmpty) {
-                                            return Container(
-                                              margin: const EdgeInsets.only(
-                                                bottom: 24,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                borderRadius:
-                                                    BorderRadius.circular(16),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: Colors.black
-                                                        .withOpacity(0.12),
-                                                    blurRadius: 10,
-                                                    offset: const Offset(0, 5),
-                                                  ),
-                                                ],
-                                              ),
-                                              child: ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(16),
-                                                child: Image.network(
-                                                  "https://bigiluu.com/${block['image']}",
-                                                  fit: BoxFit.cover,
-                                                  loadingBuilder:
-                                                      (
-                                                        context,
-                                                        child,
-                                                        progress,
-                                                      ) {
-                                                        if (progress == null)
-                                                          return child;
-                                                        return Container(
-                                                          height: 200,
-                                                          color: Colors
-                                                              .grey
-                                                              .shade50,
-                                                          child: const Center(
-                                                            child:
-                                                                CircularProgressIndicator(
-                                                                  strokeWidth:
-                                                                      2,
-                                                                  color:
-                                                                      brandColor,
-                                                                ),
-                                                          ),
-                                                        );
-                                                      },
-                                                ),
-                                              ),
+                                            return ExpandablePostImage(
+                                              imageUrl: "https://bigiluu.com/${block['image']}",
                                             );
                                           }
                                           return const SizedBox();

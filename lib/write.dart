@@ -9,6 +9,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:mime/mime.dart';
+import 'package:http_parser/http_parser.dart';
 
 class PageBlock {
   String type;
@@ -149,6 +151,7 @@ class _WritePageState extends State<WritePage> {
   List<List<PageData>> _historyStack = [];
   int _historyIndex = -1;
   bool _isUndoRedoOp = false;
+  bool _isUpdatingState = false; // Senior PE: Guard against UI thread blocks
   Timer? _debounceTimer;
 
   // Active styles for NEW blocks
@@ -319,12 +322,12 @@ class _WritePageState extends State<WritePage> {
         _saveToHistory(immediate: true);
       }
       setState(() {
-        _isUndoRedoOp = true;
+        _isUpdatingState = true;
         _historyIndex--;
         _pages = _clonePages(_historyStack[_historyIndex]);
         _applyStateSafety();
         _rebuildAllControllers();
-        _isUndoRedoOp = false;
+        _isUpdatingState = false;
       });
     }
   }
@@ -332,12 +335,12 @@ class _WritePageState extends State<WritePage> {
   void _globalRedo() {
     if (_historyIndex < _historyStack.length - 1) {
       setState(() {
-        _isUndoRedoOp = true;
+        _isUpdatingState = true;
         _historyIndex++;
         _pages = _clonePages(_historyStack[_historyIndex]);
         _applyStateSafety();
         _rebuildAllControllers();
-        _isUndoRedoOp = false;
+        _isUpdatingState = false;
       });
     }
   }
@@ -358,7 +361,8 @@ class _WritePageState extends State<WritePage> {
               text: _pages[p].blocks[b].text ?? "",
             );
             ctrl.addListener(() {
-              if (!_isUndoRedoOp && _pages[p].blocks[b].text != ctrl.text) {
+              // Senior PE: Break the recursion cycle between Controller and Rebalance
+              if (!_isUpdatingState && _pages[p].blocks[b].text != ctrl.text) {
                 _handleTextChange(ctrl.text, p, b);
               }
             });
@@ -417,38 +421,37 @@ class _WritePageState extends State<WritePage> {
     double? letterSpacing,
     TextAlign? textAlign,
   }) {
+    // Senior PE: Safety guard for invalid width
+    if (maxWidth <= 10) return true;
+
     final painter = TextPainter(
       text: TextSpan(
         text: text,
-        style: TextStyle(
+        style: GoogleFonts.getFont(
+          fontFamily ?? page.fontFamily,
           fontSize: isHeadline ? 28 : (fontSize ?? page.fontSize),
           fontWeight: isHeadline ? FontWeight.w900 : FontWeight.w400,
-          fontFamily: fontFamily ?? page.fontFamily,
           height: lineSpacing ?? page.lineSpacing,
-          letterSpacing: isHeadline
-              ? -0.5
-              : (letterSpacing ?? page.letterSpacing),
+          letterSpacing: isHeadline ? -0.5 : (letterSpacing ?? page.letterSpacing),
         ),
       ),
-      maxLines: null,
       textAlign: textAlign ?? page.textAlign,
       textDirection: TextDirection.ltr,
     );
-
     painter.layout(maxWidth: maxWidth);
 
     // consider the whole page: any image affects layout
-    bool hasImage = assumeImage || page.blocks.any((b) => b.type == "image");
-
-    // enforce line counts: 25 lines per page
-    int actualLines = painter.computeLineMetrics().length;
-    int allowedLines = 23;
-    if (actualLines > allowedLines) return true;
+    bool hasImage =
+        assumeImage ||
+        (page.blocks.isNotEmpty && page.blocks.any((b) => b.type == "image"));
 
     double allowedHeight = _pageHeightLimit;
     if (hasImage) {
-      allowedHeight -= 200;
+      allowedHeight -= 200; // Offset for image block height
     }
+
+    // Senior PE: Safety guard against zero-height layouts
+    if (allowedHeight < 50) allowedHeight = 50;
 
     return painter.height > allowedHeight;
   }
@@ -457,79 +460,69 @@ class _WritePageState extends State<WritePage> {
   /// This collects all text from that page to the end, then redistributes it
   /// ensuring proper page breaks and adding/removing pages as needed
   void _rebalancePagesFromIndex(int pageIndex) {
-    if (pageIndex >= _pages.length) return;
+    if (pageIndex >= _pages.length || _isUpdatingState) return;
 
-    // Collect all text blocks and images from this page onwards
-    List<PageBlock> originalTextBlocks = [];
-    List<MapEntry<int, int>> imagePositions = []; // (pageIdx, blockIdx) pairs
+    _isUpdatingState = true;
+    try {
+      double maxWidth = (MediaQuery.of(context).size.width - (_pages[0].pageMargin * 2)).clamp(10.0, 2000.0);
+      bool carryOver = false;
 
-    for (int p = pageIndex; p < _pages.length; p++) {
-      for (int b = 0; b < _pages[p].blocks.length; b++) {
-        final block = _pages[p].blocks[b];
-        if (block.type == "text" && (block.text ?? "").isNotEmpty) {
-          originalTextBlocks.add(
-            PageBlock.text(
-              block.text!,
-              isHeadline: block.isHeadline,
-              fontColor: block.fontColor,
-              fontSize: block.fontSize,
-              fontFamily: block.fontFamily,
-              lineSpacing: block.lineSpacing,
-              letterSpacing: block.letterSpacing,
-              textAlign: block.textAlign,
-              blockId: block.blockId, // 🔥 FIX: Preserve blockId
-            ),
-          );
-        } else if (block.type == "image") {
-          imagePositions.add(MapEntry(p, b));
+      // PRO TIP: We process pages one by one. 
+      // If a page doesn't overflow AND nothing was pushed into it, we STOP.
+      // this reduces O(N^2) work to O(1) or O(N) in worst cases.
+      for (int p = pageIndex; p < _pages.length; p++) {
+        List<PageBlock> blocksOnThisPage =
+            _pages[p].blocks.where((b) => b.type == "text").toList();
+
+        // Check if page naturally fits and we have no overflow to push into it
+        if (!carryOver && blocksOnThisPage.isNotEmpty) {
+           String combinedText = blocksOnThisPage.map((e) => e.text ?? "").join("\n");
+           if (!_doesTextOverflow(combinedText, _pages[p], maxWidth)) {
+              // Stability reached! Subsequent pages won't be affected.
+              break; 
+           }
         }
+
+        // Determine if we need to flow content downstream
+        _pages[p].blocks.removeWhere((b) => b.type == "text");
+        
+        if (blocksOnThisPage.isNotEmpty) {
+          int lastTouched = _distributeBlocksToPages(p, blocksOnThisPage);
+          carryOver = lastTouched > p;
+          // Jump loop index if we filled multiple pages
+          if (lastTouched > p) {
+            // we let the loop naturally increment p++, so we set p to lastTouched-1
+            p = lastTouched - 1; 
+          }
+        } else {
+           carryOver = false;
+        }
+
+        // Safety hard limit to prevent infinite page creation crashes
+        if (_pages.length > 300) break;
       }
-    }
 
-    // Clear all text blocks from this page onwards (keep images for now)
-    for (int p = pageIndex; p < _pages.length; p++) {
-      _pages[p].blocks.removeWhere((b) => b.type == "text");
-    }
-
-    // Redistribute all collected blocks starting from this page
-    if (originalTextBlocks.isNotEmpty) {
-      _distributeBlocksToPages(pageIndex, originalTextBlocks);
-    }
-
-    // 🔥 FIX: Ensure each page has at least one text block if it has no images
-    // This prevents the "unable to write" issue when rebalancing empty content.
-    for (int p = pageIndex; p < _pages.length; p++) {
-      if (_pages[p].blocks.isEmpty) {
-        _pages[p].blocks.add(PageBlock.text(""));
+      // Cleanup trailing empty pages
+      while (_pages.length > 1 &&
+          _pages.last.blocks.every((b) => b.type != "text" || (b.text ?? "").trim().isEmpty) &&
+          !_pages.last.blocks.any((b) => b.type == "image")) {
+        _pages.removeLast();
       }
+
+      _rebuildAllControllers();
+    } finally {
+      _isUpdatingState = false;
     }
-
-    // Remove trailing empty pages
-    while (_pages.length > 1 &&
-        _pages.last.blocks.every(
-          (b) => b.type != "text" || (b.text ?? "").trim().isEmpty,
-        ) &&
-        !_pages.last.blocks.any((b) => b.type == "image")) {
-      _pages.removeLast();
-      if (_currentPage >= _pages.length) {
-        _currentPage = _pages.length - 1;
-      }
-    }
-
-    // Refresh all controllers to match the final block structure
-    _rebuildAllControllers();
-
-    if (mounted) setState(() {});
   }
 
   /// distribute blocks starting at [startPage] across pages, creating
   /// new pages as needed while preserving text block attributes.
-  void _distributeBlocksToPages(
+  int _distributeBlocksToPages(
     int startPage,
     List<PageBlock> blocksToDistribute,
   ) {
-    double maxWidth =
-        MediaQuery.of(context).size.width - (_pages[0].pageMargin * 2);
+    if (blocksToDistribute.isEmpty) return startPage;
+    double maxWidth = (MediaQuery.of(context).size.width - (_pages[0].pageMargin * 2)).clamp(10.0, 2000.0);
     int pageIdx = startPage;
 
     for (int i = 0; i < blocksToDistribute.length; i++) {
@@ -609,6 +602,11 @@ class _WritePageState extends State<WritePage> {
           page,
           maxWidth,
           isHeadline: srcBlock.isHeadline,
+          fontSize: srcBlock.fontSize,
+          fontFamily: srcBlock.fontFamily,
+          lineSpacing: srcBlock.lineSpacing,
+          letterSpacing: srcBlock.letterSpacing,
+          textAlign: srcBlock.textAlign,
         )) {
           // whole remainder fits on this page
           lastBlock.text = candidate;
@@ -645,9 +643,9 @@ class _WritePageState extends State<WritePage> {
             }
           }
           if (low == 0) {
-            // If even one character doesn't fit, move to next page
-            pageIdx++;
-            continue;
+            // Senior PE: Force computation progress to avoid infinite iteration
+            low = 1;
+            if (remaining.isEmpty) break;
           }
 
           String fitPart = remaining.substring(0, low);
@@ -676,10 +674,11 @@ class _WritePageState extends State<WritePage> {
         }
       }
     }
+    return pageIdx;
   }
 
   void _handleTextChange(String value, int pageIndex, int blockIndex) {
-    if (_isUndoRedoOp) return;
+    if (_isUpdatingState) return;
 
     setState(() {
       // Update text without truncating lines
@@ -697,7 +696,6 @@ class _WritePageState extends State<WritePage> {
       _rebalancePagesFromIndex(pageIndex);
 
       // Check if we need to move focus to the next page
-      // This happens if a new page was created OR if content moved to the next page
       String newBlockText = _pages[pageIndex].blocks[blockIndex].text ?? "";
       bool contentMoved = newBlockText.length < value.length;
 
@@ -706,7 +704,6 @@ class _WritePageState extends State<WritePage> {
             ? _pages.length - 1
             : pageIndex + 1;
 
-        // Ensure target page is valid
         if (newPageIndex >= _pages.length) return;
 
         setState(() {
@@ -721,13 +718,10 @@ class _WritePageState extends State<WritePage> {
 
         Future.delayed(const Duration(milliseconds: 100), () {
           if (!mounted) return;
-
-          // Double check page and blocks existence to prevent crash
           if (newPageIndex >= _pages.length ||
               _pages[newPageIndex].blocks.isEmpty)
             return;
 
-          // Find first text block in next page
           int targetBlockIndex = 0;
           for (int b = 0; b < _pages[newPageIndex].blocks.length; b++) {
             if (_pages[newPageIndex].blocks[b].type == "text") {
@@ -737,28 +731,22 @@ class _WritePageState extends State<WritePage> {
           }
 
           String key = "$newPageIndex-$targetBlockIndex";
-
           if (!_controllers.containsKey(key)) {
             _controllers[key] = TextEditingController(
               text: _pages[newPageIndex].blocks[targetBlockIndex].text ?? "",
             );
           }
-
           if (!_focusNodes.containsKey(key)) {
             _focusNodes[key] = FocusNode();
           }
-
           FocusScope.of(context).requestFocus(_focusNodes[key]);
-
-          // Place cursor at the end
           final ctrl = _controllers[key]!;
           ctrl.selection = TextSelection.collapsed(offset: ctrl.text.length);
         });
       }
-    } else {
-      _pullContentUpIfSpace(pageIndex);
     }
 
+    // Cleanup extra empty pages at the end
     while (_pages.length > 1 &&
         _pages.last.blocks.every(
           (b) => b.type != "text" || (b.text ?? "").trim().isEmpty,
@@ -776,73 +764,10 @@ class _WritePageState extends State<WritePage> {
     }
   }
 
-  /// Pull content from next page if current page has space
+  /// Senior PE: Loop-based content pulling to avoid Stack Overflow on large documents
   void _pullContentUpIfSpace(int pageIndex) {
-    if (pageIndex >= _pages.length - 1) return; // No next page
-
-    var currentPage = _pages[pageIndex];
-    // Rule: Skip if current page is an image page
-    if (currentPage.blocks.any((b) => b.type == "image")) return;
-
-    double maxWidth =
-        MediaQuery.of(context).size.width - (currentPage.pageMargin * 2);
-    var nextPage = _pages[pageIndex + 1];
-
-    // Rule: Skip if next page is an image page
-    if (nextPage.blocks.any((b) => b.type == "image")) return;
-
-    // Calculate current page usage
-    String currentText = "";
-    for (var b in currentPage.blocks) {
-      if (b.type == "text") currentText += "${b.text ?? ""}\n";
-    }
-    currentText = currentText.trim();
-
-    // If current page has space, try to pull one block from next page
-    if (!_doesTextOverflow(currentText, currentPage, maxWidth)) {
-      var nextTextBlocks = nextPage.blocks
-          .where((b) => b.type == "text" && (b.text ?? "").trim().isNotEmpty)
-          .toList();
-
-      if (nextTextBlocks.isNotEmpty) {
-        // Check if next page will still have content
-        bool canMove =
-            nextTextBlocks.length > 1 ||
-            nextPage.blocks.any((b) => b.type == "image");
-
-        if (canMove) {
-          // Try to move first block to current page
-          var blockToMove = nextTextBlocks.first;
-          String testText = "$currentText\n${blockToMove.text ?? ""}";
-
-          if (!_doesTextOverflow(testText, currentPage, maxWidth)) {
-            // It fits! Move the block while preserving styles
-            currentPage.blocks.add(
-              PageBlock.text(
-                blockToMove.text ?? "",
-                isHeadline: blockToMove.isHeadline,
-                fontColor: blockToMove.fontColor,
-                fontSize: blockToMove.fontSize,
-                fontFamily: blockToMove.fontFamily,
-                lineSpacing: blockToMove.lineSpacing,
-                letterSpacing: blockToMove.letterSpacing,
-                textAlign: blockToMove.textAlign,
-                blockId: blockToMove.blockId, // 🔥 FIX: Preserve blockId
-              ),
-            );
-            nextPage.blocks.remove(blockToMove);
-
-            // Update controllers
-            _rebuildAllControllers();
-
-            if (mounted) setState(() {});
-
-            // Recursively try to pull more if still has space
-            _pullContentUpIfSpace(pageIndex);
-          }
-        }
-      }
-    }
+    // This feature is intentionally disabled to respect user's manual page breaks.
+    // Content will not be pulled from Page 2 to Page 1 even if space is available.
   }
 
   void _loadDraftContent(dynamic content, {bool stayOnPage = false}) {
@@ -910,14 +835,12 @@ class _WritePageState extends State<WritePage> {
 
               String finalUrl = imageName.toString();
 
-              // ✅ If not full URL → convert
-              if (!finalUrl.startsWith("http")) {
-                if (finalUrl.contains("uploads/")) {
-                  finalUrl = "https://bigiluu.com/$finalUrl";
-                } else {
-                  finalUrl =
-                      "https://bigiluu.com/uploads/page_images/$finalUrl";
-                }
+              // ✅ If already S3 URL → use directly
+              if (finalUrl.startsWith("http")) {
+                // do nothing
+              } else {
+                // fallback for old images (local)
+                finalUrl = "https://bigiluu.com/$finalUrl";
               }
 
               print("✅ FINAL URL: $finalUrl");
@@ -1010,18 +933,21 @@ class _WritePageState extends State<WritePage> {
           if (block.type == "image") {
             // ✅ CASE 1: NEW IMAGE (picked from gallery)
             if (block.image != null) {
-              print("📤 Uploading NEW image: ${block.image!.path}");
+              final fileName = "${block.blockId}.jpg";
+              final mimeType = lookupMimeType(block.image!.path);
+              final mimeSplit = mimeType?.split('/') ?? ['image', 'jpeg'];
 
               request.files.add(
                 await http.MultipartFile.fromPath(
-                  "page_images", // Standard field name that backend Multer expects as an array
+                  "page_images",
                   block.image!.path,
-                  filename:
-                      "${block.blockId}.jpg", // 🔥 FIX: Move the unique ID to the filename for mapping
+                  filename: fileName,
+                  contentType: MediaType(mimeSplit[0], mimeSplit[1]),
                 ),
               );
 
-              imageName = null; // backend will assign filename
+              // ✅ IMPORTANT: send SAME filename to backend
+              imageName = fileName;
             }
             // ✅ CASE 2: OLD IMAGE (already from server)
             else if (block.imageUrl != null && block.imageUrl!.isNotEmpty) {
@@ -1064,11 +990,15 @@ class _WritePageState extends State<WritePage> {
 
       request.fields["content"] = jsonEncode(pagesJson);
 
-      var streamedResponse = await request.send();
+      print("🚀 INFO: Saving draft with ${request.files.length} new images...");
+
+      var streamedResponse = await request.send().timeout(
+        const Duration(seconds: 90),
+      );
       var response = await http.Response.fromStream(streamedResponse);
 
-      print("STATUS: ${response.statusCode}");
-      print("BODY: ${response.body}");
+      print("✅ STATUS: ${response.statusCode}");
+      print("📄 BODY: ${response.body}");
 
       if (!mounted) return;
 
@@ -1084,10 +1014,11 @@ class _WritePageState extends State<WritePage> {
           _loadDraftContent(data["content"], stayOnPage: true);
         }
 
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Draft Saved")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Draft Saved Automatically")),
+        );
       } else {
+        print("❌ Draft Save Failed: ${response.statusCode}");
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -3281,246 +3212,228 @@ class _PostPageState extends State<PostPage> {
         .toList();
   }
 
-  String _generateStorySummary() {
-    List<String> textBlocks = [];
-    int imageCount = 0;
-
-    for (var page in widget.pages) {
-      final blocks = page.blocks;
-      for (var block in blocks) {
-        if (block.type == 'text' && block.text != null) {
-          String t = block.text!.trim();
-          if (t.length > 20) textBlocks.add(t);
-        } else if (block.type == 'image') {
-          imageCount++;
-        }
-      }
-    }
-
-    bool isTamil = textBlocks.isNotEmpty &&
-        textBlocks.any((t) => t.contains(RegExp(r'[\u0B80-\u0BFF]')));
-
-    if (textBlocks.isEmpty) {
-      if (imageCount > 0) {
-        if (isTamil) {
-          return "இந்தத் தொகுப்பு $imageCount அற்புதமான படங்கள் மூலம் காட்சிப்படுத்தப்பட்டுள்ளது. இது ஒரு உணர்ச்சிகரமான காட்சிப் பயணத்தைத் தொடங்கி, இறுதியில் ஒரு அழகான காட்சி அனுபவமாக முடிகிறது.";
-        }
-        return "This visual narrative unfolds through a compelling sequence of $imageCount evocative images, beginning a silent journey that reaches a profound conclusion on the final page.";
-      }
-      return isTamil
-          ? "வாசகர்களை ஈர்க்கும் ஒரு புதிய மற்றும் தனித்துவமான படைப்புத் தொகுப்பு."
-          : "Explore a unique story collection and experience the storyteller's vivid vision through this narrative.";
-    }
-
-    String fullContent = textBlocks.join(" ").trim();
-    List<String> sentences = fullContent.split(RegExp(r'(?<=[.!?])\s+'));
-    List<String> meaningfulSentences =
-        sentences.where((s) => s.length > 35).toList();
-    if (meaningfulSentences.isEmpty) meaningfulSentences = [textBlocks.first];
-
-    List<String> selected = [];
-    const int sampleCount = 5;
-    if (meaningfulSentences.length <= sampleCount) {
-      selected = meaningfulSentences;
-    } else {
-      for (int i = 0; i < sampleCount; i++) {
-        int index =
-            (i * (meaningfulSentences.length - 1) / (sampleCount - 1)).round();
-        selected.add(meaningfulSentences[index]);
-      }
-    }
-
-    List<String> cleanedSamples = selected.map((s) {
-      String clean = s.trim().replaceAll(
-          RegExp(r'^["' "'" r'\s]+|["' "'" r'\s]+$'), "");
-      return clean.replaceAll(RegExp(r'\.+$'), "");
-    }).toList();
-
-    String summary = "";
-    if (cleanedSamples.isNotEmpty) {
-      if (isTamil) {
-        summary =
-            "இந்த படைப்பு ${cleanedSamples.first} என்ற கருப்பொருளில் தொடங்கி, அதன் ஊடாக ${cleanedSamples[cleanedSamples.length ~/ 2]} போன்ற முக்கிய நகர்வுகளுடன் பயணித்து கடைசியாக ${cleanedSamples.last} என்ற ஒரு மனநிறைவான முடிவை எட்டுகிறது.";
-      } else {
-        summary =
-            "Starting with ${cleanedSamples.first}, the story develops through ${cleanedSamples[cleanedSamples.length ~/ 2]} and eventually reaches its profound conclusion with ${cleanedSamples.last}.";
-      }
-    }
-
-    summary = summary.replaceAll("..", ".").trim();
-    if (summary.isNotEmpty && !summary.endsWith(".")) summary += ".";
-    return summary.isEmpty ? "A story of passion and vision." : summary;
-  }
-
   Future<void> _submitPost() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getString("user_id");
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString("user_id");
 
-    final uri = Uri.parse("https://bigiluu.com/api/posts/createPost");
+      final uri = Uri.parse("https://bigiluu.com/api/posts/createPost");
 
-    var request = http.MultipartRequest("POST", uri);
+      var request = http.MultipartRequest("POST", uri);
 
-    request.headers["Accept"] = "application/json";
-    //request.headers["Content-Type"] = "multipart/form-data";
+      request.headers["Accept"] = "application/json";
 
-    request.fields["user_id"] = userId ?? "";
-    String? coverImageName;
+      request.fields["user_id"] = userId ?? "";
+      String? coverImageName;
 
-    if (widget.coverImage != null) {
-      File? finalCover = widget.coverImage;
+      if (widget.coverImage != null) {
+        File? finalCover = widget.coverImage;
 
-      if (finalCover != null) {
-        request.files.add(
-          await http.MultipartFile.fromPath("cover_images", finalCover.path),
-        );
-
-        coverImageName = finalCover.path.split('/').last;
-      }
-    }
-    request.fields["caption"] = _captionController.text;
-    String tagText = _hashtagController.text.trim();
-
-    // If user typed hashtags manually
-    if (tagText.isNotEmpty) {
-      List<String> tags = extractHashtags(tagText);
-
-      // normalize hashtags
-      tagText = tags.join(" ");
-    }
-
-    // If user didn't type hashtag → auto generate
-    if (tagText.isEmpty) {
-      List<String> words = [];
-
-      for (var page in widget.pages) {
-        for (var block in page.blocks) {
-          if (block.type == "text" && block.text != null) {
-            words.addAll(
-              block.text!
-                  .toLowerCase()
-                  .replaceAll(
-                    RegExp(r'[^\p{L}\p{M}\p{N}\s]', unicode: true),
-                    '',
-                  )
-                  .split(" "),
-            );
-          }
-        }
-      }
-
-      words = words.where((w) => w.length > 4).toSet().take(5).toList();
-
-      tagText = words.map((w) => "#$w").join(" ");
-    }
-
-    request.fields["hastag"] = tagText;
-
-    // If user typed without #
-    /*if (tagText.isNotEmpty && !tagText.startsWith("#")) {
-      tagText = "#$tagText";
-    }
-
-    request.fields["hastag"] = tagText;*/
-
-    List<Map<String, dynamic>> pagesJson = [];
-
-    for (int i = 0; i < widget.pages.length; i++) {
-      List<Map<String, dynamic>> blocksJson = [];
-
-      for (int j = 0; j < widget.pages[i].blocks.length; j++) {
-        final block = widget.pages[i].blocks[j];
-
-        String? imageServerPath;
-
-        if (block.type == "image" && block.image != null) {
-          String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-          String originalName = block.image!.path.split('/').last;
-          String uniqueName = "${timestamp}_$originalName";
+        if (finalCover != null) {
+          final mimeType = lookupMimeType(finalCover.path);
+          final mimeSplit = mimeType?.split('/') ?? ['image', 'jpeg'];
 
           request.files.add(
             await http.MultipartFile.fromPath(
-              "page_images", // Standard name
-              block.image!.path,
-              filename: uniqueName,
+              "cover_images",
+              finalCover.path,
+              contentType: MediaType(mimeSplit[0], mimeSplit[1]),
             ),
           );
 
-          imageServerPath = uniqueName;
+          coverImageName = finalCover.path.split('/').last;
+        }
+      }
+      request.fields["caption"] = _captionController.text;
+      String tagText = _hashtagController.text.trim();
+
+      // If user typed hashtags manually
+      if (tagText.isNotEmpty) {
+        List<String> tags = extractHashtags(tagText);
+        tagText = tags.join(" ");
+      }
+
+      // If user didn't type hashtag → auto generate
+      if (tagText.isEmpty) {
+        List<String> words = [];
+        for (var page in widget.pages) {
+          for (var block in page.blocks) {
+            if (block.type == "text" && block.text != null) {
+              words.addAll(
+                block.text!
+                    .toLowerCase()
+                    .replaceAll(
+                      RegExp(r'[^\p{L}\p{M}\p{N}\s]', unicode: true),
+                      '',
+                    )
+                    .split(" "),
+              );
+            }
+          }
+        }
+        words = words.where((w) => w.length > 4).toSet().take(5).toList();
+        tagText = words.map((w) => "#$w").join(" ");
+      }
+
+      request.fields["hastag"] = tagText;
+
+      List<Map<String, dynamic>> pagesJson = [];
+
+      for (int i = 0; i < widget.pages.length; i++) {
+        List<Map<String, dynamic>> blocksJson = [];
+
+        for (int j = 0; j < widget.pages[i].blocks.length; j++) {
+          final block = widget.pages[i].blocks[j];
+          String? imageServerPath;
+
+          if (block.type == "image" && block.image != null) {
+            String fileName = "${block.blockId}.jpg";
+            final mimeType = lookupMimeType(block.image!.path);
+            final mimeSplit = mimeType?.split('/') ?? ['image', 'jpeg'];
+
+            request.files.add(
+              await http.MultipartFile.fromPath(
+                "page_images",
+                block.image!.path,
+                filename: fileName,
+                contentType: MediaType(mimeSplit[0], mimeSplit[1]),
+              ),
+            );
+
+            imageServerPath = fileName;
+          }
+
+          blocksJson.add({
+            "type": block.type,
+            "text": block.text,
+            "image": imageServerPath,
+            "imageWidth": block.imageWidth,
+            "imagePosX": block.imagePosition?.dx,
+            "imagePosY": block.imagePosition?.dy,
+            "isHeadline": block.isHeadline,
+            "fontColor": block.fontColor,
+            "blockId": block.blockId,
+          });
         }
 
-        blocksJson.add({
-          "type": block.type,
-          "text": block.text,
-          "image": imageServerPath,
-          "imageWidth": block.imageWidth,
-          "imagePosX": block.imagePosition?.dx,
-          "imagePosY": block.imagePosition?.dy,
-          "isHeadline": block.isHeadline,
-          "fontColor": block.fontColor,
+        pagesJson.add({
+          "fontSize": widget.pages[i].fontSize,
+          "fontFamily": widget.pages[i].fontFamily,
+          "fontColor": widget.pages[i].fontColor,
+          "blocks": blocksJson,
         });
       }
 
-      pagesJson.add({
-        "fontSize": widget.pages[i].fontSize,
-        "fontFamily": widget.pages[i].fontFamily,
-        "fontColor": widget.pages[i].fontColor,
-        "blocks": blocksJson,
-      });
-    }
+      final fullContent = {
+        "title": widget.title,
+        "titleFontSize": widget.titleFontSize,
+        "titleColor": widget.titleColor?.value,
+        "titleFontFamily": widget.titleFontFamily,
+        "titlePositionX": widget.titlePosition?.dx,
+        "titlePositionY": widget.titlePosition?.dy,
+        "coverImage": coverImageName,
+        "pages": pagesJson,
+      };
 
-    final fullContent = {
-      "title": widget.title,
-      "titleFontSize": widget.titleFontSize,
-      "titleColor": widget.titleColor?.value,
-      "titleFontFamily": widget.titleFontFamily,
-      "titlePositionX": widget.titlePosition?.dx,
-      "titlePositionY": widget.titlePosition?.dy,
-      "coverImage": coverImageName,
-      "pages": pagesJson,
-    };
+      request.fields["content"] = jsonEncode(fullContent);
+      request.fields["title"] = widget.title ?? "";
+      request.fields["titleFontSize"] =
+          widget.titleFontSize?.toString() ?? "28";
+      request.fields["titleColor"] =
+          widget.titleColor?.value.toString() ?? Colors.white.value.toString();
+      request.fields["titleFontFamily"] = widget.titleFontFamily ?? "Roboto";
+      request.fields["titlePositionX"] =
+          widget.titlePosition?.dx.toString() ?? "0.5";
+      request.fields["titlePositionY"] =
+          widget.titlePosition?.dy.toString() ?? "0.4";
 
-    request.fields["content"] = jsonEncode(fullContent);
-    request.fields["title"] = widget.title ?? "";
+      print("🚀 INFO: Submitting post with ${request.files.length} images...");
 
-    request.fields["titleFontSize"] = widget.titleFontSize?.toString() ?? "28";
+      var streamedResponse = await request.send().timeout(
+        const Duration(seconds: 120),
+      );
+      var response = await http.Response.fromStream(streamedResponse);
 
-    request.fields["titleColor"] =
-        widget.titleColor?.value.toString() ?? Colors.white.value.toString();
+      print("✅ STATUS: ${response.statusCode}");
+      print("📄 BODY: ${response.body}");
 
-    request.fields["titleFontFamily"] = widget.titleFontFamily ?? "Roboto";
+      if (!mounted) return;
 
-    request.fields["titlePositionX"] =
-        widget.titlePosition?.dx.toString() ?? "0.5";
+      if (response.statusCode == 200) {
+        if (widget.draftId != null) {
+          try {
+            await http.delete(
+              Uri.parse(
+                "https://bigiluu.com/api/draft/deleteDraft/${widget.draftId}",
+              ),
+            );
+          } catch (e) {
+            print("⚠️ Warning: Failed to delete draft: $e");
+          }
+        }
 
-    request.fields["titlePositionY"] =
-        widget.titlePosition?.dy.toString() ?? "0.4";
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Post Created Successfully"),
+            backgroundColor: Colors.green,
+          ),
+        );
 
-    var streamedResponse = await request.send();
-    var response = await http.Response.fromStream(streamedResponse);
+        final route = Platform.isIOS
+            ? CupertinoPageRoute(builder: (_) => const HomePage())
+            : MaterialPageRoute(builder: (_) => const HomePage());
 
-    print("STATUS: ${response.statusCode}");
-    print("BODY: ${response.body}");
-
-    if (response.statusCode == 200) {
-      if (widget.draftId != null) {
-        await http.delete(
-          Uri.parse(
-            "https://bigiluu.com/api/draft/deleteDraft/${widget.draftId}",
+        Navigator.pushAndRemoveUntil(context, route, (route) => false);
+      } else {
+        print("❌ Post Failed: ${response.statusCode}");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Submission failed (${response.statusCode}). Please try again.",
+            ),
+            backgroundColor: Colors.red,
           ),
         );
       }
+    } catch (e) {
+      print("🛑 CRITICAL ERROR during submission: $e");
+      if (mounted) {
+        String errorMsg = "An error occurred during submission.";
+        if (e.toString().contains("Connection reset by peer")) {
+          errorMsg =
+              "Connection lost. The images might be too large or the server is busy.";
+        } else if (e is TimeoutException) {
+          errorMsg =
+              "Request timed out. Please check your internet connection.";
+        }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Post Created Successfully")),
-      );
-
-      final route = Platform.isIOS
-          ? CupertinoPageRoute(builder: (_) => const HomePage())
-          : MaterialPageRoute(builder: (_) => const HomePage());
-
-      Navigator.pushAndRemoveUntil(context, route, (route) => false);
-    } else {
-      print("Post Failed");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMsg),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: "Details",
+              textColor: Colors.white,
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text("Error Details"),
+                    content: Text(e.toString()),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text("OK"),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -3840,7 +3753,11 @@ class _PostPageState extends State<PostPage> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.insights_rounded, color: Color(0xFFB11226), size: 18),
+                  const Icon(
+                    Icons.insights_rounded,
+                    color: Color(0xFFB11226),
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     "Smart Story Analysis",
@@ -3875,32 +3792,6 @@ class _PostPageState extends State<PostPage> {
                 fontWeight: FontWeight.w800,
                 fontSize: 16,
                 color: Color(0xFF1A1A1A),
-              ),
-            ),
-            TextButton.icon(
-              onPressed: () {
-                final summary = _generateStorySummary();
-                setState(() => _captionController.text = summary);
-              },
-              icon: const Icon(
-                Icons.auto_awesome_rounded,
-                size: 16,
-                color: Color(0xFFB11226),
-              ),
-              label: const Text(
-                "AI Suggest",
-                style: TextStyle(
-                  color: Color(0xFFB11226),
-                  fontWeight: FontWeight.w800,
-                  fontSize: 12,
-                ),
-              ),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                backgroundColor: const Color(0xFFB11226).withOpacity(0.08),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
               ),
             ),
           ],

@@ -285,24 +285,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
 
     // ✅ If already a complete URL, ensure HTTPS and normalize path
-    if (path.startsWith("http://") || path.startsWith("https://")) {
-      String normalizedPath = path.replaceFirst("http://", "https://");
-      // Extract the path part after the domain
-      int domainEnd = normalizedPath.indexOf('/', 8); // After https://
-      if (domainEnd != -1) {
-        String domain = normalizedPath.substring(0, domainEnd);
-        String pathPart = normalizedPath.substring(domainEnd);
-        // Normalize the path part
-        pathPart = pathPart
-            .replaceAll("\\", "/")
-            .replaceAll(RegExp(r'^/+'), "");
-        pathPart = pathPart.replaceAll("Uploads", "uploads");
-        pathPart = pathPart.replaceAll("Profile_images", "profile_images");
-        pathPart = pathPart.replaceAll("Cover_images", "cover_images");
-        pathPart = pathPart.replaceAll("Page_images", "page_images");
-        return "$domain/$pathPart";
-      }
-      return normalizedPath;
+    if (path.startsWith("http")) {
+      return path; // ✅ return S3 directly
     }
 
     // ✅ Clean up path

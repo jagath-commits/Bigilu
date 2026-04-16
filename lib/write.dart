@@ -432,7 +432,9 @@ class _WritePageState extends State<WritePage> {
           fontSize: isHeadline ? 28 : (fontSize ?? page.fontSize),
           fontWeight: isHeadline ? FontWeight.w900 : FontWeight.w400,
           height: lineSpacing ?? page.lineSpacing,
-          letterSpacing: isHeadline ? -0.5 : (letterSpacing ?? page.letterSpacing),
+          letterSpacing: isHeadline
+              ? -0.5
+              : (letterSpacing ?? page.letterSpacing),
         ),
       ),
       textAlign: textAlign ?? page.textAlign,
@@ -464,38 +466,43 @@ class _WritePageState extends State<WritePage> {
 
     _isUpdatingState = true;
     try {
-      double maxWidth = (MediaQuery.of(context).size.width - (_pages[0].pageMargin * 2)).clamp(10.0, 2000.0);
+      double maxWidth =
+          (MediaQuery.of(context).size.width - (_pages[0].pageMargin * 2))
+              .clamp(10.0, 2000.0);
       bool carryOver = false;
 
-      // PRO TIP: We process pages one by one. 
+      // PRO TIP: We process pages one by one.
       // If a page doesn't overflow AND nothing was pushed into it, we STOP.
       // this reduces O(N^2) work to O(1) or O(N) in worst cases.
       for (int p = pageIndex; p < _pages.length; p++) {
-        List<PageBlock> blocksOnThisPage =
-            _pages[p].blocks.where((b) => b.type == "text").toList();
+        List<PageBlock> blocksOnThisPage = _pages[p].blocks
+            .where((b) => b.type == "text")
+            .toList();
 
         // Check if page naturally fits and we have no overflow to push into it
         if (!carryOver && blocksOnThisPage.isNotEmpty) {
-           String combinedText = blocksOnThisPage.map((e) => e.text ?? "").join("\n");
-           if (!_doesTextOverflow(combinedText, _pages[p], maxWidth)) {
-              // Stability reached! Subsequent pages won't be affected.
-              break; 
-           }
+          String combinedText = blocksOnThisPage
+              .map((e) => e.text ?? "")
+              .join("\n");
+          if (!_doesTextOverflow(combinedText, _pages[p], maxWidth)) {
+            // Stability reached! Subsequent pages won't be affected.
+            break;
+          }
         }
 
         // Determine if we need to flow content downstream
         _pages[p].blocks.removeWhere((b) => b.type == "text");
-        
+
         if (blocksOnThisPage.isNotEmpty) {
           int lastTouched = _distributeBlocksToPages(p, blocksOnThisPage);
           carryOver = lastTouched > p;
           // Jump loop index if we filled multiple pages
           if (lastTouched > p) {
             // we let the loop naturally increment p++, so we set p to lastTouched-1
-            p = lastTouched - 1; 
+            p = lastTouched - 1;
           }
         } else {
-           carryOver = false;
+          carryOver = false;
         }
 
         // Safety hard limit to prevent infinite page creation crashes
@@ -504,7 +511,9 @@ class _WritePageState extends State<WritePage> {
 
       // Cleanup trailing empty pages
       while (_pages.length > 1 &&
-          _pages.last.blocks.every((b) => b.type != "text" || (b.text ?? "").trim().isEmpty) &&
+          _pages.last.blocks.every(
+            (b) => b.type != "text" || (b.text ?? "").trim().isEmpty,
+          ) &&
           !_pages.last.blocks.any((b) => b.type == "image")) {
         _pages.removeLast();
       }
@@ -522,7 +531,11 @@ class _WritePageState extends State<WritePage> {
     List<PageBlock> blocksToDistribute,
   ) {
     if (blocksToDistribute.isEmpty) return startPage;
-    double maxWidth = (MediaQuery.of(context).size.width - (_pages[0].pageMargin * 2)).clamp(10.0, 2000.0);
+    double maxWidth =
+        (MediaQuery.of(context).size.width - (_pages[0].pageMargin * 2)).clamp(
+          10.0,
+          2000.0,
+        );
     int pageIdx = startPage;
 
     for (int i = 0; i < blocksToDistribute.length; i++) {
@@ -764,12 +777,6 @@ class _WritePageState extends State<WritePage> {
     }
   }
 
-  /// Senior PE: Loop-based content pulling to avoid Stack Overflow on large documents
-  void _pullContentUpIfSpace(int pageIndex) {
-    // This feature is intentionally disabled to respect user's manual page breaks.
-    // Content will not be pulled from Page 2 to Page 1 even if space is available.
-  }
-
   void _loadDraftContent(dynamic content, {bool stayOnPage = false}) {
     try {
       dynamic decoded;
@@ -933,7 +940,9 @@ class _WritePageState extends State<WritePage> {
           if (block.type == "image") {
             // ✅ CASE 1: NEW IMAGE (picked from gallery)
             if (block.image != null) {
-              final fileName = "${block.blockId}.jpg";
+              final fileName =
+                  "${block.blockId}_${DateTime.now().millisecondsSinceEpoch}.jpg";
+
               final mimeType = lookupMimeType(block.image!.path);
               final mimeSplit = mimeType?.split('/') ?? ['image', 'jpeg'];
 
@@ -946,16 +955,17 @@ class _WritePageState extends State<WritePage> {
                 ),
               );
 
-              // ✅ IMPORTANT: send SAME filename to backend
               imageName = fileName;
             }
             // ✅ CASE 2: OLD IMAGE (already from server)
             else if (block.imageUrl != null && block.imageUrl!.isNotEmpty) {
-              print("🌐 Using EXISTING image: ${block.imageUrl}");
+              print("🌐 EXISTING IMAGE (S3): ${block.imageUrl}");
 
-              // 🔥 IMPORTANT: Only send the filename part, not the whole URL!
-              imageName = block.imageUrl!.split('/').last;
+              imageName = block.imageUrl; // ✅ OK ONLY if already S3
             }
+            print("🧩 BLOCK ID: ${block.blockId}");
+            print("🖼 IMAGE FILE PATH: ${block.image?.path}");
+            print("🌍 IMAGE URL: ${block.imageUrl}");
           }
 
           blocksJson.add({
@@ -1035,6 +1045,31 @@ class _WritePageState extends State<WritePage> {
           context,
         ).showSnackBar(SnackBar(content: Text("Failed to save draft: $e")));
       }
+    }
+  }
+
+  Future<void> publishDraft() async {
+    try {
+      final uri = Uri.parse("https://bigiluu.com/api/draft/publishDraft");
+
+      final response = await http.post(
+        uri,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "draft_id": _draftId, // ✅ ONLY THIS
+        }),
+      );
+
+      print("🚀 PUBLISH STATUS: ${response.statusCode}");
+      print("📄 BODY: ${response.body}");
+
+      if (response.statusCode == 200) {
+        print("✅ Draft Published Successfully");
+      } else {
+        print("❌ Publish Failed");
+      }
+    } catch (e) {
+      print("❌ Publish Error: $e");
     }
   }
 

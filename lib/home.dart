@@ -57,7 +57,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       initDeepLinks();
 
       // ✅ ONLY ONE CALL (PARALLEL)
-      await Future.wait([fetchPosts(), fetchUserInteractions()]);
+      await loadCachedPosts(); // 🔥 ADD THIS FIRST
+
+      await Future.wait([
+        fetchPosts(), // API refresh
+        fetchUserInteractions(),
+      ]);
 
       if (widget.deepLinkPostId != null && !isDeepLinkHandled) {
         isDeepLinkHandled = true;
@@ -121,6 +126,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
       isDeepLinkHandled = true; // ✅ set only when valid
       openPostFromDeepLink(postId);
+    }
+  }
+
+  Future<void> loadCachedPosts() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cached = prefs.getString('cached_posts');
+
+    if (cached != null) {
+      final List decoded = jsonDecode(cached);
+
+      setState(() {
+        posts = decoded;
+        isLoading = false;
+      });
+
+      print("⚡ Loaded cached posts: ${posts.length}");
     }
   }
 
@@ -328,13 +349,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           isLoading = false;
           isLoadingMore = false;
 
-          if (newPosts.isEmpty) {
-            hasMore = false;
-          } else {
-            currentPage++; // 🔥 ALWAYS increment if data exists
+          if (newPosts.length < 10) {
+            hasMore = false; // last page
+          }
+
+          if (newPosts.isNotEmpty) {
+            currentPage++;
           }
         });
 
+        _savePostsToCache(); // 🔥 ADD HERE
         // ✅ CALL ONLY AFTER POSTS LOAD
         if (!loadMore) {
           await Future.delayed(Duration(milliseconds: 300));
@@ -358,6 +382,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       isFetchingPosts = false;
     }
     print("📄 FETCHING PAGE: $currentPage, loadMore: $loadMore");
+  }
+
+  Future<void> _savePostsToCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('cached_posts', jsonEncode(posts));
+    print("💾 Cached posts saved: ${posts.length}");
   }
 
   Future<void> toggleLike(String postId) async {
@@ -417,7 +447,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void toggleSave(String postId) async {
+    print("🔥 SAVE CLICKED: $postId"); // ADD THIS
+
     String? userId = await getUserId();
+    print("👤 USER ID: $userId"); // ADD THIS
     if (userId == null) return;
 
     final bool isAlreadySaved = savedPosts.contains(postId);
@@ -435,9 +468,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         if (response.statusCode == 200) {
           setState(() {
             savedPosts.remove(postId);
+
+            // 🔥 FORCE UI UPDATE INSIDE POSTS
+            for (var p in posts) {
+              if (p['post_id'].toString() == postId) {
+                p['is_saved'] = !isAlreadySaved;
+              }
+            }
           });
-          _saveInteractionsLocal(); // ✅ Update local cache
-          print("✅ Removed from saved");
         } else {
           print("❌ Failed to remove from saved: ${response.body}");
         }
@@ -455,9 +493,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         if (response.statusCode == 200) {
           setState(() {
             savedPosts.add(postId);
+
+            // 🔥 FORCE UI UPDATE INSIDE POSTS
+            for (var p in posts) {
+              if (p['post_id'].toString() == postId) {
+                p['is_saved'] = !isAlreadySaved;
+              }
+            }
           });
-          _saveInteractionsLocal(); // ✅ Update local cache
-          print("✅ Post saved successfully");
         } else {
           print("❌ Failed to save post: ${response.body}");
         }
@@ -630,13 +673,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ),
                 itemCount: posts.length + (isLoadingMore ? 1 : 0),
                 itemBuilder: (context, index) {
-                  if (index == posts.length - 2 &&
-                      !isLoadingMore &&
-                      hasMore &&
-                      !isFetchingPosts) {
-                    print("🚀 AUTO LOAD MORE TRIGGERED");
-                    Future.microtask(() => fetchPosts(loadMore: true));
-                  }
                   if (index == posts.length) {
                     return const Padding(
                       padding: EdgeInsets.symmetric(vertical: 32),
@@ -992,6 +1028,10 @@ class _PostContainerState extends State<PostContainer> {
 
     final String postIdStr = widget.post['post_id']?.toString() ?? "";
 
+    final imageUrl = fullUrl(widget.post['profile_image']);
+
+    final coverUrl = fullUrl(widget.post['cover_img']);
+
     // 🏆 Badge Variants Logic
     String ack = (widget.post['acknowledgment'] ?? "").toString().toUpperCase();
 
@@ -1082,9 +1122,12 @@ class _PostContainerState extends State<PostContainer> {
                       child: CircleAvatar(
                         radius: 20,
                         backgroundColor: Colors.grey.shade100,
-                        backgroundImage: NetworkImage(
-                          fullUrl(widget.post['profile_image'] ?? ''),
-                        ),
+                        backgroundImage: imageUrl.isNotEmpty
+                            ? NetworkImage(imageUrl)
+                            : null,
+                        child: imageUrl.isEmpty
+                            ? Icon(Icons.person, color: Colors.grey)
+                            : null,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1101,7 +1144,7 @@ class _PostContainerState extends State<PostContainer> {
                             ),
                           ),
                           Text(
-                            "Storyteller",
+                            "has published a Book",
                             style: TextStyle(
                               fontSize: 11,
                               color: Colors.grey.shade500,
@@ -1306,9 +1349,26 @@ class _PostContainerState extends State<PostContainer> {
                                   // Cover Image — guard against empty/null URL
                                   Builder(
                                     builder: (context) {
-                                      final coverUrl = fullUrl(
-                                        widget.post['cover_img'],
-                                      );
+                                      if (coverUrl.isEmpty ||
+                                          !coverUrl.startsWith("http")) {
+                                        return Container(
+                                          decoration: const BoxDecoration(
+                                            gradient: LinearGradient(
+                                              colors: [
+                                                Color(0xFF2D1B69),
+                                                Color(0xFF11998E),
+                                              ],
+                                            ),
+                                          ),
+                                          child: const Center(
+                                            child: Icon(
+                                              Icons.book,
+                                              color: Colors.white54,
+                                              size: 60,
+                                            ),
+                                          ),
+                                        );
+                                      }
                                       if (coverUrl.isEmpty) {
                                         // No cover image — show nice placeholder
                                         return Container(
@@ -1770,7 +1830,6 @@ class _PostContainerState extends State<PostContainer> {
   }
 }
 
-
 class ExpandablePostImage extends StatelessWidget {
   final String imageUrl;
   const ExpandablePostImage({super.key, required this.imageUrl});
@@ -1781,7 +1840,8 @@ class ExpandablePostImage extends StatelessWidget {
       PageRouteBuilder(
         opaque: false,
         barrierColor: Colors.black.withAlpha(230),
-        pageBuilder: (context, _, __) => FullScreenImageOverlay(imageUrl: imageUrl),
+        pageBuilder: (context, _, __) =>
+            FullScreenImageOverlay(imageUrl: imageUrl),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },
@@ -1834,9 +1894,16 @@ class ExpandablePostImage extends StatelessWidget {
                   child: const Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.broken_image_rounded, color: Colors.grey, size: 40),
+                      Icon(
+                        Icons.broken_image_rounded,
+                        color: Colors.grey,
+                        size: 40,
+                      ),
                       SizedBox(height: 8),
-                      Text("Image unavailable", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                      Text(
+                        "Image unavailable",
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
                     ],
                   ),
                 );
@@ -1882,7 +1949,11 @@ class FullScreenImageOverlay extends StatelessWidget {
             top: 40,
             right: 20,
             child: IconButton(
-              icon: const Icon(Icons.close_rounded, color: Colors.white, size: 30),
+              icon: const Icon(
+                Icons.close_rounded,
+                color: Colors.white,
+                size: 30,
+              ),
               onPressed: () => Navigator.pop(context),
             ),
           ),
@@ -2465,7 +2536,9 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
                                               }
 
                                               return ExpandablePostImage(
-                                                imageUrl: fixImageUrl(block['image']),
+                                                imageUrl: fixImageUrl(
+                                                  block['image'],
+                                                ),
                                               );
                                             }
                                             return const SizedBox();

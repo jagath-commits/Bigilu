@@ -170,7 +170,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 "content": e['content'] ?? [],
                 "summary": e['summary'] ?? "",
                 "username": e['username'] ?? "",
-                "profile_image": fullUrl(e['profile_image']),
+                "profile_image": e['profile_image'] ?? "",
                 "readers_count": e['readers_count'] ?? 0,
                 "support_count": e['support_count'] ?? 0,
                 "acknowledgment": e['acknowledgment'] ?? "",
@@ -191,36 +191,35 @@ class _ProfilePageState extends State<ProfilePage> {
       final response = await http
           .get(
             Uri.parse(
-              "https://bigiluu.com/api/posts/userDrafts/${widget.userId}",
+              "https://bigiluu.com/api/draft/userDrafts/${widget.userId}",
             ),
           )
           .timeout(const Duration(seconds: 25));
 
+      print("📡 DRAFT API STATUS: ${response.statusCode}");
+      print("📄 DRAFT API RESPONSE: ${response.body}");
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
-        if (!mounted) return;
+        final draftsList = data['drafts'] ?? []; // ✅ FIXED
+
         setState(() {
           draftPosts = List<Map<String, dynamic>>.from(
-            data['drafts'].map((e) {
-              final rawContent = jsonDecode(e['draft_content']);
+            draftsList.map((e) {
+              final rawContent = extractPages(e['draft_content']);
 
               List<String> previewTexts = [];
               List<String> previewImages = [];
 
-              // 🔥 SAFE PARSING
-              if (rawContent is List) {
-                for (var page in rawContent) {
-                  if (page['blocks'] is List) {
-                    for (var block in page['blocks']) {
-                      if (block['type'] == 'text' && block['text'] != null) {
-                        previewTexts.add(block['text'].toString());
-                      }
-                      if (block['type'] == 'image' && block['image'] != null) {
-                        previewImages.add(
-                          fullUrl("uploads/page_images/${block['image']}"),
-                        );
-                      }
+              for (var page in rawContent) {
+                if (page['blocks'] is List) {
+                  for (var block in page['blocks']) {
+                    if (block['type'] == 'text' && block['text'] != null) {
+                      previewTexts.add(block['text'].toString());
+                    }
+                    if (block['type'] == 'image' && block['image'] != null) {
+                      previewImages.add(block['image']);
                     }
                   }
                 }
@@ -228,18 +227,19 @@ class _ProfilePageState extends State<ProfilePage> {
 
               return {
                 "post_id": e['draft_id'].toString(),
-                "title": e['title'] ?? "",
                 "texts": previewTexts,
                 "images": previewImages,
                 "rawContent": rawContent,
-                "cover_img": e['cover_img'], // full json for WritePage
+                "cover_img": e['cover_img'],
               };
             }),
           );
         });
+
+        print("✅ FINAL DRAFT COUNT: ${draftPosts.length}");
       }
     } catch (e) {
-      print("Error loading drafts: $e");
+      print("❌ Error loading drafts: $e");
     }
   }
 
@@ -307,7 +307,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 "caption": e['caption'] ?? "",
                 "content": e['content'] ?? [],
                 "username": e['username'] ?? "",
-                "profile_image": fullUrl(e['profile_image']),
+                "profile_image": e['profile_image'] ?? "",
                 "hastag": e['hastag'] ?? "",
                 "readers_count": e['readers_count'] ?? 0,
                 "support_count": e['support_count'] ?? 0,
@@ -318,6 +318,7 @@ class _ProfilePageState extends State<ProfilePage> {
           );
         });
 
+        print("USER POSTS COUNT: ${myPosts.length}");
         print("SAVED POSTS COUNT: ${savedPosts.length}");
       }
     } catch (e) {
@@ -1207,7 +1208,6 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 }
 
-
 class FullPostPage extends StatefulWidget {
   final String postId;
   final bool showDelete; // ✅ ADD THIS
@@ -1952,8 +1952,8 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                 final String img = post['cover_img'] ?? '';
                 final String caption = (post['caption'] ?? '').toString();
                 final String hashtag = (post['hastag'] ?? '').toString();
-                final String username = (post['username'] ?? 'Storyteller')
-                    .toString();
+                final String username =
+                    (post['username'] ?? 'has published a Book').toString();
                 final String profileImg = (post['profile_image'] ?? '')
                     .toString();
                 final int readersCount = post['readers_count'] ?? 0;
@@ -2063,7 +2063,7 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                                         ),
                                       ),
                                       Text(
-                                        "Storyteller",
+                                        "has published a Book",
                                         style: TextStyle(
                                           fontSize: 11,
                                           color: Colors.grey.shade500,

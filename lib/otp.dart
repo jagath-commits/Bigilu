@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 import 'package:bigilu/profile.dart';
-import 'package:sms_autofill/sms_autofill.dart'; // New import for zero-tap
+import 'package:sms_autofill/sms_autofill.dart';
 
 class OtpPage extends StatefulWidget {
   final String phone;
@@ -19,7 +19,7 @@ class OtpPage extends StatefulWidget {
   State<OtpPage> createState() => _OtpPageState();
 }
 
-class _OtpPageState extends State<OtpPage> with CodeAutoFill { // Added CodeAutoFill mixin
+class _OtpPageState extends State<OtpPage> with CodeAutoFill {
   int seconds = 60;
   Timer? timer;
   final TextEditingController otpController = TextEditingController();
@@ -27,14 +27,16 @@ class _OtpPageState extends State<OtpPage> with CodeAutoFill { // Added CodeAuto
   bool isLoading = false;
   String? appSignature;
 
+  late String _verificationId; // ✅ FIX
+  bool isVerifying = false;   // ✅ FIX
+
   @override
   void codeUpdated() {
-    // This is called automatically when the SMS arrives!
     setState(() {
       if (code != null) {
         otpController.text = code!;
         if (otpController.text.length == 6) {
-          verifyOtp(); // Auto-verify once filled
+          verifyOtp();
         }
       }
     });
@@ -43,10 +45,12 @@ class _OtpPageState extends State<OtpPage> with CodeAutoFill { // Added CodeAuto
   @override
   void initState() {
     super.initState();
+
+    _verificationId = widget.verificationId; // ✅ FIX
+
     startTimer();
-    listenForCode(); // Start listening for the SMS
-    
-    // Get App Signature (useful for Firebase specialized SMS)
+    listenForCode();
+
     SmsAutoFill().getAppSignature.then((signature) {
       setState(() {
         appSignature = signature;
@@ -74,11 +78,23 @@ class _OtpPageState extends State<OtpPage> with CodeAutoFill { // Added CodeAuto
   }
 
   Future<void> verifyOtp() async {
+    if (isVerifying) return; // ✅ prevent double calls
+    isVerifying = true;
+
     String otp = otpController.text;
 
     if (otp.length != 6) {
+      isVerifying = false;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Enter complete 6-digit OTP")),
+      );
+      return;
+    }
+
+    if (seconds == 0) { // ✅ prevent expired OTP
+      isVerifying = false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("OTP expired. Please resend.")),
       );
       return;
     }
@@ -87,13 +103,15 @@ class _OtpPageState extends State<OtpPage> with CodeAutoFill { // Added CodeAuto
 
     try {
       final credential = PhoneAuthProvider.credential(
-        verificationId: widget.verificationId,
+        verificationId: _verificationId, // ✅ FIXED
         smsCode: otp,
       );
 
       await FirebaseAuth.instance.signInWithCredential(credential);
 
-      final idToken = await FirebaseAuth.instance.currentUser!.getIdToken(true);
+      final idToken =
+          await FirebaseAuth.instance.currentUser!.getIdToken(true);
+
       final res = await http.post(
         Uri.parse("https://bigiluu.com/api/login-firebase"),
         headers: {"Content-Type": "application/json"},
@@ -109,23 +127,32 @@ class _OtpPageState extends State<OtpPage> with CodeAutoFill { // Added CodeAuto
 
       final data = jsonDecode(res.body);
       final prefs = await SharedPreferences.getInstance();
+
       await prefs.setString("token", data["token"]);
       await prefs.setString("user_id", data["user_id"]);
       await prefs.setString("user_mobile", widget.phone);
 
-      // 🔥 GET FCM TOKEN
+      // 🔥 FCM TOKEN
+// 🔥 FCM TOKEN
 String? fcmToken = await FirebaseMessaging.instance.getToken();
+
+print("LOGIN RESPONSE: $data");
+print("USER ID: ${data["user_id"]}");
 print("FCM TOKEN: $fcmToken");
 
-// 🔥 SEND TOKEN TO BACKEND
-await http.post(
-  Uri.parse("https://bigiluu.com/api/posts/save-token"),
-  body: {
-    "user_id": data["user_id"],
-    "fcm_token": fcmToken
-  },
-);
-
+// ✅ SAFE CALL
+if (data["user_id"] != null && fcmToken != null) {
+  await http.post(
+    Uri.parse("https://bigiluu.com/api/posts/save-token"),
+    headers: {"Content-Type": "application/json"},
+    body: jsonEncode({
+      "user_id": data["user_id"],
+      "fcm_token": fcmToken
+    }),
+  );
+} else {
+  print("❌ Skipping token save: user_id or token is null");
+}
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -138,6 +165,7 @@ await http.post(
       );
     }
 
+    isVerifying = false;
     setState(() => isLoading = false);
   }
 
@@ -146,7 +174,7 @@ await http.post(
     timer?.cancel();
     otpController.dispose();
     focusNode.dispose();
-    unregisterListener(); // Stop listening when page closed
+    unregisterListener();
     super.dispose();
   }
 
@@ -154,9 +182,11 @@ await http.post(
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
 
+
     double boxSize = (screenWidth - 140) / 6;
     if (boxSize > 50) boxSize = 50;
     if (boxSize < 35) boxSize = 35;
+
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
@@ -179,6 +209,7 @@ await http.post(
             ),
           ),
 
+
           SafeArea(
             child: Column(
               children: [
@@ -189,7 +220,7 @@ await http.post(
                     child: Column(
                       children: [
                         const SizedBox(height: 140),
-                        
+                       
                         // Main OTP Card
                         Container(
                           width: double.infinity,
@@ -241,6 +272,7 @@ await http.post(
                               ),
                               const SizedBox(height: 32),
 
+
                               // ZERO-TAP AUTOFILL SECTION
                               Stack(
                                 alignment: Alignment.center,
@@ -254,7 +286,7 @@ await http.post(
                                         char = otpController.text[index];
                                       }
                                       bool isCurrent = otpController.text.length == index;
-                                      
+                                     
                                       return Container(
                                         height: boxSize,
                                         width: boxSize,
@@ -264,8 +296,8 @@ await http.post(
                                           color: char.isNotEmpty ? const Color(0xFFB11226).withOpacity(0.05) : Colors.white,
                                           borderRadius: BorderRadius.circular(12),
                                           border: Border.all(
-                                            color: isCurrent || char.isNotEmpty 
-                                                ? const Color(0xFFB11226) 
+                                            color: isCurrent || char.isNotEmpty
+                                                ? const Color(0xFFB11226)
                                                 // ignore: deprecated_member_use
                                                 : Colors.black.withOpacity(0.1),
                                             width: 2,
@@ -282,6 +314,7 @@ await http.post(
                                       );
                                     }),
                                   ),
+
 
                                   // 2. Translucent REAL TextField for SMS Auto-fill
                                   Positioned.fill(
@@ -309,13 +342,14 @@ await http.post(
                                   ),
                                 ],
                               ),
-                              
+                             
                               const SizedBox(height: 32),
+
 
                               // Timer
                               Text(
-                                seconds > 0 
-                                  ? "Resend code in ${seconds.toString().padLeft(2, '0')}s" 
+                                seconds > 0
+                                  ? "Resend code in ${seconds.toString().padLeft(2, '0')}s"
                                   : "I didn't receive a code",
                                 style: TextStyle(
                                   fontSize: 14,
@@ -327,9 +361,34 @@ await http.post(
                               const SizedBox(height: 8),
                               if (seconds == 0)
                                 TextButton(
-                                  onPressed: () {
-                                    startTimer();
-                                  },
+onPressed: seconds == 0 ? () async {
+  startTimer();
+
+  await FirebaseAuth.instance.verifyPhoneNumber(
+    phoneNumber: widget.phone,
+    timeout: const Duration(seconds: 60),
+
+    verificationCompleted: (credential) async {
+      await FirebaseAuth.instance.signInWithCredential(credential);
+    },
+
+    verificationFailed: (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message ?? "Verification failed")),
+      );
+    },
+
+    codeSent: (verificationId, resendToken) {
+      setState(() {
+        _verificationId = verificationId; // 🔥 THIS IS CRITICAL
+      });
+    },
+
+    codeAutoRetrievalTimeout: (verificationId) {
+      _verificationId = verificationId;
+    },
+  );
+} : null,
                                   child: const Text(
                                     "Resend Code",
                                     style: TextStyle(
@@ -343,7 +402,9 @@ await http.post(
                           ),
                         ),
 
+
                         const SizedBox(height: 32),
+
 
                         // Verify Button
                         Container(
@@ -388,6 +449,7 @@ await http.post(
                     ),
                   ),
                 ),
+
 
                 // Powered by Brand Logo
                 Padding(

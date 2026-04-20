@@ -616,16 +616,96 @@ class _ProfilePageState extends State<ProfilePage> {
                               if (progress == null) return child;
                               return Container(color: Colors.grey.shade100);
                             },
-                            errorBuilder: (_, _, _) => Container(
-                              color: Colors.grey.shade200,
-                              child: const Icon(
-                                Icons.book_rounded,
-                                color: Colors.grey,
+                            errorBuilder: (_, __, ___) => Container(
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFF1E1E2C),
+                                    Color(0xFF264060),
+                                  ],
+                                ),
+                              ),
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.auto_stories_rounded,
+                                    color: Colors.white.withOpacity(0.05),
+                                    size: 80,
+                                  ),
+                                  Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const SizedBox(height: 20),
+                                      Text(
+                                        "Bigiluu",
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.15),
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 4,
+                                          fontFamily: 'serif',
+                                        ),
+                                      ),
+                                      Container(
+                                        margin: const EdgeInsets.only(top: 4),
+                                        width: 20,
+                                        height: 1,
+                                        color: Colors.white.withOpacity(0.1),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
                           )
                         else
-                          _buildDraftPreview(post, title),
+                          Container(
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Color(0xFF1E1E2C),
+                                  Color(0xFF264060),
+                                ],
+                              ),
+                            ),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Icon(
+                                  Icons.auto_stories_rounded,
+                                  color: Colors.white.withOpacity(0.05),
+                                  size: 80,
+                                ),
+                                Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const SizedBox(height: 20),
+                                    Text(
+                                      "Bigiluu",
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.15),
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 4,
+                                        fontFamily: 'serif',
+                                      ),
+                                    ),
+                                    Container(
+                                      margin: const EdgeInsets.only(top: 4),
+                                      width: 20,
+                                      height: 1,
+                                      color: Colors.white.withOpacity(0.1),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
 
                         // Depth Overlay
                         Container(

@@ -1354,78 +1354,105 @@ class _PostContainerState extends State<PostContainer> {
                                         return Container(
                                           decoration: const BoxDecoration(
                                             gradient: LinearGradient(
-                                              colors: [
-                                                Color(0xFF2D1B69),
-                                                Color(0xFF11998E),
-                                              ],
-                                            ),
-                                          ),
-                                          child: const Center(
-                                            child: Icon(
-                                              Icons.book,
-                                              color: Colors.white54,
-                                              size: 60,
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                      if (coverUrl.isEmpty) {
-                                        // No cover image — show nice placeholder
-                                        return Container(
-                                          decoration: const BoxDecoration(
-                                            gradient: LinearGradient(
                                               begin: Alignment.topLeft,
                                               end: Alignment.bottomRight,
                                               colors: [
-                                                Color(0xFF2D1B69),
-                                                Color(0xFF11998E),
+                                                Color(0xFF1E1E2C),
+                                                Color(0xFF264060),
                                               ],
                                             ),
                                           ),
-                                          child: const Center(
-                                            child: Icon(
-                                              Icons.book_rounded,
-                                              color: Colors.white54,
-                                              size: 64,
-                                            ),
+                                          child: Stack(
+                                            alignment: Alignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.auto_stories_rounded,
+                                                color: Colors.white.withOpacity(0.05),
+                                                size: 180,
+                                              ),
+                                              Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  const SizedBox(height: 60),
+                                                  Text(
+                                                    "Bigiluu",
+                                                    style: TextStyle(
+                                                      color: Colors.white.withOpacity(0.2),
+                                                      fontSize: 32,
+                                                      fontWeight: FontWeight.w900,
+                                                      letterSpacing: 8,
+                                                      fontFamily: 'Roboto',
+                                                    ),
+                                                  ),
+                                                  Container(
+                                                    margin: const EdgeInsets.only(top: 8),
+                                                    width: 40,
+                                                    height: 2,
+                                                    color: Colors.white.withOpacity(0.15),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
                                           ),
                                         );
                                       }
                                       return Image.network(
                                         coverUrl,
                                         fit: BoxFit.cover,
-                                        loadingBuilder:
-                                            (context, child, progress) {
-                                              if (progress == null)
-                                                return child;
-                                              return Container(
-                                                color: const Color(0xFFF8F8F8),
-                                                child: const Center(
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                        strokeWidth: 2,
-                                                        color: brandColor,
-                                                      ),
-                                                ),
-                                              );
-                                            },
+                                        loadingBuilder: (context, child, progress) {
+                                          if (progress == null) return child;
+                                          return Container(
+                                            color: const Color(0xFFF8F8F8),
+                                            child: const Center(
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: brandColor,
+                                              ),
+                                            ),
+                                          );
+                                        },
                                         errorBuilder: (_, __, ___) => Container(
                                           decoration: const BoxDecoration(
                                             gradient: LinearGradient(
                                               begin: Alignment.topLeft,
                                               end: Alignment.bottomRight,
                                               colors: [
-                                                Color(0xFF2D1B69),
-                                                Color(0xFF11998E),
+                                                Color(0xFF1E1E2C),
+                                                Color(0xFF264060),
                                               ],
                                             ),
                                           ),
-                                          child: const Center(
-                                            child: Icon(
-                                              Icons.book_rounded,
-                                              color: Colors.white54,
-                                              size: 64,
-                                            ),
+                                          child: Stack(
+                                            alignment: Alignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.auto_stories_rounded,
+                                                color: Colors.white.withOpacity(0.05),
+                                                size: 180,
+                                              ),
+                                              Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  const SizedBox(height: 60),
+                                                  Text(
+                                                    "Bigiluu",
+                                                    style: TextStyle(
+                                                      color: Colors.white.withOpacity(0.2),
+                                                      fontSize: 32,
+                                                      fontWeight: FontWeight.w900,
+                                                      letterSpacing: 8,
+                                                      fontFamily: 'Roboto',
+                                                    ),
+                                                  ),
+                                                  Container(
+                                                    margin: const EdgeInsets.only(top: 8),
+                                                    width: 40,
+                                                    height: 2,
+                                                    color: Colors.white.withOpacity(0.15),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       );
@@ -1839,11 +1866,20 @@ class ExpandablePostImage extends StatelessWidget {
       context,
       PageRouteBuilder(
         opaque: false,
-        barrierColor: Colors.black.withAlpha(230),
+        barrierColor: Colors.black.withOpacity(0.9), // Darker, more immersive
         pageBuilder: (context, _, __) =>
             FullScreenImageOverlay(imageUrl: imageUrl),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
+          // Add a subtle scale effect for a "pop out" feel
+          return FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.95, end: 1.0).animate(
+                CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+              ),
+              child: child,
+            ),
+          );
         },
       ),
     );
@@ -1851,33 +1887,36 @@ class ExpandablePostImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: () => _showFullScreen(context),
       child: Hero(
         tag: imageUrl,
         child: Container(
-          margin: const EdgeInsets.only(bottom: 32, top: 4),
-          height: 280, // Medium fixed size
+          margin: const EdgeInsets.only(bottom: 32, top: 8),
+          // Increased height for a true "portrait" feel (55% of screen height)
+          height: MediaQuery.of(context).size.height * 0.55,
           width: double.infinity,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.12),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
+                color: Colors.black.withOpacity(isDark ? 0.4 : 0.15),
+                blurRadius: 25,
+                offset: const Offset(0, 15),
+                spreadRadius: -5,
               ),
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(24),
             child: Image.network(
               imageUrl,
-              fit: BoxFit.cover,
+              fit: BoxFit.cover, // Fill the tall portrait container
               loadingBuilder: (context, child, loadingProgress) {
                 if (loadingProgress == null) return child;
                 return Container(
-                  height: 280,
                   color: Colors.black.withOpacity(0.03),
                   child: const Center(
                     child: CircularProgressIndicator(
@@ -1889,7 +1928,6 @@ class ExpandablePostImage extends StatelessWidget {
               },
               errorBuilder: (context, error, stackTrace) {
                 return Container(
-                  height: 280,
                   color: Colors.grey.shade100,
                   child: const Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -2407,143 +2445,156 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
                               ],
                             ),
                             child: ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  // Subtle Paper Texture
-                                  Positioned.fill(
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        image: DecorationImage(
-                                          image: const NetworkImage(
-                                            "https://www.transparenttextures.com/patterns/clean-gray-paper.png",
-                                          ),
-                                          repeat: ImageRepeat.repeat,
-                                          opacity: _currentTheme == "Dark"
-                                              ? 0.02
-                                              : 0.05,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-
-                                  // ✅ Big Watermark Logo
-                                  Center(
-                                    child: Opacity(
-                                      opacity: 0.15,
-                                      child: Image.asset(
-                                        "assets/images/bigilu_logo21.png",
-                                        width: 280,
-                                        fit: BoxFit.contain,
-                                      ),
-                                    ),
-                                  ),
-
-                                  // Spine Shade (Curvature)
-                                  Positioned(
-                                    left: 0,
-                                    top: 0,
-                                    bottom: 0,
-                                    width: 40,
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          begin: Alignment.centerLeft,
-                                          end: Alignment.centerRight,
-                                          colors: [
-                                            Colors.black.withOpacity(
-                                              _currentTheme == "Dark"
-                                                  ? 0.3
-                                                  : 0.1,
+                              borderRadius: BorderRadius.circular(24),
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  return Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      // Subtle Paper Texture
+                                      Positioned.fill(
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            image: DecorationImage(
+                                              image: const NetworkImage(
+                                                "https://www.transparenttextures.com/patterns/clean-gray-paper.png",
+                                              ),
+                                              repeat: ImageRepeat.repeat,
+                                              opacity: _currentTheme == "Dark"
+                                                  ? 0.02
+                                                  : 0.05,
                                             ),
-                                            Colors.black.withOpacity(0.0),
-                                          ],
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ),
 
-                                  // Content Height Constraint
-                                  SingleChildScrollView(
-                                    physics: const BouncingScrollPhysics(),
-                                    child: Padding(
-                                      padding: EdgeInsets.fromLTRB(
-                                        _horizontalPadding,
-                                        60,
-                                        _horizontalPadding * 0.8,
-                                        100,
+                                      // ✅ Big Watermark Logo
+                                      Center(
+                                        child: Opacity(
+                                          opacity: 0.15,
+                                          child: Image.asset(
+                                            "assets/images/bigilu_logo21.png",
+                                            width: 280,
+                                            fit: BoxFit.contain,
+                                          ),
+                                        ),
                                       ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            _alignment == TextAlign.center
-                                            ? CrossAxisAlignment.center
-                                            : (_alignment == TextAlign.justify
-                                                  ? CrossAxisAlignment.stretch
-                                                  : CrossAxisAlignment.start),
-                                        children: [
-                                          ...blocks.map<Widget>((block) {
-                                            if (block['type'] == 'text') {
-                                              bool isHeadline =
-                                                  block['isHeadline'] ?? false;
-                                              return Padding(
-                                                padding: EdgeInsets.only(
-                                                  bottom: isHeadline ? 32 : 24,
-                                                  top: isHeadline ? 12 : 0,
+
+                                      // Spine Shade (Curvature)
+                                      Positioned(
+                                        left: 0,
+                                        top: 0,
+                                        bottom: 0,
+                                        width: 40,
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.centerLeft,
+                                              end: Alignment.centerRight,
+                                              colors: [
+                                                Colors.black.withOpacity(
+                                                  _currentTheme == "Dark"
+                                                      ? 0.3
+                                                      : 0.1,
                                                 ),
-                                                child: SelectableText(
-                                                  isHeadline
-                                                      ? (block['text'] ?? "")
-                                                            .toString()
-                                                            .toUpperCase()
-                                                      : (block['text'] ?? ""),
-                                                  textAlign: _alignment,
-                                                  style: TextStyle(
-                                                    fontSize: isHeadline
-                                                        ? _fontSize * 1.3
-                                                        : _fontSize,
-                                                    fontFamily: _fontFamily,
-                                                    backgroundColor: null,
-                                                    color:
-                                                        block['fontColor'] !=
-                                                            null
-                                                        ? Color(
-                                                            block['fontColor'],
-                                                          )
-                                                        : textColor.withOpacity(
-                                                            isHeadline
-                                                                ? 1.0
-                                                                : 0.85,
+                                                Colors.black.withOpacity(0.0),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+
+                                      // Content Height Constraint
+                                      SingleChildScrollView(
+                                        physics: const BouncingScrollPhysics(),
+                                        child: ConstrainedBox(
+                                          constraints: BoxConstraints(
+                                            minHeight: constraints.maxHeight,
+                                          ),
+                                          child: Center(
+                                            child: Padding(
+                                              padding: const EdgeInsets.symmetric(
+                                                vertical: 60,
+                                              ),
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                crossAxisAlignment:
+                                                    _alignment == TextAlign.center
+                                                    ? CrossAxisAlignment.center
+                                                    : (_alignment == TextAlign.justify
+                                                          ? CrossAxisAlignment.stretch
+                                                          : CrossAxisAlignment.start),
+                                                children: [
+                                                  ...blocks.map<Widget>((block) {
+                                                    if (block['type'] == 'text') {
+                                                      bool isHeadline =
+                                                          block['isHeadline'] ?? false;
+                                                      return Padding(
+                                                        padding: EdgeInsets.fromLTRB(
+                                                          _horizontalPadding,
+                                                          isHeadline ? 12 : 0,
+                                                          _horizontalPadding * 0.8,
+                                                          isHeadline ? 32 : 24,
+                                                        ),
+                                                        child: SelectableText(
+                                                          isHeadline
+                                                              ? (block['text'] ?? "")
+                                                                    .toString()
+                                                                    .toUpperCase()
+                                                              : (block['text'] ?? ""),
+                                                          textAlign: _alignment,
+                                                          style: TextStyle(
+                                                            fontSize: isHeadline
+                                                                ? _fontSize * 1.3
+                                                                : _fontSize,
+                                                            fontFamily: _fontFamily,
+                                                            backgroundColor: null,
+                                                            color:
+                                                                block['fontColor'] !=
+                                                                    null
+                                                                ? Color(
+                                                                    block['fontColor'],
+                                                                  )
+                                                                : textColor.withOpacity(
+                                                                    isHeadline
+                                                                        ? 1.0
+                                                                        : 0.85,
+                                                                  ),
+                                                            height: _lineHeight,
+                                                            letterSpacing:
+                                                                _letterSpacing,
+                                                            fontWeight: isHeadline
+                                                                ? FontWeight.w900
+                                                                : FontWeight.w400,
                                                           ),
-                                                    height: _lineHeight,
-                                                    letterSpacing:
-                                                        _letterSpacing,
-                                                    fontWeight: isHeadline
-                                                        ? FontWeight.w900
-                                                        : FontWeight.w400,
-                                                  ),
-                                                ),
-                                              );
-                                            }
-                                            if (block['type'] == 'image') {
-                                              final imageUrl = fullUrl(
-                                                block['image'],
-                                              );
-
-                                              // ✅ SAFETY 1: null / empty
-                                              if (imageUrl.isEmpty) {
+                                                        ),
+                                                      );
+                                                    }
+                                                if (block['type'] == 'image') {
+                                                  final imageUrl = fullUrl(
+                                                    block['image'],
+                                                  );
+    
+                                                  // ✅ SAFETY 1: null / empty
+                                                  if (imageUrl.isEmpty) {
+                                                    return const SizedBox();
+                                                  }
+    
+                                                  // Images take more width for a "Full Size" feel
+                                                  return Padding(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                                    child: ExpandablePostImage(
+                                                      imageUrl: fixImageUrl(
+                                                        block['image'],
+                                                      ),
+                                                    ),
+                                                  );
+                                                }
                                                 return const SizedBox();
-                                              }
-
-                                              return ExpandablePostImage(
-                                                imageUrl: fixImageUrl(
-                                                  block['image'],
-                                                ),
-                                              );
-                                            }
-                                            return const SizedBox();
-                                          }).toList(),
-                                        ],
+                                              }).toList(),
+                                            ],
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -2578,7 +2629,9 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
                                       ),
                                     ),
                                   ),
-                                ],
+                                    ],
+                                  );
+                                },
                               ),
                             ),
                           ),

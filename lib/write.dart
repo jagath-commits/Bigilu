@@ -3017,10 +3017,24 @@ class _CoverEditorPageState extends State<CoverEditorPage> {
                             : Container(
                                 color: Colors.grey.shade100,
                                 child: Center(
-                                  child: Icon(
-                                    Icons.image_outlined,
-                                    size: 60,
-                                    color: Colors.grey.shade400,
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.add_photo_alternate_outlined,
+                                        size: 60,
+                                        color: Colors.grey.shade400,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        "Add a cover image",
+                                        style: TextStyle(
+                                          color: Colors.grey.shade500,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),

@@ -868,7 +868,6 @@ class PostContainer extends StatefulWidget {
   @override
   State<PostContainer> createState() => _PostContainerState();
 }
-
 class _PostContainerState extends State<PostContainer> {
   bool _isOpeningPost = false; // ✅ Guard against double-tap
 
@@ -1039,6 +1038,20 @@ class _PostContainerState extends State<PostContainer> {
     List<Color> badgeGradients = [Colors.white, Colors.white];
     Color themeBorderColor = Colors.white;
     Color themeSpineColor = Colors.white.withOpacity(0.2);
+
+    dynamic titleStyleRaw = widget.post['title_style'] ?? {};
+    Map<String, dynamic> titleStyle = {};
+    if (titleStyleRaw is String && titleStyleRaw.isNotEmpty) {
+      try {
+        titleStyle = jsonDecode(titleStyleRaw);
+      } catch (_) {}
+    } else if (titleStyleRaw is Map) {
+      titleStyle = Map<String, dynamic>.from(titleStyleRaw);
+    }
+
+    final double fontSize = (titleStyle['fontSize'] ?? 24).toDouble();
+    final int colorValue = (titleStyle['color'] ?? 0xFFFFFFFF);
+    final String fontFamily = titleStyle['fontFamily'] ?? "Roboto";
 
     // 🔥 HANDLE EMPTY (WHITE)
     if (ack.isEmpty) {
@@ -1367,28 +1380,37 @@ class _PostContainerState extends State<PostContainer> {
                                             children: [
                                               Icon(
                                                 Icons.auto_stories_rounded,
-                                                color: Colors.white.withOpacity(0.05),
+                                                color: Colors.white.withOpacity(
+                                                  0.05,
+                                                ),
                                                 size: 180,
                                               ),
                                               Column(
-                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
                                                 children: [
                                                   const SizedBox(height: 60),
                                                   Text(
                                                     "Bigiluu",
                                                     style: TextStyle(
-                                                      color: Colors.white.withOpacity(0.2),
+                                                      color: Colors.white
+                                                          .withOpacity(0.2),
                                                       fontSize: 32,
-                                                      fontWeight: FontWeight.w900,
+                                                      fontWeight:
+                                                          FontWeight.w900,
                                                       letterSpacing: 8,
                                                       fontFamily: 'Roboto',
                                                     ),
                                                   ),
                                                   Container(
-                                                    margin: const EdgeInsets.only(top: 8),
+                                                    margin:
+                                                        const EdgeInsets.only(
+                                                          top: 8,
+                                                        ),
                                                     width: 40,
                                                     height: 2,
-                                                    color: Colors.white.withOpacity(0.15),
+                                                    color: Colors.white
+                                                        .withOpacity(0.15),
                                                   ),
                                                 ],
                                               ),
@@ -1399,18 +1421,21 @@ class _PostContainerState extends State<PostContainer> {
                                       return Image.network(
                                         coverUrl,
                                         fit: BoxFit.cover,
-                                        loadingBuilder: (context, child, progress) {
-                                          if (progress == null) return child;
-                                          return Container(
-                                            color: const Color(0xFFF8F8F8),
-                                            child: const Center(
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                color: brandColor,
-                                              ),
-                                            ),
-                                          );
-                                        },
+                                        loadingBuilder:
+                                            (context, child, progress) {
+                                              if (progress == null)
+                                                return child;
+                                              return Container(
+                                                color: const Color(0xFFF8F8F8),
+                                                child: const Center(
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                        color: brandColor,
+                                                      ),
+                                                ),
+                                              );
+                                            },
                                         errorBuilder: (_, __, ___) => Container(
                                           decoration: const BoxDecoration(
                                             gradient: LinearGradient(
@@ -1427,28 +1452,37 @@ class _PostContainerState extends State<PostContainer> {
                                             children: [
                                               Icon(
                                                 Icons.auto_stories_rounded,
-                                                color: Colors.white.withOpacity(0.05),
+                                                color: Colors.white.withOpacity(
+                                                  0.05,
+                                                ),
                                                 size: 180,
                                               ),
                                               Column(
-                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
                                                 children: [
                                                   const SizedBox(height: 60),
                                                   Text(
                                                     "Bigiluu",
                                                     style: TextStyle(
-                                                      color: Colors.white.withOpacity(0.2),
+                                                      color: Colors.white
+                                                          .withOpacity(0.2),
                                                       fontSize: 32,
-                                                      fontWeight: FontWeight.w900,
+                                                      fontWeight:
+                                                          FontWeight.w900,
                                                       letterSpacing: 8,
                                                       fontFamily: 'Roboto',
                                                     ),
                                                   ),
                                                   Container(
-                                                    margin: const EdgeInsets.only(top: 8),
+                                                    margin:
+                                                        const EdgeInsets.only(
+                                                          top: 8,
+                                                        ),
                                                     width: 40,
                                                     height: 2,
-                                                    color: Colors.white.withOpacity(0.15),
+                                                    color: Colors.white
+                                                        .withOpacity(0.15),
                                                   ),
                                                 ],
                                               ),
@@ -1521,126 +1555,21 @@ class _PostContainerState extends State<PostContainer> {
                                       top: 15,
                                       left: 10,
                                       right: 10,
-                                      child: Builder(
-                                        builder: (context) {
-                                          // Parse title style from top-level and content JSON
-                                          double fs = 15.0;
-                                          String? ff;
-                                          Color tc = Colors.white;
-                                          try {
-                                            double? parsedFs;
-                                            Color? parsedTc;
-                                            String? parsedFf;
-
-                                            // 1. Try top-level post fields (stored by API)
-                                            if (widget.post['titleFontSize'] !=
-                                                    null &&
-                                                widget.post['titleFontSize']
-                                                    .toString()
-                                                    .isNotEmpty) {
-                                              parsedFs = double.tryParse(
-                                                widget.post['titleFontSize']
-                                                    .toString(),
-                                              );
-                                            }
-                                            if (widget.post['titleColor'] !=
-                                                    null &&
-                                                widget.post['titleColor']
-                                                    .toString()
-                                                    .isNotEmpty) {
-                                              int? cv = int.tryParse(
-                                                widget.post['titleColor']
-                                                    .toString(),
-                                              );
-                                              if (cv != null)
-                                                parsedTc = Color(cv);
-                                            }
-                                            if (widget.post['titleFontFamily'] !=
-                                                    null &&
-                                                widget.post['titleFontFamily']
-                                                    .toString()
-                                                    .isNotEmpty) {
-                                              parsedFf = widget
-                                                  .post['titleFontFamily']
-                                                  .toString();
-                                            }
-
-                                            // 2. Fallback to Content JSON
-                                            dynamic raw =
-                                                widget.post['content'];
-                                            if (raw != null) {
-                                              dynamic dec = raw;
-                                              if (dec is String) {
-                                                try {
-                                                  dec = jsonDecode(dec);
-                                                } catch (_) {}
-                                              }
-                                              if (dec is String) {
-                                                try {
-                                                  dec = jsonDecode(dec);
-                                                } catch (_) {}
-                                              }
-
-                                              if (dec is Map) {
-                                                if (parsedFs == null &&
-                                                    dec['titleFontSize'] !=
-                                                        null) {
-                                                  parsedFs = double.tryParse(
-                                                    dec['titleFontSize']
-                                                        .toString(),
-                                                  );
-                                                }
-                                                if (parsedTc == null &&
-                                                    dec['titleColor'] != null) {
-                                                  int? cv = int.tryParse(
-                                                    dec['titleColor']
-                                                        .toString(),
-                                                  );
-                                                  if (cv != null)
-                                                    parsedTc = Color(cv);
-                                                }
-                                                if (parsedFf == null &&
-                                                    dec['titleFontFamily'] !=
-                                                        null) {
-                                                  parsedFf =
-                                                      dec['titleFontFamily']
-                                                          .toString();
-                                                }
-                                              }
-                                            }
-
-                                            if (parsedFs != null)
-                                              fs = (parsedFs * 0.6).clamp(
-                                                12.0,
-                                                45.0,
-                                              );
-                                            if (parsedTc != null) tc = parsedTc;
-                                            if (parsedFf != null &&
-                                                parsedFf.isNotEmpty)
-                                              ff = parsedFf;
-                                          } catch (_) {}
-                                          return Text(
-                                            widget.post['title']?.toString() ??
-                                                '',
-                                            textAlign: TextAlign.center,
-                                            maxLines: 3,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              color: tc,
-                                              fontSize: fs,
-                                              fontFamily: ff,
-                                              fontWeight: FontWeight.bold,
-                                              shadows: [
-                                                Shadow(
-                                                  color: Colors.black
-                                                      .withOpacity(0.6),
-                                                  blurRadius: 10,
-                                                  offset: const Offset(1, 1),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        },
+                                      child: SizedBox(
+                                        width:
+                                            MediaQuery.of(context).size.width *
+                                            0.8,
+                                        child: Text(
+                                          widget.post['title']?.toString() ??
+                                              '',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: fontSize,
+                                            color: Color(colorValue),
+                                            fontFamily: fontFamily,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                 ],
@@ -2513,42 +2442,62 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
                                           ),
                                           child: Center(
                                             child: Padding(
-                                              padding: const EdgeInsets.symmetric(
-                                                vertical: 60,
-                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 60,
+                                                  ),
                                               child: Column(
                                                 mainAxisSize: MainAxisSize.min,
                                                 crossAxisAlignment:
-                                                    _alignment == TextAlign.center
+                                                    _alignment ==
+                                                        TextAlign.center
                                                     ? CrossAxisAlignment.center
-                                                    : (_alignment == TextAlign.justify
-                                                          ? CrossAxisAlignment.stretch
-                                                          : CrossAxisAlignment.start),
+                                                    : (_alignment ==
+                                                              TextAlign.justify
+                                                          ? CrossAxisAlignment
+                                                                .stretch
+                                                          : CrossAxisAlignment
+                                                                .start),
                                                 children: [
-                                                  ...blocks.map<Widget>((block) {
-                                                    if (block['type'] == 'text') {
+                                                  ...blocks.map<Widget>((
+                                                    block,
+                                                  ) {
+                                                    if (block['type'] ==
+                                                        'text') {
                                                       bool isHeadline =
-                                                          block['isHeadline'] ?? false;
+                                                          block['isHeadline'] ??
+                                                          false;
                                                       return Padding(
-                                                        padding: EdgeInsets.fromLTRB(
-                                                          _horizontalPadding,
-                                                          isHeadline ? 12 : 0,
-                                                          _horizontalPadding * 0.8,
-                                                          isHeadline ? 32 : 24,
-                                                        ),
+                                                        padding:
+                                                            EdgeInsets.fromLTRB(
+                                                              _horizontalPadding,
+                                                              isHeadline
+                                                                  ? 12
+                                                                  : 0,
+                                                              _horizontalPadding *
+                                                                  0.8,
+                                                              isHeadline
+                                                                  ? 32
+                                                                  : 24,
+                                                            ),
                                                         child: SelectableText(
                                                           isHeadline
-                                                              ? (block['text'] ?? "")
+                                                              ? (block['text'] ??
+                                                                        "")
                                                                     .toString()
                                                                     .toUpperCase()
-                                                              : (block['text'] ?? ""),
+                                                              : (block['text'] ??
+                                                                    ""),
                                                           textAlign: _alignment,
                                                           style: TextStyle(
                                                             fontSize: isHeadline
-                                                                ? _fontSize * 1.3
+                                                                ? _fontSize *
+                                                                      1.3
                                                                 : _fontSize,
-                                                            fontFamily: _fontFamily,
-                                                            backgroundColor: null,
+                                                            fontFamily:
+                                                                _fontFamily,
+                                                            backgroundColor:
+                                                                null,
                                                             color:
                                                                 block['fontColor'] !=
                                                                     null
@@ -2563,72 +2512,82 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
                                                             height: _lineHeight,
                                                             letterSpacing:
                                                                 _letterSpacing,
-                                                            fontWeight: isHeadline
-                                                                ? FontWeight.w900
-                                                                : FontWeight.w400,
+                                                            fontWeight:
+                                                                isHeadline
+                                                                ? FontWeight
+                                                                      .w900
+                                                                : FontWeight
+                                                                      .w400,
                                                           ),
                                                         ),
                                                       );
                                                     }
-                                                if (block['type'] == 'image') {
-                                                  final imageUrl = fullUrl(
-                                                    block['image'],
-                                                  );
-    
-                                                  // ✅ SAFETY 1: null / empty
-                                                  if (imageUrl.isEmpty) {
-                                                    return const SizedBox();
-                                                  }
-    
-                                                  // Images take more width for a "Full Size" feel
-                                                  return Padding(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                                                    child: ExpandablePostImage(
-                                                      imageUrl: fixImageUrl(
+                                                    if (block['type'] ==
+                                                        'image') {
+                                                      final imageUrl = fullUrl(
                                                         block['image'],
-                                                      ),
-                                                    ),
-                                                  );
-                                                }
-                                                return const SizedBox();
-                                              }).toList(),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
+                                                      );
 
-                                  // Elegant Footer Page Number
-                                  Positioned(
-                                    bottom: 25,
-                                    left: 0,
-                                    right: 0,
-                                    child: Center(
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: brandColor.withOpacity(0.05),
-                                          borderRadius: BorderRadius.circular(
-                                            20,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          "—  ${index + 1}  —",
-                                          style: TextStyle(
-                                            color: brandColor.withOpacity(0.4),
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 12,
-                                            fontFamily: 'serif',
-                                            letterSpacing: 2.0,
+                                                      // ✅ SAFETY 1: null / empty
+                                                      if (imageUrl.isEmpty) {
+                                                        return const SizedBox();
+                                                      }
+
+                                                      // Images take more width for a "Full Size" feel
+                                                      return Padding(
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 12,
+                                                            ),
+                                                        child: ExpandablePostImage(
+                                                          imageUrl: fixImageUrl(
+                                                            block['image'],
+                                                          ),
+                                                        ),
+                                                      );
+                                                    }
+                                                    return const SizedBox();
+                                                  }).toList(),
+                                                ],
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                                  ),
+
+                                      // Elegant Footer Page Number
+                                      Positioned(
+                                        bottom: 25,
+                                        left: 0,
+                                        right: 0,
+                                        child: Center(
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: brandColor.withOpacity(
+                                                0.05,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
+                                            ),
+                                            child: Text(
+                                              "—  ${index + 1}  —",
+                                              style: TextStyle(
+                                                color: brandColor.withOpacity(
+                                                  0.4,
+                                                ),
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 12,
+                                                fontFamily: 'serif',
+                                                letterSpacing: 2.0,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                                     ],
                                   );
                                 },

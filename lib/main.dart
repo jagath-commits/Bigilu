@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:bigilu/home.dart';
 import 'package:bigilu/otp.dart';
+import 'package:bigilu/password_login.dart';
 import 'package:bigilu/profile1.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -203,7 +204,12 @@ FirebaseMessaging.instance.getInitialMessage().then((message) {
     await sendTokenToServer(newToken);
   });
 
-  String? token = await FirebaseMessaging.instance.getToken();
+  String? token;
+  try {
+    token = await FirebaseMessaging.instance.getToken();
+  } catch (e) {
+    print("🔥 FCM Token Error: $e");
+  }
 print("🔥 FINAL TOKEN: $token");
 
 if (token != null) {
@@ -272,7 +278,7 @@ navigatorKey.currentState?.push(
       return CupertinoApp(
         navigatorKey: navigatorKey,
         debugShowCheckedModeBanner: false,
-        home: widget.token != null ? const HomePage() : const LoginPage(),
+        home: widget.token != null ? const HomePage() : const PasswordLoginPage(),
       );
     }
 
@@ -287,7 +293,7 @@ navigatorKey.currentState?.push(
       },
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
-      home: widget.token != null ? const HomePage() : const LoginPage(),
+      home: widget.token != null ? const HomePage() : const PasswordLoginPage(),
     );
   }
 }
@@ -305,7 +311,7 @@ class _LoginPageState extends State<LoginPage> {
 
   bool isLoading = false;
 
-  Future<void> sendOtpFirebase() async {
+ /* Future<void> sendOtpFirebase() async {
     if (!validateInput()) return;
 
     setState(() => isLoading = true);
@@ -380,7 +386,43 @@ class _LoginPageState extends State<LoginPage> {
 
       codeAutoRetrievalTimeout: (verificationId) {},
     );
+  }*/
+
+Future<void> sendOtp() async {
+  if (!validateInput()) return;
+
+  setState(() => isLoading = true);
+
+  try {
+    var res = await http.post(
+      Uri.parse("https://bigiluu.com/api/send-otp"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "phone": phoneController.text.trim()
+      }),
+    );
+
+    var data = jsonDecode(res.body);
+
+    setState(() => isLoading = false);
+
+    if (res.statusCode == 200 && data["success"] == true) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => OtpPage(
+            phone: "+91${phoneController.text.trim()}",
+          ),
+        ),
+      );
+    } else {
+      showError(data["message"] ?? "OTP Failed");
+    }
+  } catch (e) {
+    setState(() => isLoading = false);
+    showError("Server error / No response");
   }
+}
 
 
 
@@ -555,7 +597,7 @@ class _LoginPageState extends State<LoginPage> {
                                   ? null
                                   : () {
                                       if (validateInput()) {
-                                        sendOtpFirebase();
+                                        sendOtp();
                                       }
                                     },
                               borderRadius: BorderRadius.circular(16),

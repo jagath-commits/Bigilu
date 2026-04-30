@@ -754,22 +754,45 @@ class _ProfilePageState extends State<ProfilePage> {
                                     ),
                                   ),
                                 ),
-                              Text(
-                                title,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 13,
-                                  fontFamily: 'serif',
-                                  shadows: [
-                                    Shadow(
-                                      color: Colors.black87,
-                                      blurRadius: 8,
+                              Builder(
+                                builder: (context) {
+                                  dynamic styleRaw = post['title_style'] ?? {};
+                                  Map<String, dynamic> style = {};
+                                  if (styleRaw is String && styleRaw.isNotEmpty) {
+                                    try {
+                                      style = jsonDecode(styleRaw);
+                                    } catch (_) {}
+                                  } else if (styleRaw is Map) {
+                                    style = Map<String, dynamic>.from(styleRaw);
+                                  }
+
+                                  double fs =
+                                      (style['fontSize'] ?? 24).toDouble();
+                                  int cv =
+                                      (style['color'] ?? 0xFFFFFFFF);
+                                  String ff = style['fontFamily'] ?? 'serif';
+
+                                  // Scale for grid display
+                                  double displayFs = (fs * 0.55).clamp(10.0, 20.0);
+
+                                  return Text(
+                                    title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: Color(cv),
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: displayFs,
+                                      fontFamily: ff,
+                                      shadows: const [
+                                        Shadow(
+                                          color: Colors.black87,
+                                          blurRadius: 8,
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
+                                  );
+                                },
                               ),
                             ],
                           ),
@@ -2504,128 +2527,76 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                                                     color: themeSpineColor,
                                                   ),
                                                 ),
-                                                // Title Styling (Home page logic)
                                                 Positioned(
-                                                  top: 15,
+                                                  top: 25,
                                                   left: 10,
                                                   right: 10,
                                                   child: Builder(
                                                     builder: (context) {
-                                                      double fs = 15.0;
-                                                      String? ff;
-                                                      Color tc = Colors.white;
-                                                      try {
-                                                        double? parsedFs;
-                                                        Color? parsedTc;
-                                                        String? parsedFf;
-                                                        if (post['titleFontSize'] !=
-                                                            null)
-                                                          parsedFs =
-                                                              double.tryParse(
-                                                                post['titleFontSize']
-                                                                    .toString(),
-                                                              );
-                                                        if (post['titleColor'] !=
-                                                            null) {
-                                                          int?
-                                                          cv = int.tryParse(
-                                                            post['titleColor']
-                                                                .toString(),
+                                                      dynamic styleRaw =
+                                                          post['title_style'] ??
+                                                          {};
+                                                      Map<String, dynamic>
+                                                      style = {};
+                                                      if (styleRaw is String &&
+                                                          styleRaw.isNotEmpty) {
+                                                        try {
+                                                          style = jsonDecode(
+                                                            styleRaw,
                                                           );
-                                                          if (cv != null)
-                                                            parsedTc = Color(
-                                                              cv,
-                                                            );
-                                                        }
-                                                        if (post['titleFontFamily'] !=
-                                                            null)
-                                                          parsedFf =
-                                                              post['titleFontFamily']
-                                                                  .toString();
+                                                        } catch (_) {}
+                                                      } else if (styleRaw
+                                                          is Map) {
+                                                        style =
+                                                            Map<String, dynamic>.from(
+                                                          styleRaw,
+                                                        );
+                                                      }
 
-                                                        // Content JSON fallback
-                                                        dynamic raw =
-                                                            post['content'];
-                                                        if (raw != null) {
-                                                          dynamic dec = raw;
-                                                          if (dec is String)
-                                                            try {
-                                                              dec = jsonDecode(
-                                                                dec,
-                                                              );
-                                                            } catch (_) {}
-                                                          if (dec is Map) {
-                                                            if (parsedFs ==
-                                                                    null &&
-                                                                dec['titleFontSize'] !=
-                                                                    null)
-                                                              parsedFs = double.tryParse(
-                                                                dec['titleFontSize']
-                                                                    .toString(),
-                                                              );
-                                                            if (parsedTc ==
-                                                                    null &&
-                                                                dec['titleColor'] !=
-                                                                    null) {
-                                                              int?
-                                                              cv = int.tryParse(
-                                                                dec['titleColor']
-                                                                    .toString(),
-                                                              );
-                                                              if (cv != null)
-                                                                parsedTc =
-                                                                    Color(cv);
-                                                            }
-                                                            if (parsedFf ==
-                                                                    null &&
-                                                                dec['titleFontFamily'] !=
-                                                                    null)
-                                                              parsedFf =
-                                                                  dec['titleFontFamily']
-                                                                      .toString();
-                                                          }
-                                                        }
-                                                        if (parsedFs != null)
-                                                          fs = (parsedFs * 0.6)
-                                                              .clamp(
-                                                                12.0,
-                                                                45.0,
-                                                              );
-                                                        if (parsedTc != null)
-                                                          tc = parsedTc;
-                                                        if (parsedFf != null)
-                                                          ff = parsedFf;
-                                                      } catch (_) {}
-                                                      return Text(
-                                                        post['title']
-                                                                ?.toString() ??
-                                                            '',
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                        maxLines: 3,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        style: TextStyle(
-                                                          color: tc,
-                                                          fontSize: fs,
-                                                          fontFamily: ff,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          shadows: [
-                                                            Shadow(
-                                                              color: Colors
-                                                                  .black
-                                                                  .withOpacity(
-                                                                    0.6,
-                                                                  ),
-                                                              blurRadius: 10,
-                                                              offset:
-                                                                  const Offset(
-                                                                    1,
-                                                                    1,
-                                                                  ),
-                                                            ),
-                                                          ],
+                                                      double fs =
+                                                          (style['fontSize'] ??
+                                                                  24)
+                                                              .toDouble();
+                                                      int cv =
+                                                          (style['color'] ??
+                                                              0xFFFFFFFF);
+                                                      String ff =
+                                                          style['fontFamily'] ??
+                                                          'Roboto';
+
+                                                      return SizedBox(
+                                                        width:
+                                                            MediaQuery.of(
+                                                              context,
+                                                            ).size.width *
+                                                            0.8,
+                                                        child: Text(
+                                                          post['title']
+                                                                  ?.toString() ??
+                                                              '',
+                                                          textAlign:
+                                                              TextAlign.center,
+                                                          style: TextStyle(
+                                                            fontSize: fs,
+                                                            color: Color(cv),
+                                                            fontFamily: ff,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            shadows: [
+                                                              Shadow(
+                                                                color: Colors
+                                                                    .black
+                                                                    .withOpacity(
+                                                                      0.6,
+                                                                    ),
+                                                                blurRadius: 10,
+                                                                offset: const Offset(
+                                                                  1,
+                                                                  1,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
                                                         ),
                                                       );
                                                     },
@@ -2636,7 +2607,6 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                                           ),
                                         ),
                                       ),
-
                                       // Badge
                                       if (badgeLabel.isNotEmpty)
                                         Positioned(

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:bigilu/main.dart';
+import 'package:bigilu/password_login.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:bigilu/write.dart';
@@ -266,7 +267,7 @@ class _ProfilePageState extends State<ProfilePage> {
               // Navigate to login page and remove all previous routes
               Navigator.pushAndRemoveUntil(
                 context,
-                MaterialPageRoute(builder: (_) => const LoginPage()),
+                MaterialPageRoute(builder: (_) => const PasswordLoginPage()),
                 (route) => false,
               );
             },

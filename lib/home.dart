@@ -11,6 +11,7 @@ import 'package:bigilu/profile1.dart';
 import 'package:bigilu/write.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:bigilu/cover_preview.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
@@ -33,6 +34,110 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Set<String> savedPosts = {};
   List posts = [];
   bool isLoading = true;
+
+  String _selectedCategory = "All";
+
+  String _getPostCategory(dynamic post) {
+    if (post['category'] != null && post['category'].toString().isNotEmpty) {
+      return post['category'].toString();
+    }
+    final content = post['content'];
+    if (content == null) {
+      final coverImg =
+          post['cover_img']?.toString() ?? post['coverUrl']?.toString() ?? '';
+      final title = post['title']?.toString().trim() ?? '';
+      if (coverImg.isEmpty && title.isEmpty) return "Manu";
+      return "All";
+    }
+
+    dynamic decoded;
+    try {
+      if (content is String) {
+        final trimmed = content.trim();
+        if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+          decoded = jsonDecode(trimmed);
+        }
+      } else {
+        decoded = content;
+      }
+    } catch (_) {}
+
+    if (decoded is Map && decoded['category'] != null)
+      return decoded['category'].toString();
+    if (decoded is Map &&
+        decoded['pages'] is List &&
+        decoded['pages'].isNotEmpty) {
+      if (decoded['pages'][0] is Map &&
+          decoded['pages'][0]['category'] != null) {
+        return decoded['pages'][0]['category'].toString();
+      }
+    }
+    if (decoded is List && decoded.isNotEmpty) {
+      if (decoded[0] is Map && decoded[0]['category'] != null) {
+        return decoded[0]['category'].toString();
+      }
+    }
+
+    final coverImg =
+        post['cover_img']?.toString() ?? post['coverUrl']?.toString() ?? '';
+    final title = post['title']?.toString().trim() ?? '';
+    if (coverImg.isEmpty && title.isEmpty) return "Manu";
+
+    return "All";
+  }
+
+  List get _filteredPosts {
+    if (_selectedCategory == "All") return posts;
+    return posts
+        .where((post) => _getPostCategory(post) == _selectedCategory)
+        .toList();
+  }
+
+  Widget _buildModernTab(String id, String title) {
+    final bool isSelected = _selectedCategory == id;
+    const brandColor = Color(0xFFB11226);
+    return GestureDetector(
+      onTap: () => setState(() => _selectedCategory = id),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? brandColor : Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: isSelected ? brandColor : Colors.grey.shade300,
+            width: 1.2,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: brandColor.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+        ),
+        child: Text(
+          title,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+            color: isSelected ? Colors.white : Colors.grey.shade700,
+            letterSpacing: 0.3,
+          ),
+        ),
+      ),
+    );
+  }
+
   bool isLoadingMore = false;
   int currentPage = 1;
   bool hasMore = true;
@@ -157,7 +262,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     try {
       final savedResponse = await http
           .get(Uri.parse("https://bigiluu.com/api/posts/savedPosts/$userId"))
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 30));
 
       if (savedResponse.statusCode == 200) {
         final data = jsonDecode(savedResponse.body);
@@ -179,7 +284,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           .get(
             Uri.parse("https://bigiluu.com/api/posts/supportedPosts/$userId"),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 30));
 
       if (likedResponse.statusCode == 200) {
         final data = jsonDecode(likedResponse.body);
@@ -237,7 +342,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final response = await http
           .get(Uri.parse("https://bigiluu.com/api/posts/getPost/$postId"))
           .timeout(
-            const Duration(seconds: 10),
+            const Duration(seconds: 30),
             onTimeout: () {
               print("⚠️ openPostFromDeepLink timeout");
               throw TimeoutException("Deep link request timed out");
@@ -326,7 +431,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               "https://bigiluu.com/api/posts/getAllPosts?page=$currentPage&limit=10",
             ),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -671,9 +776,30 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   horizontal: 14,
                   vertical: 16,
                 ),
-                itemCount: posts.length + (isLoadingMore ? 1 : 0),
+                itemCount: _filteredPosts.length + 1 + (isLoadingMore ? 1 : 0),
                 itemBuilder: (context, index) {
-                  if (index == posts.length) {
+                  if (index == 0) {
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 24),
+                      height: 42,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        clipBehavior: Clip.none,
+                        children: [
+                          _buildModernTab("All", "அனைத்தும்"),
+                          _buildModernTab("Manu", "மனு"),
+                          _buildModernTab("Sinthanaigal", "சிந்தனைகள்"),
+                          _buildModernTab("Budget", "பட்ஜெட்"),
+                          _buildModernTab("Poll", "வாக்கெடுப்பு"),
+                        ],
+                      ),
+                    );
+                  }
+
+                  final listIndex = index - 1;
+
+                  if (listIndex == _filteredPosts.length) {
                     return const Padding(
                       padding: EdgeInsets.symmetric(vertical: 32),
                       child: Center(
@@ -684,7 +810,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     );
                   }
 
-                  final post = posts[index];
+                  final post = _filteredPosts[listIndex];
                   final String postId = post['post_id']?.toString() ?? "";
 
                   return Padding(
@@ -744,11 +870,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   MaterialPageRoute(builder: (_) => const HashtagPage()),
                 );
               }, isActive: false),
-              _build3DNavItem(context, Icons.edit_rounded, "Write", () {
-                Navigator.push(
+              _build3DNavItem(context, Icons.edit_rounded, "Write", () async {
+                final category = await showCategorySelectionBottomSheet(
                   context,
-                  MaterialPageRoute(builder: (_) => const WritePage()),
                 );
+                if (category != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => WritePage(category: category),
+                    ),
+                  );
+                }
               }, isActive: false),
               _build3DNavItem(
                 context,
@@ -868,6 +1001,7 @@ class PostContainer extends StatefulWidget {
   @override
   State<PostContainer> createState() => _PostContainerState();
 }
+
 class _PostContainerState extends State<PostContainer> {
   bool _isOpeningPost = false; // ✅ Guard against double-tap
 
@@ -1360,137 +1494,140 @@ class _PostContainerState extends State<PostContainer> {
                                 fit: StackFit.expand,
                                 children: [
                                   // Cover Image — guard against empty/null URL
-                                  Builder(
-                                    builder: (context) {
-                                      if (coverUrl.isEmpty ||
-                                          !coverUrl.startsWith("http")) {
-                                        return Container(
-                                          decoration: const BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topLeft,
-                                              end: Alignment.bottomRight,
-                                              colors: [
-                                                Color(0xFF1E1E2C),
-                                                Color(0xFF264060),
-                                              ],
-                                            ),
-                                          ),
-                                          child: Stack(
-                                            alignment: Alignment.center,
-                                            children: [
-                                              Icon(
-                                                Icons.auto_stories_rounded,
-                                                color: Colors.white.withOpacity(
-                                                  0.05,
-                                                ),
-                                                size: 180,
-                                              ),
-                                              Column(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  const SizedBox(height: 60),
-                                                  Text(
-                                                    "Bigiluu",
-                                                    style: TextStyle(
-                                                      color: Colors.white
-                                                          .withOpacity(0.2),
-                                                      fontSize: 32,
-                                                      fontWeight:
-                                                          FontWeight.w900,
-                                                      letterSpacing: 8,
-                                                      fontFamily: 'Roboto',
-                                                    ),
-                                                  ),
-                                                  Container(
-                                                    margin:
-                                                        const EdgeInsets.only(
-                                                          top: 8,
-                                                        ),
-                                                    width: 40,
-                                                    height: 2,
-                                                    color: Colors.white
-                                                        .withOpacity(0.15),
-                                                  ),
+                                  CoverPreviewWidget(
+                                    post: widget.post,
+                                    fullUrl: fullUrl,
+                                    fallback:
+                                        (coverUrl.isEmpty ||
+                                            !coverUrl.startsWith("http"))
+                                        ? Container(
+                                            decoration: const BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                                colors: [
+                                                  Color(0xFF1E1E2C),
+                                                  Color(0xFF264060),
                                                 ],
                                               ),
-                                            ],
-                                          ),
-                                        );
-                                      }
-                                      return Image.network(
-                                        coverUrl,
-                                        fit: BoxFit.cover,
-                                        loadingBuilder:
-                                            (context, child, progress) {
-                                              if (progress == null)
-                                                return child;
-                                              return Container(
-                                                color: const Color(0xFFF8F8F8),
-                                                child: const Center(
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                        strokeWidth: 2,
-                                                        color: brandColor,
+                                            ),
+                                            child: Stack(
+                                              alignment: Alignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.auto_stories_rounded,
+                                                  color: Colors.white
+                                                      .withOpacity(0.05),
+                                                  size: 180,
+                                                ),
+                                                Column(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    const SizedBox(height: 60),
+                                                    Text(
+                                                      "Bigiluu",
+                                                      style: TextStyle(
+                                                        color: Colors.white
+                                                            .withOpacity(0.2),
+                                                        fontSize: 32,
+                                                        fontWeight:
+                                                            FontWeight.w900,
+                                                        letterSpacing: 8,
+                                                        fontFamily: 'Roboto',
                                                       ),
+                                                    ),
+                                                    Container(
+                                                      margin:
+                                                          const EdgeInsets.only(
+                                                            top: 8,
+                                                          ),
+                                                      width: 40,
+                                                      height: 2,
+                                                      color: Colors.white
+                                                          .withOpacity(0.15),
+                                                    ),
+                                                  ],
                                                 ),
-                                              );
-                                            },
-                                        errorBuilder: (_, __, ___) => Container(
-                                          decoration: const BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topLeft,
-                                              end: Alignment.bottomRight,
-                                              colors: [
-                                                Color(0xFF1E1E2C),
-                                                Color(0xFF264060),
                                               ],
                                             ),
-                                          ),
-                                          child: Stack(
-                                            alignment: Alignment.center,
-                                            children: [
-                                              Icon(
-                                                Icons.auto_stories_rounded,
-                                                color: Colors.white.withOpacity(
-                                                  0.05,
-                                                ),
-                                                size: 180,
-                                              ),
-                                              Column(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  const SizedBox(height: 60),
-                                                  Text(
-                                                    "Bigiluu",
-                                                    style: TextStyle(
-                                                      color: Colors.white
-                                                          .withOpacity(0.2),
-                                                      fontSize: 32,
-                                                      fontWeight:
-                                                          FontWeight.w900,
-                                                      letterSpacing: 8,
-                                                      fontFamily: 'Roboto',
+                                          )
+                                        : Image.network(
+                                            coverUrl,
+                                            fit: BoxFit.cover,
+                                            loadingBuilder:
+                                                (context, child, progress) {
+                                                  if (progress == null)
+                                                    return child;
+                                                  return Container(
+                                                    color: const Color(
+                                                      0xFFF8F8F8,
                                                     ),
-                                                  ),
-                                                  Container(
-                                                    margin:
-                                                        const EdgeInsets.only(
-                                                          top: 8,
-                                                        ),
-                                                    width: 40,
-                                                    height: 2,
+                                                    child: const Center(
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            strokeWidth: 2,
+                                                            color: brandColor,
+                                                          ),
+                                                    ),
+                                                  );
+                                                },
+                                            errorBuilder: (_, __, ___) => Container(
+                                              decoration: const BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                  colors: [
+                                                    Color(0xFF1E1E2C),
+                                                    Color(0xFF264060),
+                                                  ],
+                                                ),
+                                              ),
+                                              child: Stack(
+                                                alignment: Alignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons.auto_stories_rounded,
                                                     color: Colors.white
-                                                        .withOpacity(0.15),
+                                                        .withOpacity(0.05),
+                                                    size: 180,
+                                                  ),
+                                                  Column(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .center,
+                                                    children: [
+                                                      const SizedBox(
+                                                        height: 60,
+                                                      ),
+                                                      Text(
+                                                        "Bigiluu",
+                                                        style: TextStyle(
+                                                          color: Colors.white
+                                                              .withOpacity(0.2),
+                                                          fontSize: 32,
+                                                          fontWeight:
+                                                              FontWeight.w900,
+                                                          letterSpacing: 8,
+                                                          fontFamily: 'Roboto',
+                                                        ),
+                                                      ),
+                                                      Container(
+                                                        margin:
+                                                            const EdgeInsets.only(
+                                                              top: 8,
+                                                            ),
+                                                        width: 40,
+                                                        height: 2,
+                                                        color: Colors.white
+                                                            .withOpacity(0.15),
+                                                      ),
+                                                    ],
                                                   ),
                                                 ],
                                               ),
-                                            ],
+                                            ),
                                           ),
-                                        ),
-                                      );
-                                    },
                                   ),
 
                                   // Premium Overlay (Subtle gradient and leather texture look)

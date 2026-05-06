@@ -29,8 +29,8 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data
-                     android:scheme="https"
-                     android:host="bigiluu.com"
+                    android:scheme="https"
+                    android:host="bigiluu.com"
                     android:pathPrefix="/post" />
             </intent-filter>
 

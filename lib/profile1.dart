@@ -13,6 +13,7 @@ import 'package:share_plus/share_plus.dart';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
+import 'package:bigilu/cover_preview.dart';
 
 List<dynamic> extractPages(dynamic rawContent) {
   if (rawContent == null) return [];
@@ -609,8 +610,10 @@ class _ProfilePageState extends State<ProfilePage> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        if (img.isNotEmpty)
-                          Image.network(
+                        CoverPreviewWidget(
+                          post: post,
+                          fullUrl: fullUrl,
+                          fallback: img.isNotEmpty ? Image.network(
                             img,
                             fit: BoxFit.cover,
                             loadingBuilder: (context, child, progress) {
@@ -618,14 +621,55 @@ class _ProfilePageState extends State<ProfilePage> {
                               return Container(color: Colors.grey.shade100);
                             },
                             errorBuilder: (_, __, ___) => Container(
+                                decoration: const BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      Color(0xFF1E1E2C),
+                                      Color(0xFF264060),
+                                    ],
+                                  ),
+                                ),
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.auto_stories_rounded,
+                                      color: Colors.white.withOpacity(0.05),
+                                      size: 80,
+                                    ),
+                                    Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const SizedBox(height: 20),
+                                        Text(
+                                          "Bigiluu",
+                                          style: TextStyle(
+                                            color: Colors.white.withOpacity(0.15),
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 4,
+                                            fontFamily: 'serif',
+                                          ),
+                                        ),
+                                        Container(
+                                          margin: const EdgeInsets.only(top: 4),
+                                          width: 20,
+                                          height: 1,
+                                          color: Colors.white.withOpacity(0.1),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ) : Container(
                               decoration: const BoxDecoration(
                                 gradient: LinearGradient(
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
-                                  colors: [
-                                    Color(0xFF1E1E2C),
-                                    Color(0xFF264060),
-                                  ],
+                                  colors: [Color(0xFF1E1E2C), Color(0xFF264060)],
                                 ),
                               ),
                               child: Stack(
@@ -661,52 +705,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 ],
                               ),
                             ),
-                          )
-                        else
-                          Container(
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Color(0xFF1E1E2C),
-                                  Color(0xFF264060),
-                                ],
-                              ),
-                            ),
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                Icon(
-                                  Icons.auto_stories_rounded,
-                                  color: Colors.white.withOpacity(0.05),
-                                  size: 80,
-                                ),
-                                Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const SizedBox(height: 20),
-                                    Text(
-                                      "Bigiluu",
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.15),
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: 4,
-                                        fontFamily: 'serif',
-                                      ),
-                                    ),
-                                    Container(
-                                      margin: const EdgeInsets.only(top: 4),
-                                      width: 20,
-                                      height: 1,
-                                      color: Colors.white.withOpacity(0.1),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
+                        ),
 
                         // Depth Overlay
                         Container(
@@ -759,7 +758,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                 builder: (context) {
                                   dynamic styleRaw = post['title_style'] ?? {};
                                   Map<String, dynamic> style = {};
-                                  if (styleRaw is String && styleRaw.isNotEmpty) {
+                                  if (styleRaw is String &&
+                                      styleRaw.isNotEmpty) {
                                     try {
                                       style = jsonDecode(styleRaw);
                                     } catch (_) {}
@@ -767,14 +767,16 @@ class _ProfilePageState extends State<ProfilePage> {
                                     style = Map<String, dynamic>.from(styleRaw);
                                   }
 
-                                  double fs =
-                                      (style['fontSize'] ?? 24).toDouble();
-                                  int cv =
-                                      (style['color'] ?? 0xFFFFFFFF);
+                                  double fs = (style['fontSize'] ?? 24)
+                                      .toDouble();
+                                  int cv = (style['color'] ?? 0xFFFFFFFF);
                                   String ff = style['fontFamily'] ?? 'serif';
 
                                   // Scale for grid display
-                                  double displayFs = (fs * 0.55).clamp(10.0, 20.0);
+                                  double displayFs = (fs * 0.55).clamp(
+                                    10.0,
+                                    20.0,
+                                  );
 
                                   return Text(
                                     title,
@@ -1247,13 +1249,20 @@ class _ProfilePageState extends State<ProfilePage> {
                 );
               }, isActive: false),
               _build3DNavItem(context, Icons.edit_rounded, "Write", () async {
-                final result = await Navigator.push(
+                final category = await showCategorySelectionBottomSheet(
                   context,
-                  MaterialPageRoute(builder: (_) => const WritePage()),
                 );
-                if (result == true) {
-                  await _loadUserDrafts();
-                  setState(() => selectedTab = 1);
+                if (category != null) {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => WritePage(category: category),
+                    ),
+                  );
+                  if (result == true) {
+                    await _loadUserDrafts();
+                    setState(() => selectedTab = 1);
+                  }
                 }
               }, isActive: false),
               _build3DNavItem(
@@ -2425,35 +2434,22 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                                             child: Stack(
                                               fit: StackFit.expand,
                                               children: [
-                                                img.isNotEmpty
-                                                    ? Image.network(
-                                                        img,
-                                                        fit: BoxFit.cover,
-                                                      )
-                                                    : Container(
-                                                        decoration:
-                                                            const BoxDecoration(
-                                                              gradient: LinearGradient(
-                                                                begin: Alignment
-                                                                    .topLeft,
-                                                                end: Alignment
-                                                                    .bottomRight,
-                                                                colors: [
-                                                                  Color(
-                                                                    0xFF2D1B69,
-                                                                  ),
-                                                                  Color(
-                                                                    0xFF11998E,
-                                                                  ),
-                                                                ],
-                                                              ),
+                                                CoverPreviewWidget(
+                                                        post: post,
+                                                        fullUrl: fullUrl,
+                                                        fallback: img.isNotEmpty ? Image.network(
+                                                          img,
+                                                          fit: BoxFit.cover,
+                                                        ) : Container(
+                                                          decoration: const BoxDecoration(
+                                                            gradient: LinearGradient(
+                                                              begin: Alignment.topLeft,
+                                                              end: Alignment.bottomRight,
+                                                              colors: [Color(0xFF2D1B69), Color(0xFF11998E)],
                                                             ),
-                                                        child: const Center(
-                                                          child: Icon(
-                                                            Icons.book_rounded,
-                                                            color:
-                                                                Colors.white54,
-                                                            size: 64,
+                                                          ),
+                                                          child: const Center(
+                                                            child: Icon(Icons.book_rounded, color: Colors.white54, size: 64),
                                                           ),
                                                         ),
                                                       ),
@@ -2549,9 +2545,10 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                                                       } else if (styleRaw
                                                           is Map) {
                                                         style =
-                                                            Map<String, dynamic>.from(
-                                                          styleRaw,
-                                                        );
+                                                            Map<
+                                                              String,
+                                                              dynamic
+                                                            >.from(styleRaw);
                                                       }
 
                                                       double fs =
@@ -2560,7 +2557,7 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                                                               .toDouble();
                                                       int cv =
                                                           (style['color'] ??
-                                                              0xFFFFFFFF);
+                                                          0xFFFFFFFF);
                                                       String ff =
                                                           style['fontFamily'] ??
                                                           'Roboto';
@@ -2591,10 +2588,11 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                                                                       0.6,
                                                                     ),
                                                                 blurRadius: 10,
-                                                                offset: const Offset(
-                                                                  1,
-                                                                  1,
-                                                                ),
+                                                                offset:
+                                                                    const Offset(
+                                                                      1,
+                                                                      1,
+                                                                    ),
                                                               ),
                                                             ],
                                                           ),

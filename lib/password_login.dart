@@ -395,7 +395,11 @@ class _PasswordEnterPageState extends State<PasswordEnterPage> {
       if (res.statusCode == 200 && data["success"] == true) {
         final prefs = await SharedPreferences.getInstance();
         
-        await prefs.setString("token", data["token"] ?? "");
+        if (widget.isExisting) {
+          await prefs.setString("token", data["token"] ?? "");
+        } else {
+          await prefs.setString("temp_token", data["token"] ?? "");
+        }
         await prefs.setString("user_id", data["user_id"] ?? "");
         await prefs.setString("user_mobile", widget.phone);
 
@@ -417,23 +421,14 @@ class _PasswordEnterPageState extends State<PasswordEnterPage> {
           );
         }
 
-        if (!widget.isExisting || data["is_new_user"] == true) {
-          // New User => Edit Profile Page
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-              builder: (_) => EditProfilePage(userId: data["user_id"]),
-            ),
-            (route) => false,
-          );
-        } else {
-          // Existing User => Home Page
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (_) => const HomePage()),
-            (route) => false,
-          );
-        }
+        // Always go to Edit Profile Page as requested
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (_) => EditProfilePage(userId: data["user_id"]),
+          ),
+          (route) => false,
+        );
       } else {
         showError(data["message"] ?? "Authentication Failed");
       }

@@ -252,11 +252,14 @@ class _HashtagPageState extends State<HashtagPage> {
                 () {},
                 isActive: true,
               ),
-              _build3DNavItem(context, Icons.edit_rounded, "Write", () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const WritePage()),
-                );
+              _build3DNavItem(context, Icons.edit_rounded, "Write", () async {
+                final category = await showCategorySelectionBottomSheet(context);
+                if (category != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => WritePage(category: category)),
+                  );
+                }
               }, isActive: false),
               _build3DNavItem(
                 context,

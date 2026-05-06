@@ -11,6 +11,7 @@ import 'dart:convert';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mime/mime.dart';
 import 'package:http_parser/http_parser.dart';
+import 'package:bigilu/poll.dart';
 
 class PageBlock {
   String type;
@@ -118,12 +119,14 @@ class WritePage extends StatefulWidget {
   final String? draftId; // optional
   final String? draftContent; // optional
   final String? draftCover;
+  final String? category;
 
   const WritePage({
     super.key,
     this.draftId,
     this.draftContent,
     this.draftCover, // 🔥 ADD THIS
+    this.category,
   });
 
   @override
@@ -132,6 +135,7 @@ class WritePage extends StatefulWidget {
 
 class _WritePageState extends State<WritePage> {
   String? _draftId;
+  int? selectedCategoryId;
 
   // previously a fixed constant – use a getter so the limit updates
   // with the screen size/keyboard adjustments.
@@ -193,10 +197,34 @@ class _WritePageState extends State<WritePage> {
   void initState() {
     super.initState();
 
+    selectedCategoryId = int.tryParse(widget.category ?? "");
+
     _draftId = widget.draftId;
 
-    if (widget.draftContent != null) {
+    if (widget.draftContent != null && widget.draftContent!.isNotEmpty) {
       _loadDraftContent(widget.draftContent!);
+    } else if (widget.category == "1" || widget.category == "Manu") {
+      _pages[0].blocks = [
+        PageBlock.text("அனுப்புநர்", isHeadline: true, fontSize: 18),
+        PageBlock.text("[தங்கள் பெயர்]\n[தங்கள் முகவரி]", fontSize: 18),
+        PageBlock.text("பெறுநர்", isHeadline: true, fontSize: 18),
+        PageBlock.text("[அதிகாரியின் பதவி]\n[அலுவலக முகவரி]", fontSize: 18),
+        PageBlock.text("மதிப்பிற்குரிய ஐயா / அம்மா,", fontSize: 18),
+        PageBlock.text(
+          "பொருள்: [மனுவின் சுருக்கம்]",
+          isHeadline: true,
+          fontSize: 18,
+        ),
+        PageBlock.text(
+          "[தங்கள் கோரிக்கையை இங்கு விரிவாக எழுதவும்...]",
+          fontSize: 18,
+        ),
+        PageBlock.text(
+          "இப்படிக்கு,\n[தங்கள் கையொப்பம்]",
+          textAlign: TextAlign.right,
+          fontSize: 18,
+        ),
+      ];
     }
 
     // ✅ INSERT COVER AS FIRST BLOCK
@@ -917,6 +945,15 @@ class _WritePageState extends State<WritePage> {
   Future<void> saveDraft() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+
+      // 🔥 ADD THIS BLOCK HERE
+      if (selectedCategoryId == null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Please select category")));
+        return;
+      }
+
       final userId = prefs.getString("user_id");
 
       final uri = Uri.parse("https://bigiluu.com/api/draft/saveDraft");
@@ -924,6 +961,8 @@ class _WritePageState extends State<WritePage> {
       var request = http.MultipartRequest("POST", uri);
 
       request.fields["user_id"] = userId ?? "";
+
+      request.fields["category_id"] = selectedCategoryId?.toString() ?? "";
 
       if (_draftId != null) {
         request.fields["draft_id"] = _draftId!;
@@ -1560,20 +1599,55 @@ class _WritePageState extends State<WritePage> {
               const SizedBox(width: 12),
               ElevatedButton(
                 onPressed: () {
-                  final route = Platform.isIOS
-                      ? CupertinoPageRoute(
-                          builder: (_) => CoverEditorPage(
-                            pages: _pages,
-                            draftId: widget.draftId,
-                          ),
-                        )
-                      : MaterialPageRoute(
-                          builder: (_) => CoverEditorPage(
-                            pages: _pages,
-                            draftId: widget.draftId,
-                          ),
-                        );
-                  Navigator.push(context, route);
+                  if ((selectedCategoryId ?? 0) == 1) {
+                    final route = Platform.isIOS
+                        ? CupertinoPageRoute(
+                            builder: (_) => PostPage(
+                              pages: _pages,
+                              draftId: widget.draftId,
+                              coverImage: null,
+                              title: "",
+                              titleFontSize: 28,
+                              titleColor: Colors.black,
+                              titleFontFamily: "Roboto",
+                              titlePosition: const Offset(0.5, 0.4),
+                              category: selectedCategoryId.toString(),
+                            ),
+                          )
+                        : MaterialPageRoute(
+                            builder: (_) => PostPage(
+                              pages: _pages,
+                              draftId: widget.draftId,
+                              coverImage: null,
+                              title: "",
+                              titleFontSize: 28,
+                              titleColor: Colors.black,
+                              titleFontFamily: "Roboto",
+                              titlePosition: const Offset(0.5, 0.4),
+                              category: selectedCategoryId
+                                  .toString(), // 🔥 IMPORTANT
+                            ),
+                          );
+                    Navigator.push(context, route);
+                  } else {
+                    final route = Platform.isIOS
+                        ? CupertinoPageRoute(
+                            builder: (_) => CoverEditorPage(
+                              pages: _pages,
+                              draftId: widget.draftId,
+                              category: selectedCategoryId
+                                  .toString(), // 🔥 IMPORTANT
+                            ),
+                          )
+                        : MaterialPageRoute(
+                            builder: (_) => CoverEditorPage(
+                              pages: _pages,
+                              draftId: widget.draftId,
+                              category: selectedCategoryId.toString(),
+                            ),
+                          );
+                    Navigator.push(context, route);
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFB11226),
@@ -2886,8 +2960,14 @@ class _WritePageState extends State<WritePage> {
 class CoverEditorPage extends StatefulWidget {
   final List<PageData> pages;
   final String? draftId;
+  final String? category;
 
-  const CoverEditorPage({super.key, required this.pages, this.draftId});
+  const CoverEditorPage({
+    super.key,
+    required this.pages,
+    this.draftId,
+    this.category,
+  });
 
   @override
   State<CoverEditorPage> createState() => _CoverEditorPageState();
@@ -2968,6 +3048,7 @@ class _CoverEditorPageState extends State<CoverEditorPage> {
                     titleColor: _fontColor,
                     titleFontFamily: _fontFamily,
                     titlePosition: _textPosition,
+                    category: widget.category,
                   ),
                 ),
               );
@@ -3225,6 +3306,7 @@ class PostPage extends StatefulWidget {
   final Color? titleColor;
   final String? titleFontFamily;
   final Offset? titlePosition;
+  final String? category;
 
   const PostPage({
     super.key,
@@ -3236,6 +3318,7 @@ class PostPage extends StatefulWidget {
     this.titleColor,
     this.titleFontFamily,
     this.titlePosition,
+    this.category,
   });
 
   @override
@@ -3245,10 +3328,12 @@ class PostPage extends StatefulWidget {
 class _PostPageState extends State<PostPage> {
   final TextEditingController _captionController = TextEditingController();
   final TextEditingController _hashtagController = TextEditingController();
+  final TextEditingController _titleController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    _titleController.text = widget.title ?? "";
     print("Draft ID in PostPage: ${widget.draftId}");
   }
 
@@ -3370,11 +3455,12 @@ class _PostPageState extends State<PostPage> {
           "fontFamily": widget.pages[i].fontFamily,
           "fontColor": widget.pages[i].fontColor,
           "blocks": blocksJson,
+          if (i == 0 && widget.category != null) "category": widget.category,
         });
       }
 
       final fullContent = {
-        "title": widget.title,
+        "title": _titleController.text,
         "titleFontSize": widget.titleFontSize,
         "titleColor": widget.titleColor?.value,
         "titleFontFamily": widget.titleFontFamily,
@@ -3382,10 +3468,11 @@ class _PostPageState extends State<PostPage> {
         "titlePositionY": widget.titlePosition?.dy,
         "coverImage": coverImageName,
         "pages": pagesJson,
+        "category": widget.category,
       };
 
       request.fields["content"] = jsonEncode(fullContent);
-      request.fields["title"] = widget.title ?? "";
+      request.fields["title"] = _titleController.text;
       request.fields["titleFontSize"] =
           widget.titleFontSize?.toString() ?? "28";
       request.fields["titleColor"] =
@@ -3395,6 +3482,7 @@ class _PostPageState extends State<PostPage> {
           widget.titlePosition?.dx.toString() ?? "0.5";
       request.fields["titlePositionY"] =
           widget.titlePosition?.dy.toString() ?? "0.4";
+      request.fields["category_id"] = widget.category ?? "";
 
       print("🚀 INFO: Submitting post with ${request.files.length} images...");
 
@@ -3546,7 +3634,9 @@ class _PostPageState extends State<PostPage> {
             SizedBox(
               height: size.height * 0.45,
               child: PageView.builder(
-                itemCount: widget.pages.length + 1,
+                itemCount: (widget.category == "Manu" || widget.category == "1")
+                    ? widget.pages.length
+                    : widget.pages.length + 1,
                 controller: PageController(viewportFraction: 0.8),
                 itemBuilder: (context, index) {
                   return AnimatedContainer(
@@ -3572,7 +3662,9 @@ class _PostPageState extends State<PostPage> {
                       borderRadius: BorderRadius.circular(24),
                       child: Stack(
                         children: [
-                          if (index > 0)
+                          if (widget.category == "Manu" ||
+                              widget.category == "1" ||
+                              index > 0)
                             Positioned(
                               left: 0,
                               top: 0,
@@ -3591,7 +3683,9 @@ class _PostPageState extends State<PostPage> {
                                 ),
                               ),
                             ),
-                          index == 0
+                          (widget.category == "Manu" || widget.category == "1")
+                              ? _buildPagePreview(index)
+                              : index == 0
                               ? _buildCoverPreview()
                               : _buildPagePreview(index - 1),
                         ],
@@ -3785,53 +3879,45 @@ class _PostPageState extends State<PostPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // AI Analysis Summary Section
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: const Color(0xFFB11226).withOpacity(0.03),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: const Color(0xFFB11226).withOpacity(0.1),
-              width: 1,
+        if (widget.category == "Manu" || widget.category == "1") ...[
+          const Text(
+            "Title (தலைப்பு)",
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              color: Color(0xFF1A1A1A),
             ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.insights_rounded,
-                    color: Color(0xFFB11226),
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    "Smart Story Analysis",
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                      color: const Color(0xFFB11226).withOpacity(0.9),
-                    ),
-                  ),
-                ],
+          const SizedBox(height: 12),
+          TextField(
+            controller: _titleController,
+            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
+            decoration: InputDecoration(
+              hintText: "Enter the title of your post...",
+              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: BorderSide.none,
               ),
-              const SizedBox(height: 10),
-              Text(
-                "Our AI will analyze all your reading pages (from start to finish) and generate a perfect, crystal-clear one-paragraph summary for your post.",
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                  height: 1.5,
-                  fontWeight: FontWeight.w500,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: const BorderSide(
+                  color: Color(0xFFB11226),
+                  width: 1.5,
                 ),
               ),
-            ],
+              contentPadding: const EdgeInsets.all(20),
+            ),
           ),
-        ),
-        const SizedBox(height: 32),
+          const SizedBox(height: 32),
+        ],
+
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -3928,4 +4014,131 @@ class _PostPageState extends State<PostPage> {
       ],
     );
   }
+}
+
+Future<String?> showCategorySelectionBottomSheet(BuildContext context) async {
+  return await showModalBottomSheet<String>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (context) {
+      return Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 24),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Text(
+              "What would you like to write?",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 24),
+            _buildCategoryOption(
+              context,
+              "1",
+              "Manu",
+              "மனு",
+              Icons.article_rounded,
+            ),
+            const SizedBox(height: 16),
+            _buildCategoryOption(
+              context,
+              "2",
+              "Sinthanaigal",
+              "சிந்தனைகள்",
+              Icons.lightbulb_rounded,
+            ),
+            const SizedBox(height: 16),
+            _buildCategoryOption(
+              context,
+              "3",
+              "Budget",
+              "பட்ஜெட்",
+              Icons.account_balance_wallet_rounded,
+            ),
+            const SizedBox(height: 16),
+            _buildCategoryOption(
+              context,
+              "Poll",
+              "Poll",
+              "வாக்கெடுப்பு",
+              Icons.poll_rounded,
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+Widget _buildCategoryOption(
+  BuildContext context,
+  String id,
+  String title,
+  String? subtitle,
+  IconData icon,
+) {
+  return InkWell(
+    onTap: () {
+      if (id == "Poll") {
+        Navigator.pop(context);
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const CreatePollPage()));
+      } else {
+        Navigator.pop(context, id);
+      }
+    },
+    borderRadius: BorderRadius.circular(16),
+    child: Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFB11226).withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: const Color(0xFFB11226)),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+          Icon(
+            Icons.arrow_forward_ios_rounded,
+            size: 16,
+            color: Colors.grey.shade400,
+          ),
+        ],
+      ),
+    ),
+  );
 }

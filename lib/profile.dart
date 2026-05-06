@@ -4,6 +4,7 @@ import 'package:bigilu/hashtag.dart';
 import 'package:bigilu/home.dart';
 import 'package:bigilu/profile1.dart';
 import 'package:bigilu/write.dart';
+import 'package:bigilu/password_login.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -461,6 +462,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
         await _saveLocally(updatedName, _image, imageUrl);
 
+        // ✅ If user just registered, promote temp_token to token to log them in
+        final prefs = await SharedPreferences.getInstance();
+        String? tempToken = prefs.getString("temp_token");
+        if (tempToken != null) {
+          await prefs.setString("token", tempToken);
+          await prefs.remove("temp_token");
+        }
+
         // 🔥 RETURN TO PREVIOUS PAGE OR GO TO HOME
         if (mounted) {
           Navigator.pushAndRemoveUntil(
@@ -555,12 +564,26 @@ class _EditProfilePageState extends State<EditProfilePage> {
         automaticallyImplyLeading: false,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => const HomePage()),
-              (route) => false,
-            );
+          onPressed: () async {
+            final prefs = await SharedPreferences.getInstance();
+            if (prefs.getString("temp_token") != null) {
+              await prefs.remove("temp_token");
+              await prefs.remove("user_id");
+              await prefs.remove("user_mobile");
+              if (context.mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PasswordLoginPage()),
+                  (route) => false,
+                );
+              }
+            } else {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const HomePage()),
+                (route) => false,
+              );
+            }
           },
         ),
         systemOverlayStyle: const SystemUiOverlayStyle(
@@ -1009,11 +1032,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     : MaterialPageRoute(builder: (_) => const HomePage());
                 Navigator.push(context, route);
               }),
-              _buildPremiumNavItem(context, Icons.edit_rounded, 'Write', () {
-                final route = Platform.isIOS
-                    ? CupertinoPageRoute(builder: (_) => const WritePage())
-                    : MaterialPageRoute(builder: (_) => const WritePage());
-                Navigator.push(context, route);
+              _buildPremiumNavItem(context, Icons.edit_rounded, 'Write', () async {
+                final category = await showCategorySelectionBottomSheet(context);
+                if (category != null) {
+                  final route = Platform.isIOS
+                      ? CupertinoPageRoute(builder: (_) => WritePage(category: category))
+                      : MaterialPageRoute(builder: (_) => WritePage(category: category));
+                  Navigator.push(context, route);
+                }
               }),
             ],
           ),

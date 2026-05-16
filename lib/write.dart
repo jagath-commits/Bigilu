@@ -197,7 +197,9 @@ class _WritePageState extends State<WritePage> {
   void initState() {
     super.initState();
 
-    selectedCategoryId = int.tryParse(widget.category ?? "");
+    if (widget.category != null) {
+      selectedCategoryId = int.tryParse(widget.category!);
+    }
 
     _draftId = widget.draftId;
 
@@ -1089,18 +1091,14 @@ class _WritePageState extends State<WritePage> {
 
   Future<void> publishDraft() async {
     try {
-      final uri = Uri.parse("https://bigiluu.com/api/draft/publishDraft");
-
       final response = await http.post(
-        uri,
+        Uri.parse("https://bigiluu.com/api/draft/publishDraft"),
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "draft_id": _draftId, // ✅ ONLY THIS
-        }),
+        body: jsonEncode({"draft_id": widget.draftId}),
       );
 
-      print("🚀 PUBLISH STATUS: ${response.statusCode}");
-      print("📄 BODY: ${response.body}");
+      print("PUBLISH DRAFT STATUS: ${response.statusCode}");
+      print("PUBLISH DRAFT BODY: ${response.body}");
 
       if (response.statusCode == 200) {
         print("✅ Draft Published Successfully");
@@ -1599,55 +1597,34 @@ class _WritePageState extends State<WritePage> {
               const SizedBox(width: 12),
               ElevatedButton(
                 onPressed: () {
-                  if ((selectedCategoryId ?? 0) == 1) {
-                    final route = Platform.isIOS
-                        ? CupertinoPageRoute(
-                            builder: (_) => PostPage(
-                              pages: _pages,
-                              draftId: widget.draftId,
-                              coverImage: null,
-                              title: "",
-                              titleFontSize: 28,
-                              titleColor: Colors.black,
-                              titleFontFamily: "Roboto",
-                              titlePosition: const Offset(0.5, 0.4),
-                              category: selectedCategoryId.toString(),
-                            ),
-                          )
-                        : MaterialPageRoute(
-                            builder: (_) => PostPage(
-                              pages: _pages,
-                              draftId: widget.draftId,
-                              coverImage: null,
-                              title: "",
-                              titleFontSize: 28,
-                              titleColor: Colors.black,
-                              titleFontFamily: "Roboto",
-                              titlePosition: const Offset(0.5, 0.4),
-                              category: selectedCategoryId
-                                  .toString(), // 🔥 IMPORTANT
-                            ),
-                          );
-                    Navigator.push(context, route);
-                  } else {
-                    final route = Platform.isIOS
-                        ? CupertinoPageRoute(
-                            builder: (_) => CoverEditorPage(
-                              pages: _pages,
-                              draftId: widget.draftId,
-                              category: selectedCategoryId
-                                  .toString(), // 🔥 IMPORTANT
-                            ),
-                          )
-                        : MaterialPageRoute(
-                            builder: (_) => CoverEditorPage(
-                              pages: _pages,
-                              draftId: widget.draftId,
-                              category: selectedCategoryId.toString(),
-                            ),
-                          );
-                    Navigator.push(context, route);
-                  }
+                  final route = Platform.isIOS
+                      ? CupertinoPageRoute(
+                          builder: (_) => PostPage(
+                            pages: _pages,
+                            draftId: widget.draftId,
+                            coverImage: null,
+                            title: "",
+                            titleFontSize: 28,
+                            titleColor: Colors.black,
+                            titleFontFamily: "Roboto",
+                            titlePosition: const Offset(0.5, 0.4),
+                            category: selectedCategoryId.toString(),
+                          ),
+                        )
+                      : MaterialPageRoute(
+                          builder: (_) => PostPage(
+                            pages: _pages,
+                            draftId: widget.draftId,
+                            coverImage: null,
+                            title: "",
+                            titleFontSize: 28,
+                            titleColor: Colors.black,
+                            titleFontFamily: "Roboto",
+                            titlePosition: const Offset(0.5, 0.4),
+                            category: selectedCategoryId.toString(),
+                          ),
+                        );
+                  Navigator.push(context, route);
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFB11226),
@@ -3517,8 +3494,8 @@ class _PostPageState extends State<PostPage> {
         );
 
         final route = Platform.isIOS
-            ? CupertinoPageRoute(builder: (_) => const HomePage())
-            : MaterialPageRoute(builder: (_) => const HomePage());
+            ? CupertinoPageRoute(builder: (_) => const MainShell())
+            : MaterialPageRoute(builder: (_) => const MainShell());
 
         Navigator.pushAndRemoveUntil(context, route, (route) => false);
       } else {
@@ -3634,9 +3611,7 @@ class _PostPageState extends State<PostPage> {
             SizedBox(
               height: size.height * 0.45,
               child: PageView.builder(
-                itemCount: (widget.category == "Manu" || widget.category == "1")
-                    ? widget.pages.length
-                    : widget.pages.length + 1,
+                itemCount: widget.pages.length,
                 controller: PageController(viewportFraction: 0.8),
                 itemBuilder: (context, index) {
                   return AnimatedContainer(
@@ -3646,9 +3621,7 @@ class _PostPageState extends State<PostPage> {
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: index == 0
-                          ? Colors.white
-                          : const Color(0xFFFCF5E5),
+                      color: const Color(0xFFFCF5E5),
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
@@ -3662,32 +3635,25 @@ class _PostPageState extends State<PostPage> {
                       borderRadius: BorderRadius.circular(24),
                       child: Stack(
                         children: [
-                          if (widget.category == "Manu" ||
-                              widget.category == "1" ||
-                              index > 0)
-                            Positioned(
-                              left: 0,
-                              top: 0,
-                              bottom: 0,
-                              width: 15,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.centerLeft,
-                                    end: Alignment.centerRight,
-                                    colors: [
-                                      Colors.black.withOpacity(0.08),
-                                      Colors.transparent,
-                                    ],
-                                  ),
+                          Positioned(
+                            left: 0,
+                            top: 0,
+                            bottom: 0,
+                            width: 15,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                  colors: [
+                                    Colors.black.withOpacity(0.08),
+                                    Colors.transparent,
+                                  ],
                                 ),
                               ),
                             ),
-                          (widget.category == "Manu" || widget.category == "1")
-                              ? _buildPagePreview(index)
-                              : index == 0
-                              ? _buildCoverPreview()
-                              : _buildPagePreview(index - 1),
+                          ),
+                          _buildPagePreview(index),
                         ],
                       ),
                     ),
@@ -3879,44 +3845,42 @@ class _PostPageState extends State<PostPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (widget.category == "Manu" || widget.category == "1") ...[
-          const Text(
-            "Title (தலைப்பு)",
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 16,
-              color: Color(0xFF1A1A1A),
-            ),
+        const Text(
+          "Title (தலைப்பு)",
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 16,
+            color: Color(0xFF1A1A1A),
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _titleController,
-            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
-            decoration: InputDecoration(
-              hintText: "Enter the title of your post...",
-              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(18),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(18),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(18),
-                borderSide: const BorderSide(
-                  color: Color(0xFFB11226),
-                  width: 1.5,
-                ),
-              ),
-              contentPadding: const EdgeInsets.all(20),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _titleController,
+          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
+          decoration: InputDecoration(
+            hintText: "Enter the title of your post...",
+            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide.none,
             ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: const BorderSide(
+                color: Color(0xFFB11226),
+                width: 1.5,
+              ),
+            ),
+            contentPadding: const EdgeInsets.all(20),
           ),
-          const SizedBox(height: 32),
-        ],
+        ),
+        const SizedBox(height: 32),
 
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -4099,7 +4063,10 @@ Widget _buildCategoryOption(
     onTap: () {
       if (id == "Poll") {
         Navigator.pop(context);
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const CreatePollPage()));
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const CreatePollPage()),
+        );
       } else {
         Navigator.pop(context, id);
       }

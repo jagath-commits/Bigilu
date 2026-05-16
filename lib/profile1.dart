@@ -63,6 +63,7 @@ class _ProfilePageState extends State<ProfilePage> {
   List<Map<String, dynamic>> draftPosts = [];
 
   List<Map<String, dynamic>> savedPosts = [];
+  List<Map<String, dynamic>> myPolls = [];
 
   String fullUrl(String? path) {
     if (path == null || path.isEmpty) return "";
@@ -93,6 +94,7 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadLocalProfile();
     _loadProfileFromBackend();
     _loadUserPosts();
+    _loadUserPolls();
     _loadUserDrafts();
     _loadSavedPosts();
     print("PROFILE USER ID: ${widget.userId}");
@@ -103,6 +105,91 @@ class _ProfilePageState extends State<ProfilePage> {
         _openSpecificPost(widget.initialPostId!);
       }
     });
+  }
+
+  Future<void> _deletePoll(String pollId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Delete Poll"),
+        content: const Text("Are you sure you want to delete this poll?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final response = await http.delete(
+          Uri.parse("https://bigiluu.com/api/polls/deletePoll/$pollId"),
+        );
+
+        if (response.statusCode == 200) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Poll deleted successfully")),
+          );
+
+          _loadUserPolls();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Failed to delete poll")),
+          );
+        }
+      } catch (e) {
+        print("Delete poll error: $e");
+      }
+    }
+  }
+
+  Future<void> _loadUserPolls() async {
+    try {
+      final response = await http.get(
+        Uri.parse("https://bigiluu.com/api/polls/userPolls/${widget.userId}"),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        setState(() {
+          myPolls = List<Map<String, dynamic>>.from(
+            (data['data'] ?? []).map(
+              (e) => {
+                // 🔥 IMPORTANT
+                "post_id": e['poll_id'].toString(),
+
+                "poll_id": e['poll_id'].toString(),
+                "question": e['question'] ?? "",
+                "options": e['options'] ?? [],
+                "type": "poll",
+
+                // 🔥 REQUIRED FOR MIXED RENDER
+                "title": e['question'] ?? "",
+                "cover_img": "",
+                "caption": "",
+                "content": [],
+                "preview_text": "",
+                "hastag": "",
+                "username": userName,
+                "profile_image": _networkImageUrl ?? "",
+                "readers_count": 0,
+                "support_count": 0,
+                "acknowledgment": "",
+              },
+            ),
+          );
+        });
+      }
+    } catch (e) {
+      print("Poll load error: $e");
+    }
   }
 
   void _openSpecificPost(String postId) async {
@@ -148,7 +235,7 @@ class _ProfilePageState extends State<ProfilePage> {
               "https://bigiluu.com/api/posts/userPosts/${widget.userId}",
             ),
           )
-          .timeout(const Duration(seconds: 25));
+          .timeout(const Duration(seconds: 60));
 
       print("USER POSTS RAW RESPONSE: ${response.body}");
 
@@ -170,7 +257,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 "caption": e['caption'] ?? "",
                 "hastag": e['hastag'] ?? "",
                 "content": e['content'] ?? [],
-                "summary": e['summary'] ?? "",
+                "preview_text": e['preview_text'] ?? "",
                 "username": e['username'] ?? "",
                 "profile_image": e['profile_image'] ?? "",
                 "readers_count": e['readers_count'] ?? 0,
@@ -233,6 +320,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 "images": previewImages,
                 "rawContent": rawContent,
                 "cover_img": e['cover_img'],
+                "category_id": e['category_id'],
               };
             }),
           );
@@ -287,7 +375,7 @@ class _ProfilePageState extends State<ProfilePage> {
               "https://bigiluu.com/api/posts/savedPosts/${widget.userId}",
             ),
           )
-          .timeout(const Duration(seconds: 25));
+          .timeout(const Duration(seconds: 60));
 
       print("SAVED POSTS RAW RESPONSE: ${response.body}");
 
@@ -314,7 +402,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 "readers_count": e['readers_count'] ?? 0,
                 "support_count": e['support_count'] ?? 0,
                 "acknowledgment": e['acknowledgment'] ?? "",
-                "summary": e['summary'] ?? "",
+                "preview_text": e['preview_text'] ?? "",
               },
             ),
           );
@@ -429,6 +517,46 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> _deletePostFromProfile(String postId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Delete Post"),
+        content: const Text("Are you sure you want to delete this post?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final response = await http.delete(
+          Uri.parse("https://bigiluu.com/api/posts/deletePost/$postId"),
+        );
+        if (response.statusCode == 200) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Post deleted successfully")),
+          );
+          _loadUserPosts();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Failed to delete post")),
+          );
+        }
+      } catch (e) {
+        print("Error deleting post: $e");
+      }
+    }
+  }
+
   Future<void> _deleteDraft(String draftId) async {
     try {
       final response = await http.delete(
@@ -499,6 +627,107 @@ class _ProfilePageState extends State<ProfilePage> {
       );
     }
 
+    if (selectedTab == 0 || selectedTab == 2) {
+      return ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+        itemCount: list.length,
+        itemBuilder: (context, index) {
+          final post = list[index];
+          final bool isPoll = post['type'] == "poll";
+          final String postId = post['post_id'].toString();
+
+          if (isPoll) {
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.poll, color: Colors.blue),
+                          SizedBox(width: 6),
+                          Text(
+                            "Poll",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      if (!widget.isPublicView && selectedTab == 0)
+                        GestureDetector(
+                          onTap: () => _deletePoll(postId),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 18),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    post['question'] ?? "",
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ...(post['options'] as List).map(
+                    (option) => Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(child: Text(option['option_text'])),
+                          Text(
+                            "${option['vote_count']}",
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: PostContainer(
+              post: post,
+              isLiked: false,
+              isSaved: selectedTab == 2,
+              onLike: () {},
+              onSave: () {},
+              onDelete: (!widget.isPublicView && selectedTab == 0)
+                  ? () => _deletePostFromProfile(postId)
+                  : null,
+            ),
+          );
+        },
+      );
+    }
+
     return GridView.builder(
       padding: const EdgeInsets.symmetric(vertical: 16),
       itemCount: list.length,
@@ -510,9 +739,87 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       itemBuilder: (context, index) {
         final post = list[index];
+        final bool isPoll = post['type'] == "poll";
         final String postId = post['post_id'].toString();
         final String img = post['cover_img'] ?? "";
         final String title = (post['title'] ?? "").toString();
+
+        if (isPoll) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.poll, color: Colors.blue),
+                        SizedBox(width: 6),
+                        Text("Poll", style: TextStyle(fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    if (!widget.isPublicView && selectedTab == 0)
+                      GestureDetector(
+                        onTap: () => _deletePoll(postId),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 18),
+                        ),
+                      ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+
+                Text(
+                  post['question'] ?? "",
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                ...(post['options'] as List).map(
+                  (option) => Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(child: Text(option['option_text'])),
+                        Text(
+                          "${option['vote_count']}",
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
 
         return GestureDetector(
           onTap: () async {
@@ -531,6 +838,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         _convertDraftImages(post['rawContent']),
                       ),
                       draftCover: post['cover_img'],
+                      category: post['category_id']?.toString(),
                     ),
                   ),
                 );
@@ -540,10 +848,14 @@ class _ProfilePageState extends State<ProfilePage> {
 
               // Normal Posts & Saved
               List<Map<String, dynamic>> sourceList = selectedTab == 0
-                  ? myPosts
+                  ? [...myPosts, ...myPolls]
                   : savedPosts;
               int clickedIndex = sourceList.indexWhere(
-                (p) => p['post_id'] == postId,
+                (p) =>
+                    (p['type'] == "poll"
+                        ? p['poll_id'].toString()
+                        : p['post_id'].toString()) ==
+                    postId,
               );
 
               final removedPostId = await Navigator.push(
@@ -613,98 +925,119 @@ class _ProfilePageState extends State<ProfilePage> {
                         CoverPreviewWidget(
                           post: post,
                           fullUrl: fullUrl,
-                          fallback: img.isNotEmpty ? Image.network(
-                            img,
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, progress) {
-                              if (progress == null) return child;
-                              return Container(color: Colors.grey.shade100);
-                            },
-                            errorBuilder: (_, __, ___) => Container(
-                                decoration: const BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      Color(0xFF1E1E2C),
-                                      Color(0xFF264060),
-                                    ],
-                                  ),
-                                ),
-                                child: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.auto_stories_rounded,
-                                      color: Colors.white.withOpacity(0.05),
-                                      size: 80,
+                          fallback: img.isNotEmpty
+                              ? Image.network(
+                                  img,
+                                  fit: BoxFit.cover,
+                                  loadingBuilder: (context, child, progress) {
+                                    if (progress == null) return child;
+                                    return Container(
+                                      color: Colors.grey.shade100,
+                                    );
+                                  },
+                                  errorBuilder: (_, __, ___) => Container(
+                                    decoration: const BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          Color(0xFF1E1E2C),
+                                          Color(0xFF264060),
+                                        ],
+                                      ),
                                     ),
-                                    Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                    child: Stack(
+                                      alignment: Alignment.center,
                                       children: [
-                                        const SizedBox(height: 20),
-                                        Text(
-                                          "Bigiluu",
-                                          style: TextStyle(
-                                            color: Colors.white.withOpacity(0.15),
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w900,
-                                            letterSpacing: 4,
-                                            fontFamily: 'serif',
-                                          ),
+                                        Icon(
+                                          Icons.auto_stories_rounded,
+                                          color: Colors.white.withOpacity(0.05),
+                                          size: 80,
                                         ),
-                                        Container(
-                                          margin: const EdgeInsets.only(top: 4),
-                                          width: 20,
-                                          height: 1,
-                                          color: Colors.white.withOpacity(0.1),
+                                        Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            const SizedBox(height: 20),
+                                            Text(
+                                              "Bigiluu",
+                                              style: TextStyle(
+                                                color: Colors.white.withOpacity(
+                                                  0.15,
+                                                ),
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w900,
+                                                letterSpacing: 4,
+                                                fontFamily: 'serif',
+                                              ),
+                                            ),
+                                            Container(
+                                              margin: const EdgeInsets.only(
+                                                top: 4,
+                                              ),
+                                              width: 20,
+                                              height: 1,
+                                              color: Colors.white.withOpacity(
+                                                0.1,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
-                                  ],
-                                ),
-                              ),
-                          ) : Container(
-                              decoration: const BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [Color(0xFF1E1E2C), Color(0xFF264060)],
-                                ),
-                              ),
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.auto_stories_rounded,
-                                    color: Colors.white.withOpacity(0.05),
-                                    size: 80,
                                   ),
-                                  Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
+                                )
+                              : Container(
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        Color(0xFF1E1E2C),
+                                        Color(0xFF264060),
+                                      ],
+                                    ),
+                                  ),
+                                  child: Stack(
+                                    alignment: Alignment.center,
                                     children: [
-                                      const SizedBox(height: 20),
-                                      Text(
-                                        "Bigiluu",
-                                        style: TextStyle(
-                                          color: Colors.white.withOpacity(0.15),
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: 4,
-                                          fontFamily: 'serif',
-                                        ),
+                                      Icon(
+                                        Icons.auto_stories_rounded,
+                                        color: Colors.white.withOpacity(0.05),
+                                        size: 80,
                                       ),
-                                      Container(
-                                        margin: const EdgeInsets.only(top: 4),
-                                        width: 20,
-                                        height: 1,
-                                        color: Colors.white.withOpacity(0.1),
+                                      Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const SizedBox(height: 20),
+                                          Text(
+                                            "Bigiluu",
+                                            style: TextStyle(
+                                              color: Colors.white.withOpacity(
+                                                0.15,
+                                              ),
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w900,
+                                              letterSpacing: 4,
+                                              fontFamily: 'serif',
+                                            ),
+                                          ),
+                                          Container(
+                                            margin: const EdgeInsets.only(
+                                              top: 4,
+                                            ),
+                                            width: 20,
+                                            height: 1,
+                                            color: Colors.white.withOpacity(
+                                              0.1,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
-                                ],
-                              ),
-                            ),
+                                ),
                         ),
 
                         // Depth Overlay
@@ -1091,9 +1424,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ),
       ),
-      bottomNavigationBar: widget.isPublicView
-          ? null
-          : _buildBottomNavigationBar(context),
+      // ✅ Bottom nav removed — handled by MainShell (IndexedStack)
     );
   }
 
@@ -1207,10 +1538,18 @@ class _ProfilePageState extends State<ProfilePage> {
   // Tabs
   // ============================
   List<Map<String, dynamic>> _getSelectedList() {
-    if (widget.isPublicView) return myPosts; // 👈 FIX
+    if (widget.isPublicView) {
+      return [...myPosts, ...myPolls];
+    }
 
-    if (selectedTab == 0) return myPosts;
-    if (selectedTab == 1) return draftPosts;
+    if (selectedTab == 0) {
+      return [...myPosts, ...myPolls];
+    }
+
+    if (selectedTab == 1) {
+      return draftPosts;
+    }
+
     return savedPosts;
   }
 
@@ -1238,7 +1577,7 @@ class _ProfilePageState extends State<ProfilePage> {
               _build3DNavItem(context, Icons.home_rounded, "Home", () {
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(builder: (_) => const HomePage()),
+                  MaterialPageRoute(builder: (_) => const MainShell()),
                   (route) => false,
                 );
               }, isActive: false),
@@ -2066,7 +2405,8 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                 final String caption = (post['caption'] ?? '').toString();
                 final String hashtag = (post['hastag'] ?? '').toString();
                 final String username =
-                    (post['username'] ?? 'has published a Book').toString();
+                    (post['username'] ?? 'Bigiluu Member').toString();
+                final String constituency = (post['constituency'] ?? '').toString();
                 final String profileImg = (post['profile_image'] ?? '')
                     .toString();
                 final int readersCount = post['readers_count'] ?? 0;
@@ -2175,13 +2515,14 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                                           fontWeight: FontWeight.w800,
                                         ),
                                       ),
-                                      Text(
-                                        "has published a Book",
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.grey.shade500,
+                                      if (constituency.isNotEmpty)
+                                        Text(
+                                          constituency,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey.shade500,
+                                          ),
                                         ),
-                                      ),
                                     ],
                                   ),
                                 ),
@@ -2435,24 +2776,41 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                                               fit: StackFit.expand,
                                               children: [
                                                 CoverPreviewWidget(
-                                                        post: post,
-                                                        fullUrl: fullUrl,
-                                                        fallback: img.isNotEmpty ? Image.network(
+                                                  post: post,
+                                                  fullUrl: fullUrl,
+                                                  fallback: img.isNotEmpty
+                                                      ? Image.network(
                                                           img,
                                                           fit: BoxFit.cover,
-                                                        ) : Container(
+                                                        )
+                                                      : Container(
                                                           decoration: const BoxDecoration(
                                                             gradient: LinearGradient(
-                                                              begin: Alignment.topLeft,
-                                                              end: Alignment.bottomRight,
-                                                              colors: [Color(0xFF2D1B69), Color(0xFF11998E)],
+                                                              begin: Alignment
+                                                                  .topLeft,
+                                                              end: Alignment
+                                                                  .bottomRight,
+                                                              colors: [
+                                                                Color(
+                                                                  0xFF2D1B69,
+                                                                ),
+                                                                Color(
+                                                                  0xFF11998E,
+                                                                ),
+                                                              ],
                                                             ),
                                                           ),
                                                           child: const Center(
-                                                            child: Icon(Icons.book_rounded, color: Colors.white54, size: 64),
+                                                            child: Icon(
+                                                              Icons
+                                                                  .book_rounded,
+                                                              color: Colors
+                                                                  .white54,
+                                                              size: 64,
+                                                            ),
                                                           ),
                                                         ),
-                                                      ),
+                                                ),
                                                 // Overlays
                                                 Container(
                                                   decoration: BoxDecoration(

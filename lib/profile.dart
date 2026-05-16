@@ -474,7 +474,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         if (mounted) {
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (_) => const HomePage()),
+            MaterialPageRoute(builder: (_) => const MainShell()),
             (route) => false,
           );
         }
@@ -580,7 +580,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             } else {
               Navigator.pushAndRemoveUntil(
                 context,
-                MaterialPageRoute(builder: (_) => const HomePage()),
+                MaterialPageRoute(builder: (_) => const MainShell()),
                 (route) => false,
               );
             }
@@ -1028,9 +1028,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
               }),
               _buildPremiumNavItem(context, Icons.home_rounded, 'Home', () {
                 final route = Platform.isIOS
-                    ? CupertinoPageRoute(builder: (_) => const HomePage())
-                    : MaterialPageRoute(builder: (_) => const HomePage());
-                Navigator.push(context, route);
+                    ? CupertinoPageRoute(builder: (_) => const MainShell())
+                    : MaterialPageRoute(builder: (_) => const MainShell());
+                Navigator.pushAndRemoveUntil(context, route, (route) => false);
               }),
               _buildPremiumNavItem(context, Icons.edit_rounded, 'Write', () async {
                 final category = await showCategorySelectionBottomSheet(context);

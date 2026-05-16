@@ -1,5 +1,5 @@
 import 'dart:io' show Platform;
-import 'package:bigilu/home.dart';
+import 'package:bigilu/home.dart'; // MainShell + HomePage
 import 'package:bigilu/otp.dart';
 import 'package:bigilu/password_login.dart';
 import 'package:bigilu/profile1.dart';
@@ -278,7 +278,7 @@ navigatorKey.currentState?.push(
       return CupertinoApp(
         navigatorKey: navigatorKey,
         debugShowCheckedModeBanner: false,
-        home: widget.token != null ? const HomePage() : const PasswordLoginPage(),
+        home: widget.token != null ? const MainShell() : const PasswordLoginPage(),
       );
     }
 
@@ -293,7 +293,7 @@ navigatorKey.currentState?.push(
       },
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
-      home: widget.token != null ? const HomePage() : const PasswordLoginPage(),
+      home: widget.token != null ? const MainShell() : const PasswordLoginPage(),
     );
   }
 }

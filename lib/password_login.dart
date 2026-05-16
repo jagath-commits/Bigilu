@@ -32,11 +32,9 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
     try {
       // NOTE: Update this URL to point to your backend API that checks if user exists
       var res = await http.post(
-        Uri.parse("https://bigiluu.com/api/check-user"), 
+        Uri.parse("https://bigiluu.com/api/check-user"),
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "phone": phoneController.text.trim(),
-        }),
+        body: jsonEncode({"phone": phoneController.text.trim()}),
       );
 
       var data = jsonDecode(res.body);
@@ -45,7 +43,7 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
 
       if (res.statusCode == 200 && data["success"] == true) {
         bool isExisting = data["is_existing"] == true;
-        
+
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -105,7 +103,8 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight: MediaQuery.of(context).size.height -
+                  minHeight:
+                      MediaQuery.of(context).size.height -
                       MediaQuery.of(context).padding.top -
                       MediaQuery.of(context).padding.bottom -
                       40,
@@ -232,14 +231,16 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
                                           width: 24,
                                           height: 24,
                                           child: CircularProgressIndicator(
-                                            valueColor: AlwaysStoppedAnimation<Color>(
-                                              Colors.white.withOpacity(0.9),
-                                            ),
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                  Colors.white.withOpacity(0.9),
+                                                ),
                                             strokeWidth: 2.5,
                                           ),
                                         )
                                       : Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
                                           children: [
                                             const Text(
                                               "Next",
@@ -253,7 +254,9 @@ class _PasswordLoginPageState extends State<PasswordLoginPage> {
                                             const SizedBox(width: 8),
                                             Icon(
                                               Icons.arrow_forward,
-                                              color: Colors.white.withOpacity(0.9),
+                                              color: Colors.white.withOpacity(
+                                                0.9,
+                                              ),
                                               size: 18,
                                             ),
                                           ],
@@ -379,12 +382,12 @@ class _PasswordEnterPageState extends State<PasswordEnterPage> {
     try {
       // NOTE: Update this URL to point to your backend API that handles login/register
       var res = await http.post(
-        Uri.parse("https://bigiluu.com/api/auth-password"), 
+        Uri.parse("https://bigiluu.com/api/auth-password"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "phone": widget.phone,
           "password": passwordController.text.trim(),
-          "is_register": !widget.isExisting
+          "is_register": !widget.isExisting,
         }),
       );
 
@@ -394,7 +397,7 @@ class _PasswordEnterPageState extends State<PasswordEnterPage> {
 
       if (res.statusCode == 200 && data["success"] == true) {
         final prefs = await SharedPreferences.getInstance();
-        
+
         if (widget.isExisting) {
           await prefs.setString("token", data["token"] ?? "");
         } else {
@@ -416,7 +419,7 @@ class _PasswordEnterPageState extends State<PasswordEnterPage> {
             headers: {"Content-Type": "application/json"},
             body: jsonEncode({
               "user_id": data["user_id"],
-              "fcm_token": fcmToken
+              "fcm_token": fcmToken,
             }),
           );
         }
@@ -450,9 +453,13 @@ class _PasswordEnterPageState extends State<PasswordEnterPage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 600;
 
-    String headerText = widget.isExisting ? "Enter Password" : "Create Password";
+    String headerText = widget.isExisting
+        ? "Enter Password"
+        : "Create Password";
     String buttonText = widget.isExisting ? "Login" : "Register";
-    String hintText = widget.isExisting ? "Enter your password" : "Create a new password";
+    String hintText = widget.isExisting
+        ? "Enter your password"
+        : "Create a new password";
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -492,7 +499,8 @@ class _PasswordEnterPageState extends State<PasswordEnterPage> {
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight: MediaQuery.of(context).size.height -
+                  minHeight:
+                      MediaQuery.of(context).size.height -
                       MediaQuery.of(context).padding.top -
                       MediaQuery.of(context).padding.bottom -
                       40,
@@ -507,17 +515,26 @@ class _PasswordEnterPageState extends State<PasswordEnterPage> {
 
                         // Display Phone Number
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.black.withOpacity(0.05)),
+                            border: Border.all(
+                              color: Colors.black.withOpacity(0.05),
+                            ),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.phone_android, size: 18, color: Color(0xFFB11226)),
+                              const Icon(
+                                Icons.phone_android,
+                                size: 18,
+                                color: Color(0xFFB11226),
+                              ),
                               const SizedBox(width: 8),
                               Text(
                                 "+91 ${widget.phone}",
@@ -592,12 +609,15 @@ class _PasswordEnterPageState extends State<PasswordEnterPage> {
                                   focusedBorder: InputBorder.none,
                                   suffixIcon: IconButton(
                                     icon: Icon(
-                                      _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                                      _isPasswordVisible
+                                          ? Icons.visibility
+                                          : Icons.visibility_off,
                                       color: Colors.grey,
                                     ),
                                     onPressed: () {
                                       setState(() {
-                                        _isPasswordVisible = !_isPasswordVisible;
+                                        _isPasswordVisible =
+                                            !_isPasswordVisible;
                                       });
                                     },
                                   ),
@@ -649,14 +669,16 @@ class _PasswordEnterPageState extends State<PasswordEnterPage> {
                                           width: 24,
                                           height: 24,
                                           child: CircularProgressIndicator(
-                                            valueColor: AlwaysStoppedAnimation<Color>(
-                                              Colors.white.withOpacity(0.9),
-                                            ),
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                  Colors.white.withOpacity(0.9),
+                                                ),
                                             strokeWidth: 2.5,
                                           ),
                                         )
                                       : Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
                                           children: [
                                             Text(
                                               buttonText,
@@ -670,7 +692,9 @@ class _PasswordEnterPageState extends State<PasswordEnterPage> {
                                             const SizedBox(width: 8),
                                             Icon(
                                               Icons.arrow_forward,
-                                              color: Colors.white.withOpacity(0.9),
+                                              color: Colors.white.withOpacity(
+                                                0.9,
+                                              ),
                                               size: 18,
                                             ),
                                           ],
@@ -684,7 +708,9 @@ class _PasswordEnterPageState extends State<PasswordEnterPage> {
                         SizedBox(height: screenHeight * 0.03),
 
                         Text(
-                          widget.isExisting ? "Welcome back!" : "Join Bigilu today",
+                          widget.isExisting
+                              ? "Welcome back!"
+                              : "Join Bigilu today",
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 13,

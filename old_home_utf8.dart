@@ -1,6 +1,5 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 import 'dart:ui';
 import 'dart:ui' as ui;
 import 'dart:io';
@@ -18,252 +17,6 @@ import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:app_links/app_links.dart';
-import 'package:bigilu/poll.dart';
-
-// ============================================================
-// MAIN SHELL — IndexedStack Navigation (Production Pattern)
-// ============================================================
-class MainShell extends StatefulWidget {
-  final String? deepLinkPostId;
-  const MainShell({super.key, this.deepLinkPostId});
-
-  @override
-  State<MainShell> createState() => _MainShellState();
-}
-
-class _MainShellState extends State<MainShell> {
-  int _currentIndex = 0;
-
-  late final List<Widget> _pages;
-
-  @override
-  void initState() {
-    super.initState();
-    _pages = [
-      HomePage(deepLinkPostId: widget.deepLinkPostId),
-      const HashtagPage(),
-      _ProfileShell(),
-    ];
-  }
-
-  // Write tab → opens category sheet then WritePage (not a persistent tab)
-  Future<void> _onWriteTap() async {
-    final category = await showCategorySelectionBottomSheet(context);
-    if (category != null && mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => WritePage(category: category)),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        if (_currentIndex != 0) {
-          setState(() => _currentIndex = 0);
-          return false;
-        }
-        if (Platform.isAndroid) {
-          SystemNavigator.pop();
-        }
-        return false;
-      },
-      child: Scaffold(
-        body: IndexedStack(index: _currentIndex, children: _pages),
-        bottomNavigationBar: _buildBottomNav(context),
-      ),
-    );
-  }
-
-  Widget _buildBottomNav(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Color(0xFFB11226), width: 2.2)),
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x1F000000),
-              blurRadius: 24,
-              offset: Offset(0, -6),
-            ),
-            BoxShadow(
-              color: Color(0x0D000000),
-              blurRadius: 8,
-              offset: Offset(0, -2),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _navItem(context, Icons.home_rounded, "Home", 0),
-              _navItem(context, Icons.explore_rounded, "Explore", 1),
-              _writeNavItem(context),
-              _navItem(context, Icons.person_rounded, "Profile", 2),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _navItem(
-    BuildContext context,
-    IconData icon,
-    String label,
-    int index,
-  ) {
-    final bool isActive = _currentIndex == index;
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final double iconSize = screenWidth < 360 ? 22 : 26;
-    final double fontSize = screenWidth < 360 ? 9 : 10;
-    const Color activeColor = Color(0xFFB11226);
-    final Color inactiveColor = Colors.grey.shade600;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => setState(() => _currentIndex = index),
-        borderRadius: BorderRadius.circular(16),
-        splashColor: activeColor.withOpacity(0.15),
-        highlightColor: activeColor.withOpacity(0.08),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: isActive
-              ? BoxDecoration(
-                  color: activeColor.withOpacity(0.14),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: activeColor.withOpacity(0.35),
-                    width: 1.2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: activeColor.withOpacity(0.12),
-                      blurRadius: 8,
-                      offset: const Offset(0, 1.5),
-                    ),
-                  ],
-                )
-              : BoxDecoration(borderRadius: BorderRadius.circular(12)),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                color: isActive ? activeColor : inactiveColor,
-                size: iconSize,
-              ),
-              const SizedBox(height: 3),
-              Text(
-                label,
-                style: TextStyle(
-                  color: isActive ? activeColor : inactiveColor,
-                  fontSize: fontSize,
-                  fontWeight: isActive ? FontWeight.w800 : FontWeight.w700,
-                  fontFamily: 'Roboto',
-                  letterSpacing: 0.2,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Write button — special action tab (no persistent page)
-  Widget _writeNavItem(BuildContext context) {
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final double iconSize = screenWidth < 360 ? 22 : 26;
-    final double fontSize = screenWidth < 360 ? 9 : 10;
-    const Color activeColor = Color(0xFFB11226);
-    final Color inactiveColor = Colors.grey.shade600;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: _onWriteTap,
-        borderRadius: BorderRadius.circular(16),
-        splashColor: activeColor.withOpacity(0.15),
-        highlightColor: activeColor.withOpacity(0.08),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.edit_rounded, color: inactiveColor, size: iconSize),
-              const SizedBox(height: 3),
-              Text(
-                "Write",
-                style: TextStyle(
-                  color: inactiveColor,
-                  fontSize: fontSize,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: 'Roboto',
-                  letterSpacing: 0.2,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Lazy ProfilePage wrapper that reads userId from SharedPreferences
-class _ProfileShell extends StatefulWidget {
-  const _ProfileShell();
-  @override
-  State<_ProfileShell> createState() => _ProfileShellState();
-}
-
-class _ProfileShellState extends State<_ProfileShell> {
-  String? _userId;
-  bool _loaded = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadUserId();
-  }
-
-  Future<void> _loadUserId() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() {
-      _userId = prefs.getString('user_id');
-      _loaded = true;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_loaded) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(color: Color(0xFFB11226)),
-        ),
-      );
-    }
-    if (_userId == null) {
-      return const Scaffold(body: Center(child: Text("Please log in")));
-    }
-    return ProfilePage(userId: _userId!, isPublicView: false);
-  }
-}
-
-// ============================================================
 
 class HomePage extends StatefulWidget {
   final String? deepLinkPostId;
@@ -277,41 +30,9 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   StreamSubscription? _linkSub;
 
-  // ─── Shared Prefs singleton (loaded once, reused everywhere) ───
-  SharedPreferences? _prefs;
-  String? _cachedUserId;
-
-  // ─── In-memory cache TTL (5 minutes) ──────────────────────────
-  static const _kCategoryTtl = Duration(minutes: 5);
-  static const _kInteractionTtl = Duration(minutes: 10);
-  static const _kPollTtl = Duration(minutes: 5);
-
-  DateTime? _categoryFetchedAt;
-  DateTime? _interactionFetchedAt;
-  DateTime? _pollFetchedAt;
-
-  bool _isCategoryFresh() =>
-      _categoryFetchedAt != null &&
-      DateTime.now().difference(_categoryFetchedAt!) < _kCategoryTtl;
-
-  bool _isInteractionFresh() =>
-      _interactionFetchedAt != null &&
-      DateTime.now().difference(_interactionFetchedAt!) < _kInteractionTtl;
-
-  bool _isPollFresh() =>
-      _pollFetchedAt != null &&
-      DateTime.now().difference(_pollFetchedAt!) < _kPollTtl;
-
-  // ──────────────────────────────────────────────────────────────
   Set<String> likedPosts = {};
   Set<String> savedPosts = {};
-  Set<String> shownPostIds = {}; // Track posts already shown
   List posts = [];
-  List manuPosts = [];
-  List sinthanaigalPosts = [];
-  List budgetPosts = [];
-  List<PollPost> pollPosts = [];
-  List<dynamic> mainFeed = [];
   bool isLoading = true;
 
   String _selectedCategory = "All";
@@ -365,180 +86,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return "All";
   }
 
-  /// Fetches all 3 category feeds in parallel.
-  /// Skips the network call entirely if data is still fresh (TTL not expired).
-  Future<void> fetchCategoryPosts({bool forceRefresh = false}) async {
-    // ✅ Skip if already fresh and not a forced refresh
-    if (!forceRefresh && _isCategoryFresh()) {
-      print("⚡ Category posts served from memory cache");
-      return;
-    }
-
-    // ✅ Try disk cache first (instant render before network)
-    if (!forceRefresh) {
-      await _loadCategoryFromDisk();
-    }
-
-    try {
-      // ✅ All 3 calls fire in PARALLEL — not sequential
-      final results = await Future.wait([
-        http
-            .get(
-              Uri.parse("https://bigiluu.com/api/posts/getPostsByCategory/1"),
-            )
-            .timeout(const Duration(seconds: 15)),
-        http
-            .get(
-              Uri.parse("https://bigiluu.com/api/posts/getPostsByCategory/2"),
-            )
-            .timeout(const Duration(seconds: 15)),
-        http
-            .get(
-              Uri.parse("https://bigiluu.com/api/posts/getPostsByCategory/3"),
-            )
-            .timeout(const Duration(seconds: 15)),
-      ]);
-
-      final List newManu = results[0].statusCode == 200
-          ? (jsonDecode(results[0].body)['data'] ?? []).map((e) {
-              if (e is Map) {
-                e['category_id'] = '1';
-                e['category'] = 'Manu';
-              }
-              return e;
-            }).toList()
-          : manuPosts;
-      final List newSinthanaigal = results[1].statusCode == 200
-          ? (jsonDecode(results[1].body)['data'] ?? []).map((e) {
-              if (e is Map) {
-                e['category_id'] = '2';
-                e['category'] = 'Sinthanaigal';
-              }
-              return e;
-            }).toList()
-          : sinthanaigalPosts;
-      final List newBudget = results[2].statusCode == 200
-          ? (jsonDecode(results[2].body)['data'] ?? []).map((e) {
-              if (e is Map) {
-                e['category_id'] = '3';
-                e['category'] = 'Budget';
-              }
-              return e;
-            }).toList()
-          : budgetPosts;
-
-      if (!mounted) return;
-      setState(() {
-        manuPosts = newManu;
-        sinthanaigalPosts = newSinthanaigal;
-        budgetPosts = newBudget;
-        _categoryFetchedAt = DateTime.now();
-      });
-
-      // ✅ Persist to disk for next cold start
-      _saveCategoryToDisk();
-
-      print(
-        "✅ MANU: ${manuPosts.length} | SINTHANAIGAL: ${sinthanaigalPosts.length} | BUDGET: ${budgetPosts.length}",
-      );
-    } catch (e) {
-      print("Category fetch error: $e");
-    }
-  }
-
-  // ── Category disk cache helpers ──────────────────────────────
-  Future<void> _loadCategoryFromDisk() async {
-    final prefs = await _getPrefs();
-    try {
-      final m = prefs.getString('cache_cat_manu');
-      final s = prefs.getString('cache_cat_sinthanaigal');
-      final b = prefs.getString('cache_cat_budget');
-      final ts = prefs.getInt('cache_cat_ts');
-
-      if (m != null && s != null && b != null) {
-        final age = ts != null
-            ? DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(ts))
-            : _kCategoryTtl; // treat unknown age as expired
-
-        final List dm = jsonDecode(m);
-        final List ds = jsonDecode(s);
-        final List db = jsonDecode(b);
-
-        if (!mounted) return;
-        setState(() {
-          manuPosts = dm;
-          sinthanaigalPosts = ds;
-          budgetPosts = db;
-          // Mark as fresh only if under TTL
-          if (age < _kCategoryTtl)
-            _categoryFetchedAt = DateTime.now().subtract(age);
-        });
-        print("📦 Category posts loaded from disk cache");
-      }
-    } catch (e) {
-      print("Category disk cache load error: $e");
-    }
-  }
-
-  Future<void> _saveCategoryToDisk() async {
-    try {
-      final prefs = await _getPrefs();
-      await Future.wait([
-        prefs.setString('cache_cat_manu', jsonEncode(manuPosts)),
-        prefs.setString(
-          'cache_cat_sinthanaigal',
-          jsonEncode(sinthanaigalPosts),
-        ),
-        prefs.setString('cache_cat_budget', jsonEncode(budgetPosts)),
-        prefs.setInt('cache_cat_ts', DateTime.now().millisecondsSinceEpoch),
-      ]);
-    } catch (e) {
-      print("Category disk cache save error: $e");
-    }
-  }
-
   List get _filteredPosts {
-    if (_selectedCategory == "All") {
-      final allList = [
-        ...budgetPosts,
-        ...sinthanaigalPosts,
-        ...manuPosts,
-        ...posts,
-      ];
-      final seen = <String>{};
-      final uniquePosts = [];
-      for (var p in allList) {
-        final pid = p['post_id']?.toString() ?? "";
-        if (pid.isNotEmpty && !seen.contains(pid)) {
-          seen.add(pid);
-          uniquePosts.add(p);
-        }
-      }
-      uniquePosts.sort((a, b) {
-        final idA = int.tryParse(a['post_id']?.toString() ?? '0') ?? 0;
-        final idB = int.tryParse(b['post_id']?.toString() ?? '0') ?? 0;
-        return idB.compareTo(idA); // descending
-      });
-      return [...uniquePosts, ...pollPosts];
-    }
-
-    if (_selectedCategory == "Poll") {
-      return pollPosts;
-    }
-
-    if (_selectedCategory == "Manu") {
-      return manuPosts;
-    }
-
-    if (_selectedCategory == "Sinthanaigal") {
-      return sinthanaigalPosts;
-    }
-
-    if (_selectedCategory == "Budget") {
-      return budgetPosts;
-    }
-
-    return [];
+    if (_selectedCategory == "All") return posts;
+    return posts
+        .where((post) => _getPostCategory(post) == _selectedCategory)
+        .toList();
   }
 
   Widget _buildModernTab(String id, String title) {
@@ -591,18 +143,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool hasMore = true;
   final ScrollController _scrollController = ScrollController();
 
-  // ── SharedPreferences singleton ──────────────────────────────
-  Future<SharedPreferences> _getPrefs() async {
-    _prefs ??= await SharedPreferences.getInstance();
-    return _prefs!;
-  }
-
-  // ── userId cached in memory after first read ─────────────────
   Future<String?> getUserId() async {
-    if (_cachedUserId != null) return _cachedUserId;
-    final prefs = await _getPrefs();
-    _cachedUserId = prefs.getString('user_id');
-    return _cachedUserId;
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getString('user_id');
   }
 
   bool interactionsLoaded = false;
@@ -612,26 +155,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
+    _loadInteractionsLocal(); // ≡ƒöÑ Load from cache immediately
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       _scrollController.addListener(_onScroll);
       initDeepLinks();
 
-      // ── PHASE 1: Instant render from disk cache (zero network) ──
+      // Γ£à ONLY ONE CALL (PARALLEL)
+      await loadCachedPosts(); // ≡ƒöÑ ADD THIS FIRST
+
       await Future.wait([
-        _loadInteractionsLocal(),
-        loadCachedPosts(),
-        _loadCategoryFromDisk(),
-        _loadPollsFromDisk(),
+        fetchPosts(), // API refresh
+        fetchUserInteractions(),
       ]);
-
-      // ── PHASE 2: Background refresh (non-blocking) ───────────
-      // Main feed always refreshes to show newest posts
-      fetchPosts();
-
-      // Secondary data refreshes only when TTL expired
-      fetchUserInteractions();
-      fetchPolls();
-      fetchCategoryPosts();
 
       if (widget.deepLinkPostId != null && !isDeepLinkHandled) {
         isDeepLinkHandled = true;
@@ -643,19 +179,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void _onScroll() {
     if (!_scrollController.hasClients) return;
 
-    if (isFetchingPosts || isLoadingMore || !hasMore) return;
+    final threshold = 300; // ≡ƒöÑ increase buffer
 
-    final maxScroll = _scrollController.position.maxScrollExtent;
-
-    final currentScroll = _scrollController.position.pixels;
-
-    final remaining = maxScroll - currentScroll;
-
-    print("SCROLL REMAINING: $remaining");
-
-    // ✅ LOAD BEFORE END
-    if (remaining < 1200) {
-      print("🔥 LOAD NEXT PAGE");
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - threshold &&
+        !isLoadingMore &&
+        hasMore &&
+        !isLoading &&
+        !isFetchingPosts) {
+      print("≡ƒöÑ LOAD MORE TRIGGERED - PAGE: $currentPage");
 
       fetchPosts(loadMore: true);
     }
@@ -667,16 +199,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _appLinks = AppLinks();
 
     try {
-      // 🔥 INITIAL LINK
+      // ≡ƒöÑ INITIAL LINK
       final uri = await _appLinks.getInitialLink();
 
       if (uri != null) {
         handleLink(uri.toString());
       }
 
-      // 🔥 STREAM LISTENER
+      // ≡ƒöÑ STREAM LISTENER
       _linkSub = _appLinks.uriLinkStream.listen((uri) {
-        handleLink(uri.toString());
+        if (uri != null) {
+          handleLink(uri.toString());
+        }
       });
     } catch (e) {
       print("Deep link error: $e");
@@ -686,116 +220,104 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool isDeepLinkHandled = false;
 
   void handleLink(String link) {
-    print("🔥 Deep link: $link");
+    print("≡ƒöÑ Deep link: $link");
 
     Uri uri = Uri.parse(link);
 
     if (uri.pathSegments.isNotEmpty && uri.pathSegments.contains("post")) {
-      if (isDeepLinkHandled) return; // ✅ move inside
+      if (isDeepLinkHandled) return; // Γ£à move inside
 
       String postId = uri.pathSegments.last;
 
-      isDeepLinkHandled = true; // ✅ set only when valid
+      isDeepLinkHandled = true; // Γ£à set only when valid
       openPostFromDeepLink(postId);
     }
   }
 
   Future<void> loadCachedPosts() async {
-    final prefs = await _getPrefs();
+    final prefs = await SharedPreferences.getInstance();
     final cached = prefs.getString('cached_posts');
 
     if (cached != null) {
-      try {
-        final List decoded = jsonDecode(cached);
-        if (!mounted) return;
-        setState(() {
-          posts = decoded;
-          isLoading = false;
-          for (var p in decoded) {}
-          mainFeed = [...posts, ...pollPosts];
-        });
-        print("⚡ Loaded ${posts.length} cached posts instantly");
-      } catch (e) {
-        print("Cache decode error: $e");
-      }
+      final List decoded = jsonDecode(cached);
+
+      setState(() {
+        posts = decoded;
+        isLoading = false;
+      });
+
+      print("ΓÜí Loaded cached posts: ${posts.length}");
     }
   }
 
-  Future<void> fetchUserInteractions({bool forceRefresh = false}) async {
-    // ✅ Skip if TTL still valid
-    if (!forceRefresh && _isInteractionFresh()) {
-      print("⚡ Interactions served from memory cache");
-      return;
-    }
-    if (interactionsLoaded && !forceRefresh) return;
+  Future<void> fetchUserInteractions() async {
+    if (interactionsLoaded) return; // ≡ƒöÑ PREVENT DUPLICATE
     interactionsLoaded = true;
-
-    final String? userId = await getUserId();
+    String? userId = await getUserId();
     if (userId == null) return;
 
-    print("🔄 Fetching interactions for: $userId");
+    print("≡ƒöä Fetching user interactions for: $userId");
 
+    // 1. Fetch Saved Posts
     try {
-      // ✅ Both calls fire in PARALLEL
-      final results = await Future.wait([
-        http
-            .get(Uri.parse("https://bigiluu.com/api/posts/savedPosts/$userId"))
-            .timeout(const Duration(seconds: 15)),
-        http
-            .get(
-              Uri.parse("https://bigiluu.com/api/posts/supportedPosts/$userId"),
-            )
-            .timeout(const Duration(seconds: 15)),
-      ]);
+      final savedResponse = await http
+          .get(Uri.parse("https://bigiluu.com/api/posts/savedPosts/$userId"))
+          .timeout(const Duration(seconds: 30));
 
-      final savedRes = results[0];
-      final likedRes = results[1];
-
-      Set<String> newSaved = savedPosts;
-      Set<String> newLiked = likedPosts;
-
-      if (savedRes.statusCode == 200) {
-        final List data = jsonDecode(savedRes.body)['data'] ?? [];
-        newSaved = data.map((e) => e['post_id'].toString()).toSet();
+      if (savedResponse.statusCode == 200) {
+        final data = jsonDecode(savedResponse.body);
+        final List savedData = data['data'] ?? [];
+        if (!mounted) return;
+        setState(() {
+          savedPosts = savedData.map((e) => e['post_id'].toString()).toSet();
+        });
+        print("Γ£à Captured ${savedPosts.length} saved posts");
       }
-      if (likedRes.statusCode == 200) {
-        final List data = jsonDecode(likedRes.body)['data'] ?? [];
-        newLiked = data.map((e) => e['post_id'].toString()).toSet();
-      }
-
-      if (!mounted) return;
-      setState(() {
-        savedPosts = newSaved;
-        likedPosts = newLiked;
-        _interactionFetchedAt = DateTime.now();
-      });
-
-      print("✅ Saved: ${savedPosts.length} | Liked: ${likedPosts.length}");
-      _saveInteractionsLocal();
     } catch (e) {
-      print("⚠️ Interaction fetch error: $e — using local cache");
-      await _loadInteractionsLocal();
+      print("ΓÜá∩╕Å Error fetching saved posts: $e");
+    }
+
+    // 2. Fetch Supported (Liked) Posts
+    try {
+      // Assuming endpoint follows same pattern as savePost
+      final likedResponse = await http
+          .get(
+            Uri.parse("https://bigiluu.com/api/posts/supportedPosts/$userId"),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (likedResponse.statusCode == 200) {
+        final data = jsonDecode(likedResponse.body);
+        final List likedData = data['data'] ?? [];
+        if (!mounted) return;
+        setState(() {
+          likedPosts = likedData.map((e) => e['post_id'].toString()).toSet();
+        });
+        print("Γ£à Captured ${likedPosts.length} supported posts");
+        _saveInteractionsLocal(); // Γ£à Update cache
+      }
+    } catch (e) {
+      // If endpoint doesn't exist, we might need to check if getAllPosts returns it
+      // or if there's another way. For now, we handle it gracefully.
+      print("ΓÜá∩╕Å Error fetching supported posts: $e");
     }
   }
 
   Future<void> _loadInteractionsLocal() async {
-    final prefs = await _getPrefs();
-    if (!mounted) return;
+    final prefs = await SharedPreferences.getInstance();
     setState(() {
       likedPosts = (prefs.getStringList('cached_liked_posts') ?? []).toSet();
       savedPosts = (prefs.getStringList('cached_saved_posts') ?? []).toSet();
     });
     print(
-      "📦 Interactions from disk: ${likedPosts.length} likes, ${savedPosts.length} saves",
+      "≡ƒôª Loaded local cache: ${likedPosts.length} likes, ${savedPosts.length} saves",
     );
   }
 
   Future<void> _saveInteractionsLocal() async {
-    final prefs = await _getPrefs();
-    await Future.wait([
-      prefs.setStringList('cached_liked_posts', likedPosts.toList()),
-      prefs.setStringList('cached_saved_posts', savedPosts.toList()),
-    ]);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('cached_liked_posts', likedPosts.toList());
+    await prefs.setStringList('cached_saved_posts', savedPosts.toList());
   }
 
   /*@override
@@ -820,9 +342,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final response = await http
           .get(Uri.parse("https://bigiluu.com/api/posts/getPost/$postId"))
           .timeout(
-            const Duration(seconds: 15),
+            const Duration(seconds: 30),
             onTimeout: () {
-              print("⚠️ openPostFromDeepLink timeout");
+              print("ΓÜá∩╕Å openPostFromDeepLink timeout");
               throw TimeoutException("Deep link request timed out");
             },
           );
@@ -842,13 +364,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               pages: pages,
               username: post['username'] ?? "",
               profileImage: post['profile_image'] ?? "",
-              postId: post['post_id'], // ✅ ADD
+              postId: post['post_id'], // Γ£à ADD
             ),
           ),
         );
       }
     } on TimeoutException catch (e) {
-      print("⚠️ Deep link timeout: $e");
+      print("ΓÜá∩╕Å Deep link timeout: $e");
     } catch (e) {
       print("Deep link open error: $e");
     }
@@ -856,7 +378,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   List<dynamic> extractPages(dynamic content) {
     try {
-      // ✅ IMPORTANT ADD
+      // Γ£à IMPORTANT ADD
       if (content is List) return content;
 
       if (content is Map && content.containsKey("pages")) {
@@ -883,108 +405,94 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   bool isFetchingPosts = false;
-  //bool hasMore = true;
-  //bool isLoadingMore = false;
-  int lastFetchedCount = 0;
 
   Future<void> fetchPosts({bool loadMore = false}) async {
     if (isFetchingPosts) return;
 
-    if (loadMore && !hasMore) return;
-
-    isFetchingPosts = true;
-
-    if (mounted) {
+    if (loadMore) {
+      if (!hasMore) return;
       setState(() {
-        if (loadMore) {
-          isLoadingMore = true;
-        } else {
-          isLoading = true;
-        }
+        isLoadingMore = true;
+      });
+    } else {
+      setState(() {
+        isLoading = true;
+        currentPage = 1;
+        hasMore = true;
       });
     }
 
+    isFetchingPosts = true;
+
     try {
-      // ✅ IMPORTANT FIX
-      final int offset = loadMore ? posts.length : 0;
-
-      print("🔥 FETCH OFFSET: $offset");
-
-      final response = await http.get(
-        Uri.parse(
-          "https://bigiluu.com/api/posts/getAllPosts?offset=$offset&limit=10",
-        ),
-      );
+      final response = await http
+          .get(
+            Uri.parse(
+              "https://bigiluu.com/api/posts/getAllPosts?page=$currentPage&limit=10",
+            ),
+          )
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-
-        final List fetchedPosts = data['data'] ?? [];
-
-        print("✅ FETCHED: ${fetchedPosts.length}");
+        final data = json.decode(response.body);
+        final List newPosts = data["data"] ?? [];
 
         if (!mounted) return;
-
         setState(() {
           if (loadMore) {
-            // ✅ REMOVE DUPLICATES
             final existingIds = posts
-                .map((e) => e['post_id'].toString())
+                .map((p) => p['post_id']?.toString())
                 .toSet();
-
-            final uniquePosts = fetchedPosts.where((p) {
-              return !existingIds.contains(p['post_id'].toString());
-            }).toList();
-
-            posts.addAll(uniquePosts);
+            final filteredNewPosts = newPosts
+                .where((p) => !existingIds.contains(p['post_id']?.toString()))
+                .toList();
+            posts.addAll(filteredNewPosts);
           } else {
-            // ✅ KEEP OLD POSTS IF API EMPTY
-            if (fetchedPosts.isNotEmpty) {
-              final existingIds = posts
-                  .map((e) => e['post_id'].toString())
-                  .toSet();
-
-              final uniquePosts = fetchedPosts.where((p) {
-                return !existingIds.contains(p['post_id'].toString());
-              }).toList();
-
-              posts = uniquePosts;
-            }
+            posts = newPosts;
           }
-
-          lastFetchedCount = fetchedPosts.length;
-
-          hasMore = fetchedPosts.length >= 10;
-
-          mainFeed = [...posts, ...pollPosts];
 
           isLoading = false;
           isLoadingMore = false;
+
+          if (newPosts.length < 10) {
+            hasMore = false; // last page
+          }
+
+          if (newPosts.isNotEmpty) {
+            currentPage++;
+          }
         });
 
-        // ✅ SAVE ONLY FIRST PAGE
+        _savePostsToCache(); // ≡ƒöÑ ADD HERE
+        // Γ£à CALL ONLY AFTER POSTS LOAD
         if (!loadMore) {
-          await _savePostsToCache();
+          await Future.delayed(Duration(milliseconds: 300));
+          if (!mounted) return;
         }
-      }
-    } catch (e) {
-      print("❌ FETCH ERROR: $e");
-    } finally {
-      isFetchingPosts = false;
-
-      if (mounted) {
+      } else {
+        if (!mounted) return;
         setState(() {
           isLoading = false;
           isLoadingMore = false;
         });
       }
+    } catch (e) {
+      print("Γ¥î ERROR: $e");
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        isLoadingMore = false;
+      });
+    } finally {
+      isFetchingPosts = false;
     }
+    print("≡ƒôä FETCHING PAGE: $currentPage, loadMore: $loadMore");
   }
 
   Future<void> _savePostsToCache() async {
-    final prefs = await _getPrefs();
+    final prefs = await SharedPreferences.getInstance();
     await prefs.setString('cached_posts', jsonEncode(posts));
-    print("💾 Cached posts saved: ${posts.length}");
+    print("≡ƒÆ╛ Cached posts saved: ${posts.length}");
   }
 
   Future<void> toggleLike(String postId) async {
@@ -992,7 +500,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final String? userId = await getUserId();
     if (userId == null) return;
 
-    // ✅ UI instant update
+    // Γ£à UI instant update
     if (!mounted) return;
     setState(() {
       if (isAlreadyLiked) {
@@ -1015,7 +523,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     _saveInteractionsLocal();
 
-    // ✅ SINGLE API CALL
+    // Γ£à SINGLE API CALL
     try {
       final response = await http.post(
         Uri.parse("https://bigiluu.com/api/posts/toggleSupport"),
@@ -1039,34 +547,34 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         }
       });
     } catch (e) {
-      print("❌ Support API error: $e");
+      print("Γ¥î Support API error: $e");
     }
   }
 
   void toggleSave(String postId) async {
-    print("🔥 SAVE CLICKED: $postId"); // ADD THIS
+    print("≡ƒöÑ SAVE CLICKED: $postId"); // ADD THIS
 
     String? userId = await getUserId();
-    print("👤 USER ID: $userId"); // ADD THIS
+    print("≡ƒæñ USER ID: $userId"); // ADD THIS
     if (userId == null) return;
 
     final bool isAlreadySaved = savedPosts.contains(postId);
 
     try {
       if (isAlreadySaved) {
-        // 🔥 REMOVE / UNSAVE
+        // ≡ƒöÑ REMOVE / UNSAVE
         final url = Uri.parse(
           "https://bigiluu.com/api/posts/removeSavedPost/$userId/$postId",
         );
         final response = await http
             .delete(url)
-            .timeout(const Duration(seconds: 20));
+            .timeout(const Duration(seconds: 8));
 
         if (response.statusCode == 200) {
           setState(() {
             savedPosts.remove(postId);
 
-            // 🔥 FORCE UI UPDATE INSIDE POSTS
+            // ≡ƒöÑ FORCE UI UPDATE INSIDE POSTS
             for (var p in posts) {
               if (p['post_id'].toString() == postId) {
                 p['is_saved'] = !isAlreadySaved;
@@ -1074,10 +582,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             }
           });
         } else {
-          print("❌ Failed to remove from saved: ${response.body}");
+          print("Γ¥î Failed to remove from saved: ${response.body}");
         }
       } else {
-        // 🔥 SAVE
+        // ≡ƒöÑ SAVE
         final url = Uri.parse("https://bigiluu.com/api/posts/savePost");
         final response = await http
             .post(
@@ -1085,13 +593,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               headers: {'Content-Type': 'application/json'},
               body: jsonEncode({'user_id': userId, 'post_id': postId}),
             )
-            .timeout(const Duration(seconds: 20));
+            .timeout(const Duration(seconds: 8));
 
         if (response.statusCode == 200) {
           setState(() {
             savedPosts.add(postId);
 
-            // 🔥 FORCE UI UPDATE INSIDE POSTS
+            // ≡ƒöÑ FORCE UI UPDATE INSIDE POSTS
             for (var p in posts) {
               if (p['post_id'].toString() == postId) {
                 p['is_saved'] = !isAlreadySaved;
@@ -1099,351 +607,170 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             }
           });
         } else {
-          print("❌ Failed to save post: ${response.body}");
+          print("Γ¥î Failed to save post: ${response.body}");
         }
       }
     } on TimeoutException {
-      print("⚠️ Timeout toggling save");
+      print("ΓÜá∩╕Å Timeout toggling save");
     } catch (e) {
       print("Error toggling save: $e");
     }
   }
 
-  Future<void> fetchPolls({bool forceRefresh = false}) async {
-    // ✅ Skip if TTL still valid
-    if (!forceRefresh && _isPollFresh()) {
-      print("⚡ Polls served from memory cache");
-      return;
-    }
-
-    try {
-      final response = await http
-          .get(Uri.parse("https://bigiluu.com/api/poll/feed"))
-          .timeout(const Duration(seconds: 15));
-
-      if (response.statusCode == 200) {
-        final List data = jsonDecode(response.body);
-        if (!mounted) return;
-        setState(() {
-          pollPosts = data.map((e) => PollPost.fromJson(e)).toList();
-          mainFeed = [...posts, ...pollPosts];
-          _pollFetchedAt = DateTime.now();
-        });
-        _savePollsToDisk();
-        print("✅ Polls fetched: ${pollPosts.length}");
-      }
-    } catch (e) {
-      print("Poll fetch error: $e");
-    }
-  }
-
-  // ── Poll disk cache helpers ──────────────────────────────────
-  Future<void> _loadPollsFromDisk() async {
-    try {
-      final prefs = await _getPrefs();
-      final cached = prefs.getString('cache_polls');
-      final ts = prefs.getInt('cache_polls_ts');
-      if (cached == null) return;
-
-      final age = ts != null
-          ? DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(ts))
-          : _kPollTtl;
-
-      final List data = jsonDecode(cached);
-      if (!mounted) return;
-      setState(() {
-        pollPosts = data.map((e) => PollPost.fromJson(e)).toList();
-        mainFeed = [...posts, ...pollPosts];
-        if (age < _kPollTtl) _pollFetchedAt = DateTime.now().subtract(age);
-      });
-      print("📦 Polls loaded from disk cache");
-    } catch (e) {
-      print("Poll disk cache load error: $e");
-    }
-  }
-
-  Future<void> _savePollsToDisk() async {
-    try {
-      final prefs = await _getPrefs();
-      await Future.wait([
-        prefs.setString(
-          'cache_polls',
-          jsonEncode(pollPosts.map((e) => e.toJson()).toList()),
-        ),
-        prefs.setInt('cache_polls_ts', DateTime.now().millisecondsSinceEpoch),
-      ]);
-    } catch (e) {
-      print("Poll disk cache save error: $e");
-    }
-  }
-
-  Future<void> votePoll(PollPost post, PollOption option) async {
-    if (post.hasVoted) return;
-
-    final prefs = await SharedPreferences.getInstance();
-
-    String userId = prefs.getString("user_id") ?? "";
-
-    setState(() {
-      option.voteCount++;
-      post.hasVoted = true;
-      post.selectedOptionId = option.id;
-    });
-
-    try {
-      await http.post(
-        Uri.parse("https://bigiluu.com/api/poll/vote"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "poll_id": post.pollId,
-          "option_id": option.id,
-          "user_id": userId,
-        }),
-      );
-    } catch (e) {
-      print(e);
-    }
-  }
-
-  Widget _buildPollCard(PollPost post) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 24),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 12),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "📊 Community Poll",
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Color(0xFFB11226),
+  @override
+  Widget build(BuildContext context) {
+    return WillPopScope(
+      onWillPop: () async {
+        if (Platform.isAndroid) {
+          SystemNavigator.pop();
+        }
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8F8FA),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 2,
+          toolbarHeight: 75,
+          automaticallyImplyLeading: false,
+          systemOverlayStyle: const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+          ),
+          leadingWidth: 230,
+          title: null,
+          leading: Transform.translate(
+            offset: const Offset(-20, 0),
+            child: Padding(
+              padding: const EdgeInsets.only(left: 0),
+              child: Image.asset(
+                "assets/images/bigilu_logo21.png",
+                fit: BoxFit.contain,
+                height: 70,
+              ),
             ),
           ),
-
-          const SizedBox(height: 14),
-
-          Text(
-            post.title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-
-          const SizedBox(height: 18),
-
-          ...post.options.map((option) {
-            final totalVotes = post.totalVotes;
-
-            final percentage = totalVotes == 0
-                ? 0
-                : (option.voteCount / totalVotes);
-
-            final isSelected = post.selectedOptionId == option.id;
-
-            return GestureDetector(
-              onTap: () => votePoll(post, option),
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isSelected
-                        ? const Color(0xFFB11226)
-                        : Colors.grey.shade300,
-                  ),
-                  color: isSelected
-                      ? const Color(0xFFB11226).withOpacity(0.08)
-                      : Colors.white,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        option.text,
-                        style: TextStyle(
-                          fontWeight: isSelected
-                              ? FontWeight.bold
-                              : FontWeight.w500,
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Center(
+                child: PopupMenuButton<String>(
+                  icon: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          const Color(0xFFB11226),
+                          const Color(0xFF8A0C20),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFB11226).withOpacity(0.25),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
                         ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.more_vert_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  offset: const Offset(0, 55),
+                  elevation: 16,
+                  onSelected: (value) {
+                    if (value == "terms") {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const TermsPage()),
+                      );
+                    } else if (value == "privacy") {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const PrivacyPage()),
+                      );
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: "terms",
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2196F3).withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.description_rounded,
+                              color: Color(0xFF2196F3),
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Text(
+                            "Terms & Conditions",
+                            style: TextStyle(
+                              fontFamily: 'Roboto',
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black87,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-
-                    Text(
-                      "${(percentage * 100).toStringAsFixed(0)}%",
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    PopupMenuItem(
+                      value: "privacy",
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2196F3).withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.privacy_tip_rounded,
+                              color: Color(0xFF2196F3),
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Text(
+                            "Privacy Policy",
+                            style: TextStyle(
+                              fontFamily: 'Roboto',
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black87,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
-            );
-          }).toList(),
-
-          const SizedBox(height: 10),
-
-          Text(
-            "${post.totalVotes} votes",
-            style: TextStyle(color: Colors.grey.shade600),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F8FA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 2,
-        toolbarHeight: 75,
-        automaticallyImplyLeading: false,
-        systemOverlayStyle: const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.dark,
-        ),
-        leadingWidth: 230,
-        title: null,
-        leading: Transform.translate(
-          offset: const Offset(-20, 0),
-          child: Padding(
-            padding: const EdgeInsets.only(left: 0),
-            child: Image.asset(
-              "assets/images/bigilu_logo21.png",
-              fit: BoxFit.contain,
-              height: 70,
             ),
-          ),
+          ],
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: Center(
-              child: PopupMenuButton<String>(
-                icon: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        const Color(0xFFB11226),
-                        const Color(0xFF8A0C20),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFB11226).withOpacity(0.25),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.more_vert_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                offset: const Offset(0, 55),
-                elevation: 16,
-                onSelected: (value) {
-                  if (value == "terms") {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const TermsPage()),
-                    );
-                  } else if (value == "privacy") {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const PrivacyPage()),
-                    );
-                  }
-                },
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    value: "terms",
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2196F3).withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.description_rounded,
-                            color: Color(0xFF2196F3),
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Text(
-                          "Terms & Conditions",
-                          style: TextStyle(
-                            fontFamily: 'Roboto',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black87,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: "privacy",
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2196F3).withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.privacy_tip_rounded,
-                            color: Color(0xFF2196F3),
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Text(
-                          "Privacy Policy",
-                          style: TextStyle(
-                            fontFamily: 'Roboto',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black87,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: (isLoading && posts.isEmpty)
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFFB11226)),
-            )
-          : RefreshIndicator(
-              onRefresh: fetchPosts,
-              child: ListView.builder(
+        body: isLoading
+            ? const Center(
+                child: CircularProgressIndicator(color: Color(0xFFB11226)),
+              )
+            : ListView.builder(
                 controller: _scrollController,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
@@ -1451,36 +778,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ),
                 itemCount: _filteredPosts.length + 1 + (isLoadingMore ? 1 : 0),
                 itemBuilder: (context, index) {
-                  // Show refresh indicator at top if refreshing
-                  if (isLoading && posts.isNotEmpty && index == 0) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Color(0xFFB11226),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            "🔄 Refreshing...",
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  final adjustedIndex = (isLoading && posts.isNotEmpty)
-                      ? index - 1
-                      : index;
-
-                  if (adjustedIndex == 0) {
+                  if (index == 0) {
                     return Container(
                       margin: const EdgeInsets.only(bottom: 24),
                       height: 42,
@@ -1489,24 +787,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         physics: const BouncingScrollPhysics(),
                         clipBehavior: Clip.none,
                         children: [
-                          _buildModernTab("All", "அனைத்தும்"),
-                          _buildModernTab("Manu", "மனு"),
-                          _buildModernTab("Sinthanaigal", "சிந்தனைகள்"),
-                          _buildModernTab("Budget", "பட்ஜெட்"),
-                          _buildModernTab("Poll", "வாக்கெடுப்பு"),
+                          _buildModernTab("All", "α«àα«⌐α»êα«ñα»ìα«ñα»üα««α»ì"),
+                          _buildModernTab("Manu", "α««α«⌐α»ü"),
+                          _buildModernTab("Sinthanaigal", "α«Üα«┐α«¿α»ìα«ñα«⌐α»êα«òα«│α»ì"),
+                          _buildModernTab("Budget", "α«¬α«ƒα»ìα«£α»åα«ƒα»ì"),
+                          _buildModernTab("Poll", "α«╡α«╛α«òα»ìα«òα»åα«ƒα»üα«¬α»ìα«¬α»ü"),
                         ],
                       ),
                     );
                   }
 
-                  final listIndex = adjustedIndex - 1;
+                  final listIndex = index - 1;
 
-                  if (listIndex >= _filteredPosts.length) {
-                    return const SizedBox();
-                  }
-
-                  if (isLoadingMore &&
-                      adjustedIndex == (_filteredPosts.length + 1))
+                  if (listIndex == _filteredPosts.length) {
                     return const Padding(
                       padding: EdgeInsets.symmetric(vertical: 32),
                       child: Center(
@@ -1515,19 +808,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         ),
                       ),
                     );
-
-                  final currentFeed = _filteredPosts;
-
-                  final item = currentFeed[listIndex];
-
-                  if (item is PollPost) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 24),
-                      child: _buildPollCard(item),
-                    );
                   }
 
-                  final post = item;
+                  final post = _filteredPosts[listIndex];
                   final String postId = post['post_id']?.toString() ?? "";
 
                   return Padding(
@@ -1542,13 +825,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   );
                 },
               ),
-            ),
+        bottomNavigationBar: _buildBottomNavigationBar(context),
+      ),
     );
   }
 
-  // ---- REMOVED: bottom nav moved to MainShell (IndexedStack) ----
-  // ignore: unused_element
-  Widget _buildBottomNavigationBar_UNUSED(BuildContext context) {
+  Widget _buildBottomNavigationBar(BuildContext context) {
     return SafeArea(
       top: false,
       child: Container(
@@ -1613,7 +895,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       MaterialPageRoute(
                         builder: (_) => ProfilePage(
                           userId: userId,
-                          isPublicView: false, // 🔥 IMPORTANT
+                          isPublicView: false, // ≡ƒöÑ IMPORTANT
                         ),
                       ),
                     );
@@ -1694,18 +976,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       ),
     );
   }
-
-  // ---- REMOVED: _build3DNavItem moved to MainShell ----
-  // ignore: unused_element
-  Widget _build3DNavItem_UNUSED(
-    BuildContext context,
-    IconData icon,
-    String label,
-    VoidCallback onPressed, {
-    bool isActive = false,
-  }) {
-    return const SizedBox();
-  }
 }
 
 /* ---------------- POST CARD ---------------- */
@@ -1717,7 +987,6 @@ class PostContainer extends StatefulWidget {
   final VoidCallback onLike;
   final VoidCallback onSave;
   final VoidCallback? onTap;
-  final VoidCallback? onDelete;
 
   const PostContainer({
     super.key,
@@ -1727,7 +996,6 @@ class PostContainer extends StatefulWidget {
     required this.onLike,
     required this.onSave,
     this.onTap,
-    this.onDelete,
   });
 
   @override
@@ -1735,7 +1003,7 @@ class PostContainer extends StatefulWidget {
 }
 
 class _PostContainerState extends State<PostContainer> {
-  bool _isOpeningPost = false; // ✅ Guard against double-tap
+  bool _isOpeningPost = false; // Γ£à Guard against double-tap
 
   Future<void> _sharePostWithImage() async {
     final String postIdStr = widget.post['post_id']?.toString() ?? "";
@@ -1775,7 +1043,7 @@ class _PostContainerState extends State<PostContainer> {
       return "";
     }
 
-    // ✅ If already a complete URL (http or https), return as-is but ensure HTTPS
+    // Γ£à If already a complete URL (http or https), return as-is but ensure HTTPS
     if (path.startsWith("http://") || path.startsWith("https://")) {
       String normalizedPath = path.replaceFirst("http://", "https://");
       // Extract the path part after the domain
@@ -1796,22 +1064,22 @@ class _PostContainerState extends State<PostContainer> {
       return normalizedPath;
     }
 
-    // ✅ Clean up path
+    // Γ£à Clean up path
     path = path.replaceAll("\\", "/").replaceAll(RegExp(r'^/+'), "");
 
-    // ✅ Normalize folder names to lowercase for consistency
+    // Γ£à Normalize folder names to lowercase for consistency
     path = path.replaceAll("Uploads", "uploads");
     path = path.replaceAll("Profile_images", "profile_images");
     path = path.replaceAll("Cover_images", "cover_images");
     path = path.replaceAll("Page_images", "page_images");
 
-    // ✅ If only filename, prepend folder
-    // ✅ Only modify if NOT full URL
+    // Γ£à If only filename, prepend folder
+    // Γ£à Only modify if NOT full URL
     if (!path.startsWith("http") && !path.contains("/")) {
       path = "uploads/page_images/$path";
     }
 
-    // ✅ Return complete HTTPS URL
+    // Γ£à Return complete HTTPS URL
     return "https://bigiluu.com/$path";
   }
 
@@ -1897,7 +1165,7 @@ class _PostContainerState extends State<PostContainer> {
 
     final coverUrl = fullUrl(widget.post['cover_img']);
 
-    // 🏆 Badge Variants Logic
+    // ≡ƒÅå Badge Variants Logic
     String ack = (widget.post['acknowledgment'] ?? "").toString().toUpperCase();
 
     String badgeLabel = "";
@@ -1919,513 +1187,667 @@ class _PostContainerState extends State<PostContainer> {
     final int colorValue = (titleStyle['color'] ?? 0xFFFFFFFF);
     final String fontFamily = titleStyle['fontFamily'] ?? "Roboto";
 
-    // 🔥 HANDLE EMPTY (WHITE)
+    // ≡ƒöÑ HANDLE EMPTY (WHITE)
     if (ack.isEmpty) {
       badgeLabel = ""; // no text OR you can put "NEW"
       badgeGradients = [Colors.white, Colors.white];
       themeBorderColor = Colors.white;
       themeSpineColor = Colors.white.withOpacity(0.1);
     }
-    // 🥇 GOAT
+    // ≡ƒÑç GOAT
     else if (ack == "GOAT") {
       badgeLabel = "GOAT";
       badgeGradients = [const Color(0xFFFFD700), const Color(0xFFDAA520)];
       themeBorderColor = const Color(0xFFFFD700);
       themeSpineColor = const Color(0xFFFFD700).withOpacity(0.2);
     }
-    // 🥈 MERSAL
+    // ≡ƒÑê MERSAL
     else if (ack == "MERSAL") {
       badgeLabel = "MERSAL";
       badgeGradients = [const Color(0xFFE0E0E0), const Color(0xFF9E9E9E)];
       themeBorderColor = const Color(0xFFC0C0C0);
       themeSpineColor = const Color(0xFFE0E0E0).withOpacity(0.25);
     }
-    // 🥉 THERI
+    // ≡ƒÑë THERI
     else if (ack == "THERI") {
       badgeLabel = "THERI";
       badgeGradients = [const Color(0xFFCD7F32), const Color(0xFF8B4513)];
       themeBorderColor = const Color(0xFFCD7F32);
       themeSpineColor = const Color(0xFFCD7F32).withOpacity(0.2);
     }
-
-    // CATEGORY LOGIC
-    String categoryName = "";
-    var cat = widget.post['category_id'] ?? widget.post['category'];
-    if (cat != null && cat.toString().trim().isNotEmpty) {
-      String c = cat.toString().trim().toLowerCase();
-      if (c == "1" || c == "manu")
-        categoryName = "Manu";
-      else if (c == "2" || c == "sinthanaigal")
-        categoryName = "Sinthanaigal";
-      else if (c == "3" || c == "budget")
-        categoryName = "Budget";
-      else
-        categoryName = cat.toString();
-    }
-    bool isBudget = categoryName == "Budget";
-
-    Widget mainCard = Container(
-      margin: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: Colors.black.withOpacity(0.05), // Reverted to subtle gray
-          width: 1.0,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
+    return Container(
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: Colors.black.withOpacity(0.05), // Reverted to subtle gray
+            width: 1.0,
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Section
-          Padding(
-            padding: EdgeInsets.all(paddingHorizontal),
-            child: GestureDetector(
-              onTap: () {
-                final userId = widget.post['user_id']?.toString();
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Section
+            Padding(
+              padding: EdgeInsets.all(paddingHorizontal),
+              child: GestureDetector(
+                onTap: () {
+                  final userId = widget.post['user_id']?.toString();
 
-                if (userId != null && userId.isNotEmpty) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ProfilePage(
-                        userId: userId,
-                        isPublicView: true, // 🔥 ADD THIS
+                  if (userId != null && userId.isNotEmpty) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ProfilePage(
+                          userId: userId,
+                          isPublicView: true, // ≡ƒöÑ ADD THIS
+                        ),
+                      ),
+                    );
+                  }
+                },
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFFB11226).withOpacity(0.2),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: CircleAvatar(
+                        radius: 20,
+                        backgroundColor: Colors.grey.shade100,
+                        backgroundImage: imageUrl.isNotEmpty
+                            ? NetworkImage(imageUrl)
+                            : null,
+                        child: imageUrl.isEmpty
+                            ? Icon(Icons.person, color: Colors.grey)
+                            : null,
                       ),
                     ),
-                  );
-                }
-              },
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(0xFFB11226).withOpacity(0.2),
-                        width: 1.5,
+                    const SizedBox(width: 12),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.post['username'] ?? "Bigiluu Member",
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          Text(
+                            "has published a Book",
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    child: CircleAvatar(
-                      radius: 20,
-                      backgroundColor: Colors.grey.shade100,
-                      backgroundImage: imageUrl.isNotEmpty
-                          ? NetworkImage(imageUrl)
-                          : null,
-                      child: imageUrl.isEmpty
-                          ? Icon(Icons.person, color: Colors.grey)
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.post['username'] ?? "Bigiluu Member",
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          widget.post['constituency']?.toString() != null && widget.post['constituency'].toString().isNotEmpty 
-                              ? widget.post['constituency'].toString() 
-                              : "",
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFB11226).withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.auto_stories_rounded,
-                          color: Color(0xFFB11226),
-                          size: 14,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          "${widget.post['readers_count'] ?? 0}",
-                          style: const TextStyle(
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFB11226).withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.auto_stories_rounded,
                             color: Color(0xFFB11226),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
+                            size: 14,
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (widget.onDelete != null) ...[
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: widget.onDelete,
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.delete_outline_rounded,
-                          color: Colors.red,
-                          size: 18,
-                        ),
+                          const SizedBox(width: 4),
+                          Text(
+                            "${widget.post['readers_count'] ?? 0}",
+                            style: const TextStyle(
+                              color: Color(0xFFB11226),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
+                ),
+              ),
+            ),
+            // Hyper-Realistic 3D Book Cover
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: paddingHorizontal),
+              child: GestureDetector(
+                onTap: () async {
+                  if (_isOpeningPost) return;
+                  setState(() => _isOpeningPost = true);
+
+                  try {
+                    final response = await http.get(
+                      Uri.parse(
+                        "https://bigiluu.com/api/posts/singlePost/$postIdStr",
+                      ),
+                    );
+
+                    if (response.statusCode == 200) {
+                      final jsonData = jsonDecode(response.body);
+
+                      // ≡ƒöÑ FIX: correct path
+                      final postData = jsonData['data'] ?? jsonData;
+                      final rawContent = postData['content'];
+
+                      List<dynamic> pages = parseContent(rawContent);
+
+                      if (pages.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Content not available"),
+                          ),
+                        );
+                        return;
+                      }
+
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => FullScreenPostViewer(
+                            pages: pages,
+                            username: postData['username'] ?? "",
+                            profileImage: postData['profile_image'] ?? "",
+                            postId: postIdStr,
+                          ),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    debugPrint("Error opening post: $e");
+                  } finally {
+                    if (mounted) {
+                      setState(() => _isOpeningPost = false);
+                    }
+                  }
+                },
+                child: Hero(
+                  tag: "post_${widget.post['post_id']}",
+                  child: Container(
+                    height: 440, // Reduced height for more balanced feed
+                    decoration: BoxDecoration(
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(12),
+                        bottomRight: Radius.circular(12),
+                        topLeft: Radius.circular(16),
+                        bottomLeft: Radius.circular(16),
+                      ),
+                      color: const Color(
+                        0xFFFDFCF2,
+                      ), // Creamy paper color instead of dark
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.25),
+                          blurRadius: 20,
+                          offset: const Offset(8, 8),
+                        ),
+                      ],
+                    ),
+                    child: Stack(
+                      clipBehavior: Clip.none, // Allow badge to overflow
+                      children: [
+                        // Page Edges Effect (Simulating stacked pages on the right)
+                        Positioned(
+                          right: 0,
+                          top: 8,
+                          bottom: 8,
+                          width: 12,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFDFCF2),
+                              borderRadius: const BorderRadius.horizontal(
+                                right: Radius.circular(12),
+                              ),
+                            ),
+                            child: Stack(
+                              children: [
+                                // Subtle page line grain
+                                Column(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceEvenly,
+                                  children: List.generate(
+                                    30,
+                                    (i) => Container(
+                                      height: 0.5,
+                                      width: double.infinity,
+                                      color: Colors.black.withOpacity(0.04),
+                                    ),
+                                  ),
+                                ),
+                                // Inset shadow for page depth
+                                Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight,
+                                      colors: [
+                                        Colors.black.withOpacity(0.08),
+                                        Colors.transparent,
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        // Front Cover (Offset slightly to show page edges)
+                        Positioned(
+                          left: 0,
+                          top: -1,
+                          bottom: -1,
+                          right: 8, // Thinner gap for more realistic page edge
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: const BorderRadius.only(
+                                topRight: Radius.circular(6),
+                                bottomRight: Radius.circular(6),
+                                topLeft: Radius.circular(12), // Rounder spine
+                                bottomLeft: Radius.circular(12),
+                              ),
+                              border: Border.all(
+                                color: themeBorderColor, // Dynamic border color
+                                width: 2.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  blurRadius: 12,
+                                  offset: const Offset(5, 0),
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: const BorderRadius.only(
+                                topRight: Radius.circular(4),
+                                bottomRight: Radius.circular(4),
+                                topLeft: Radius.circular(10),
+                                bottomLeft: Radius.circular(10),
+                              ),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  // Cover Image ΓÇö guard against empty/null URL
+                                  CoverPreviewWidget(
+                                    post: widget.post,
+                                    fullUrl: fullUrl,
+                                    fallback:
+                                        (coverUrl.isEmpty ||
+                                            !coverUrl.startsWith("http"))
+                                        ? Container(
+                                            decoration: const BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                                colors: [
+                                                  Color(0xFF1E1E2C),
+                                                  Color(0xFF264060),
+                                                ],
+                                              ),
+                                            ),
+                                            child: Stack(
+                                              alignment: Alignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.auto_stories_rounded,
+                                                  color: Colors.white
+                                                      .withOpacity(0.05),
+                                                  size: 180,
+                                                ),
+                                                Column(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    const SizedBox(height: 60),
+                                                    Text(
+                                                      "Bigiluu",
+                                                      style: TextStyle(
+                                                        color: Colors.white
+                                                            .withOpacity(0.2),
+                                                        fontSize: 32,
+                                                        fontWeight:
+                                                            FontWeight.w900,
+                                                        letterSpacing: 8,
+                                                        fontFamily: 'Roboto',
+                                                      ),
+                                                    ),
+                                                    Container(
+                                                      margin:
+                                                          const EdgeInsets.only(
+                                                            top: 8,
+                                                          ),
+                                                      width: 40,
+                                                      height: 2,
+                                                      color: Colors.white
+                                                          .withOpacity(0.15),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                          )
+                                        : Image.network(
+                                            coverUrl,
+                                            fit: BoxFit.cover,
+                                            loadingBuilder:
+                                                (context, child, progress) {
+                                                  if (progress == null)
+                                                    return child;
+                                                  return Container(
+                                                    color: const Color(
+                                                      0xFFF8F8F8,
+                                                    ),
+                                                    child: const Center(
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            strokeWidth: 2,
+                                                            color: brandColor,
+                                                          ),
+                                                    ),
+                                                  );
+                                                },
+                                            errorBuilder: (_, __, ___) => Container(
+                                              decoration: const BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                  colors: [
+                                                    Color(0xFF1E1E2C),
+                                                    Color(0xFF264060),
+                                                  ],
+                                                ),
+                                              ),
+                                              child: Stack(
+                                                alignment: Alignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons.auto_stories_rounded,
+                                                    color: Colors.white
+                                                        .withOpacity(0.05),
+                                                    size: 180,
+                                                  ),
+                                                  Column(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .center,
+                                                    children: [
+                                                      const SizedBox(
+                                                        height: 60,
+                                                      ),
+                                                      Text(
+                                                        "Bigiluu",
+                                                        style: TextStyle(
+                                                          color: Colors.white
+                                                              .withOpacity(0.2),
+                                                          fontSize: 32,
+                                                          fontWeight:
+                                                              FontWeight.w900,
+                                                          letterSpacing: 8,
+                                                          fontFamily: 'Roboto',
+                                                        ),
+                                                      ),
+                                                      Container(
+                                                        margin:
+                                                            const EdgeInsets.only(
+                                                              top: 8,
+                                                            ),
+                                                        width: 40,
+                                                        height: 2,
+                                                        color: Colors.white
+                                                            .withOpacity(0.15),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                  ),
+
+                                  // Premium Overlay (Subtle gradient and leather texture look)
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.centerLeft,
+                                        end: Alignment.centerRight,
+                                        colors: [
+                                          Colors.black.withOpacity(0.65),
+                                          Colors.black.withOpacity(0.2),
+                                          Colors.transparent,
+                                          Colors.black.withOpacity(0.05),
+                                          Colors.black.withOpacity(0.35),
+                                        ],
+                                        stops: const [
+                                          0.0,
+                                          0.04,
+                                          0.2,
+                                          0.96,
+                                          1.0,
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+
+                                  // Realistic Spine Curve (Gradient Shadow)
+                                  Positioned(
+                                    left: 0,
+                                    top: 0,
+                                    bottom: 0,
+                                    width: 25,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.centerLeft,
+                                          end: Alignment.centerRight,
+                                          colors: [
+                                            Colors.black.withOpacity(0.5),
+                                            Colors.black.withOpacity(0.2),
+                                            Colors.black.withOpacity(0.4),
+                                            Colors.black.withOpacity(0.0),
+                                          ],
+                                          stops: const [0.0, 0.4, 0.5, 1.0],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  // Dynamic Spine Accent
+                                  Positioned(
+                                    left: 22,
+                                    top: 0,
+                                    bottom: 0,
+                                    width: 1.2,
+                                    child: Container(color: themeSpineColor),
+                                  ),
+
+                                  // ≡ƒôû Book Title ΓÇö matching Cover Design exactly
+                                  if ((widget.post['title']?.toString() ?? '')
+                                      .isNotEmpty)
+                                    Positioned(
+                                      top: 15,
+                                      left: 10,
+                                      right: 10,
+                                      child: SizedBox(
+                                        width:
+                                            MediaQuery.of(context).size.width *
+                                            0.8,
+                                        child: Text(
+                                          widget.post['title']?.toString() ??
+                                              '',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: fontSize,
+                                            color: Color(colorValue),
+                                            fontFamily: fontFamily,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        // Γ£à Dynamic Badge (Refined)
+                        Positioned(
+                          top: -22,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: badgeGradients,
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.25),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.stars_rounded,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  badgeLabel,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // Caption Section
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                paddingHorizontal,
+                20,
+                paddingHorizontal,
+                0,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (caption.isNotEmpty)
+                    Text(
+                      caption,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade800,
+                        fontWeight: FontWeight.w500,
+                        height: 1.5,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  if (hashtag.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Text(
+                        hashtag.startsWith("#") ? hashtag : "#$hashtag",
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: brandColor,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
-          ),
-          // SIMPLE MANU CARD UI
-          Builder(
-            builder: (context) {
-              Widget innerCard = Padding(
-                padding: EdgeInsets.symmetric(horizontal: paddingHorizontal),
-                child: GestureDetector(
-                  onTap:
-                      widget.onTap ??
-                      () async {
-                        if (_isOpeningPost) return;
 
-                        setState(() => _isOpeningPost = true);
-
-                        try {
-                          final response = await http.get(
-                            Uri.parse(
-                              "https://bigiluu.com/api/posts/singlePost/$postIdStr",
-                            ),
-                          );
-
-                          if (response.statusCode == 200) {
-                            final jsonData = jsonDecode(response.body);
-
-                            final postData = jsonData['data'] ?? jsonData;
-
-                            final rawContent = postData['content'];
-
-                            List<dynamic> pages = parseContent(rawContent);
-
-                            if (pages.isEmpty) return;
-
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => FullScreenPostViewer(
-                                  pages: pages,
-                                  username: postData['username'] ?? "",
-                                  profileImage: postData['profile_image'] ?? "",
-                                  postId: postIdStr,
-                                ),
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          debugPrint("Error opening post: $e");
-                        } finally {
-                          if (mounted) {
-                            setState(() => _isOpeningPost = false);
-                          }
-                        }
-                      },
-
-                  child: Builder(
-                    builder: (context) {
-                      // CATEGORY LOGIC
-                      String categoryName = "";
-                      var cat =
-                          widget.post['category_id'] ?? widget.post['category'];
-                      if (cat != null && cat.toString().trim().isNotEmpty) {
-                        String c = cat.toString().trim().toLowerCase();
-                        if (c == "1" || c == "manu")
-                          categoryName = "Manu";
-                        else if (c == "2" || c == "sinthanaigal")
-                          categoryName = "Sinthanaigal";
-                        else if (c == "3" || c == "budget")
-                          categoryName = "Budget";
-                        else
-                          categoryName = cat.toString();
-                      }
-
-                      Widget cardContent = Container(
-                        width: double.infinity,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: categoryName == "Budget" ? 24 : 32,
-                        ),
-                        decoration: categoryName == "Budget"
-                            ? BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFFF4F9F4),
-                                    Color(0xFFE8F5E9),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(
-                                  color: const Color(
-                                    0xFF81C784,
-                                  ).withOpacity(0.5),
-                                  width: 1.5,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(
-                                      0xFF4CAF50,
-                                    ).withOpacity(0.1),
-                                    blurRadius: 15,
-                                    offset: const Offset(0, 5),
-                                  ),
-                                ],
-                              )
-                            : BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(
-                                  color: Colors.grey.shade100,
-                                  width: 1.5,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.03),
-                                    blurRadius: 15,
-                                    offset: const Offset(0, 5),
-                                  ),
-                                ],
-                              ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start, // LEFT ALIGN by default
-                          children: [
-                            // CATEGORY BADGE
-                            if (categoryName.isNotEmpty)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 6,
-                                ),
-                                margin: const EdgeInsets.only(bottom: 24),
-                                decoration: BoxDecoration(
-                                  color: categoryName == "Budget"
-                                      ? const Color(
-                                          0xFF4CAF50,
-                                        ).withOpacity(0.15)
-                                      : const Color(
-                                          0xFFB11226,
-                                        ).withOpacity(0.08),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  categoryName.toUpperCase(),
-                                  style: TextStyle(
-                                    color: categoryName == "Budget"
-                                        ? const Color(0xFF2E7D32)
-                                        : const Color(0xFFB11226),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 1.2,
-                                  ),
-                                ),
-                              ),
-
-                            // TITLE
-                            if ((widget.post['title'] ?? '')
-                                .toString()
-                                .trim()
-                                .isNotEmpty)
-                              SizedBox(
-                                width: double.infinity,
-                                child: Text(
-                                  widget.post['title'],
-                                  maxLines: categoryName == "Budget" ? 5 : 3,
-                                  textAlign: categoryName == "Budget"
-                                      ? TextAlign.left
-                                      : TextAlign.center,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: categoryName == "Budget"
-                                        ? 22
-                                        : 26,
-                                    fontWeight: FontWeight.w900,
-                                    height: 1.35,
-                                    color: categoryName == "Budget"
-                                        ? const Color(0xFF1B5E20)
-                                        : const Color(0xFF1A1A1A),
-                                    letterSpacing: -0.3,
-                                  ),
-                                ),
-                              ),
-
-                            if ((widget.post['title'] ?? '')
-                                .toString()
-                                .trim()
-                                .isNotEmpty)
-                              const SizedBox(height: 20),
-
-                            // PREVIEW TEXT WITH READ MORE (LEFT ALIGNED) - HIDE FOR BUDGET
-                            if (categoryName != "Budget") ...[
-                              if ((widget.post['preview_text'] ?? '')
-                                  .toString()
-                                  .trim()
-                                  .isNotEmpty)
-                                RichText(
-                                  textAlign: TextAlign.left, // Left aligned
-                                  maxLines: 5,
-                                  overflow: TextOverflow.ellipsis,
-                                  text: TextSpan(
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      height: 1.6,
-                                      color: Colors.grey.shade600,
-                                      fontFamily: 'Roboto',
-                                    ),
-                                    children: [
-                                      TextSpan(
-                                        text: widget.post['preview_text'] + " ",
-                                      ),
-                                      const TextSpan(
-                                        text: "Read more",
-                                        style: TextStyle(
-                                          color: Color(0xFFB11226),
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              else
-                                const Text(
-                                  "Read more",
-                                  textAlign: TextAlign.left, // Left aligned
-                                  style: TextStyle(
-                                    color: Color(0xFFB11226),
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 15,
-                                  ),
-                                ),
-                            ],
-                          ],
-                        ),
-                      );
-
-                      return cardContent;
-                    },
+            // Actions
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                paddingHorizontal,
+                24, // Increased top space to prevent touching post area
+                paddingHorizontal,
+                24, // Added bottom padding inside the card
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _buildActionButton(
+                    icon: Icons.touch_app_rounded,
+                    topLabel: (widget.post['support_count'] ?? 0).toString(),
+                    label: "Support",
+                    color: widget.isLiked ? brandColor : null,
+                    onTap: widget.onLike,
                   ),
-                ),
-              );
-
-              return innerCard;
-            },
-          ),
-
-          // Caption Section
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              paddingHorizontal,
-              20,
-              paddingHorizontal,
-              0,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (caption.isNotEmpty)
-                  Text(
-                    caption,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade800,
-                      fontWeight: FontWeight.w500,
-                      height: 1.5,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  const SizedBox(width: 8),
+                  _buildActionButton(
+                    icon: Icons.share_rounded,
+                    label: "Share",
+                    onTap: _sharePostWithImage,
                   ),
-                if (hashtag.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Text(
-                      hashtag.startsWith("#") ? hashtag : "#$hashtag",
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: brandColor,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
+                  const SizedBox(width: 8),
+                  _buildActionButton(
+                    icon: widget.isSaved
+                        ? Icons.bookmark_rounded
+                        : Icons.bookmark_outline_rounded,
+                    label: widget.isSaved ? "Saved" : "Save",
+                    color: widget.isSaved ? brandColor : null,
+                    onTap: widget.onSave,
                   ),
-              ],
+                ],
+              ),
             ),
-          ),
-
-          // Actions
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              paddingHorizontal,
-              24, // Increased top space to prevent touching post area
-              paddingHorizontal,
-              24, // Added bottom padding inside the card
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _buildActionButton(
-                  icon: Icons.touch_app_rounded,
-                  topLabel: (widget.post['support_count'] ?? 0).toString(),
-                  label: "Support",
-                  color: widget.isLiked ? brandColor : null,
-                  onTap: widget.onLike,
-                ),
-                const SizedBox(width: 8),
-                _buildActionButton(
-                  icon: Icons.share_rounded,
-                  label: "Share",
-                  onTap: _sharePostWithImage,
-                ),
-                const SizedBox(width: 8),
-                _buildActionButton(
-                  icon: widget.isSaved
-                      ? Icons.bookmark_rounded
-                      : Icons.bookmark_outline_rounded,
-                  label: widget.isSaved ? "Saved" : "Save",
-                  color: widget.isSaved ? brandColor : null,
-                  onTap: widget.onSave,
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
-
-    return mainCard;
   }
 
   Widget _buildActionButton({
@@ -2651,14 +2073,14 @@ class FullScreenPostViewer extends StatefulWidget {
   final List pages;
   final String username;
   final String profileImage;
-  final String postId; // ✅ ADD THIS
+  final String postId; // Γ£à ADD THIS
 
   const FullScreenPostViewer({
     super.key,
     required this.pages,
     required this.username,
     required this.profileImage,
-    required this.postId, // ✅ ADD
+    required this.postId, // Γ£à ADD
   });
   @override
   State<FullScreenPostViewer> createState() => _FullScreenPostViewerState();
@@ -2797,7 +2219,7 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
   Future<void> incrementReaderAndVerify() async {
     try {
       // First, increment the reader count
-      print("📊 DEBUG: Incrementing reader for post: ${widget.postId}");
+      print("≡ƒôè DEBUG: Incrementing reader for post: ${widget.postId}");
 
       final incrementResponse = await http
           .post(
@@ -2806,17 +2228,17 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
             ),
           )
           .timeout(
-            const Duration(seconds: 20),
+            const Duration(seconds: 8),
             onTimeout: () {
-              print("⚠️ incrementReader timeout");
+              print("ΓÜá∩╕Å incrementReader timeout");
               throw TimeoutException("Increment request timed out");
             },
           );
 
       print(
-        "📊 DEBUG: Increment response status: ${incrementResponse.statusCode}",
+        "≡ƒôè DEBUG: Increment response status: ${incrementResponse.statusCode}",
       );
-      print("📊 DEBUG: Increment response body: ${incrementResponse.body}");
+      print("≡ƒôè DEBUG: Increment response body: ${incrementResponse.body}");
 
       // Then, verify by fetching the updated post data
       await Future.delayed(const Duration(milliseconds: 500));
@@ -2826,9 +2248,9 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
             Uri.parse("https://bigiluu.com/api/posts/getPost/${widget.postId}"),
           )
           .timeout(
-            const Duration(seconds: 15),
+            const Duration(seconds: 8),
             onTimeout: () {
-              print("⚠️ getPost timeout");
+              print("ΓÜá∩╕Å getPost timeout");
               throw TimeoutException("Verify request timed out");
             },
           );
@@ -2837,22 +2259,22 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
         final jsonData = jsonDecode(verifyResponse.body);
         final updatedPost = jsonData["data"];
         print(
-          "✅ Verified - Current readers_count in DB: ${updatedPost['readers_count'] ?? 0}",
+          "Γ£à Verified - Current readers_count in DB: ${updatedPost['readers_count'] ?? 0}",
         );
       }
     } on TimeoutException catch (e) {
-      print("⚠️ Timeout in reader count: $e");
+      print("ΓÜá∩╕Å Timeout in reader count: $e");
     } catch (e) {
-      print("❌ Reader count error: $e");
+      print("Γ¥î Reader count error: $e");
     }
   }
 
   String fullUrl(String? path) {
     if (path == null || path.isEmpty) return "";
 
-    // ✅ VERY IMPORTANT: DO NOT TOUCH FULL URL
+    // Γ£à VERY IMPORTANT: DO NOT TOUCH FULL URL
     if (path.startsWith("http")) {
-      return path; // 🔥 DIRECT RETURN
+      return path; // ≡ƒöÑ DIRECT RETURN
     }
 
     path = path.replaceAll("\\", "/").replaceAll(RegExp(r'^/+'), "");
@@ -2869,17 +2291,17 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
 
     path = path.replaceAll("\\", "/").trim();
 
-    // ❌ Fix double-prefixed bug
+    // Γ¥î Fix double-prefixed bug
     if (path.contains("https://bigiluu.com/https://")) {
       path = path.replaceAll("https://bigiluu.com/", "");
     }
 
-    // ✅ Already full URL (S3 or correct)
+    // Γ£à Already full URL (S3 or correct)
     if (path.startsWith("http")) {
       return path;
     }
 
-    // ✅ Local image
+    // Γ£à Local image
     return "https://bigiluu.com/$path";
   }
 
@@ -3112,7 +2534,7 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
                                         ),
                                       ),
 
-                                      // ✅ Big Watermark Logo
+                                      // Γ£à Big Watermark Logo
                                       Center(
                                         child: Opacity(
                                           opacity: 0.15,
@@ -3243,7 +2665,7 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
                                                         block['image'],
                                                       );
 
-                                                      // ✅ SAFETY 1: null / empty
+                                                      // Γ£à SAFETY 1: null / empty
                                                       if (imageUrl.isEmpty) {
                                                         return const SizedBox();
                                                       }
@@ -3289,7 +2711,7 @@ class _FullScreenPostViewerState extends State<FullScreenPostViewer> {
                                                   BorderRadius.circular(20),
                                             ),
                                             child: Text(
-                                              "—  ${index + 1}  —",
+                                              "ΓÇö  ${index + 1}  ΓÇö",
                                               style: TextStyle(
                                                 color: brandColor.withOpacity(
                                                   0.4,

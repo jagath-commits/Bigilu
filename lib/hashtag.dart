@@ -41,7 +41,8 @@ class _HashtagPageState extends State<HashtagPage> {
       );
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (mounted) setState(() => hashtags = List<Map<String, dynamic>>.from(data));
+        if (mounted)
+          setState(() => hashtags = List<Map<String, dynamic>>.from(data));
       }
     } catch (_) {
     } finally {
@@ -216,142 +217,14 @@ class _HashtagPageState extends State<HashtagPage> {
           ),
         ],
       ),
-      bottomNavigationBar: _buildBottomNavigationBar(context),
+      // ✅ Bottom nav removed — handled by MainShell (IndexedStack)
     );
   }
 
-  Widget _buildBottomNavigationBar(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _build3DNavItem(context, Icons.home_rounded, "Home", () {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const HomePage()),
-                  (route) => false,
-                );
-              }, isActive: false),
-              _build3DNavItem(
-                context,
-                Icons.explore_rounded,
-                "Explore",
-                () {},
-                isActive: true,
-              ),
-              _build3DNavItem(context, Icons.edit_rounded, "Write", () async {
-                final category = await showCategorySelectionBottomSheet(context);
-                if (category != null) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => WritePage(category: category)),
-                  );
-                }
-              }, isActive: false),
-              _build3DNavItem(
-                context,
-                Icons.person_rounded,
-                "Profile",
-                () async {
-                  String? userId = await getUserId();
-                  if (userId != null) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ProfilePage(userId: userId),
-                      ),
-                    );
-                  }
-                },
-                isActive: false,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _build3DNavItem(
-    BuildContext context,
-    IconData icon,
-    String label,
-    VoidCallback onPressed, {
-    bool isActive = false,
-  }) {
-    double screenWidth = MediaQuery.of(context).size.width;
-    double iconSize = screenWidth < 360 ? 22 : 26;
-    double fontSize = screenWidth < 360 ? 9 : 10;
-
-    Color activeColor = const Color(0xFFB11226);
-    Color inactiveColor = Colors.grey.shade600;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(16),
-        splashColor: activeColor.withOpacity(0.15),
-        highlightColor: activeColor.withOpacity(0.08),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: isActive
-              ? BoxDecoration(
-                  color: activeColor.withOpacity(0.14),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: activeColor.withOpacity(0.35),
-                    width: 1.2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: activeColor.withOpacity(0.12),
-                      blurRadius: 8,
-                      offset: const Offset(0, 1.5),
-                    ),
-                  ],
-                )
-              : BoxDecoration(borderRadius: BorderRadius.circular(12)),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                color: isActive ? activeColor : inactiveColor,
-                size: iconSize,
-              ),
-              const SizedBox(height: 3),
-              Text(
-                label,
-                style: TextStyle(
-                  color: isActive ? activeColor : inactiveColor,
-                  fontSize: fontSize,
-                  fontWeight: isActive ? FontWeight.w800 : FontWeight.w700,
-                  fontFamily: 'Roboto',
-                  letterSpacing: 0.2,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  // ✅ _buildBottomNavigationBar and _build3DNavItem removed
+  // — navigation is now handled by MainShell (IndexedStack)
 }
+
 
 class HashtagPostsPage extends StatefulWidget {
   final String tag;
@@ -635,8 +508,6 @@ class _HashtagPostsPageState extends State<HashtagPostsPage> {
   }
 }
 
-
-
 class PostDetailPage extends StatefulWidget {
   final String postId;
 
@@ -846,7 +717,8 @@ class _PostDetailPageState extends State<PostDetailPage> {
                                                   .toString()
                                                   .isNotEmpty) {
                                             return ExpandablePostImage(
-                                              imageUrl: "https://bigiluu.com/${block['image']}",
+                                              imageUrl:
+                                                  "https://bigiluu.com/${block['image']}",
                                             );
                                           }
                                           return const SizedBox();

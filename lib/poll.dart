@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PollOption {
-  final int id;
+  final String id;
   final String text;
   int voteCount;
 
@@ -11,36 +12,58 @@ class PollOption {
 
   factory PollOption.fromJson(Map<String, dynamic> json) {
     return PollOption(
-      id: json['id'] ?? 0,
+      id: json['option_id'] ?? '',
       text: json['option_text'] ?? '',
       voteCount: json['vote_count'] ?? 0,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'option_id': id,
+    'option_text': text,
+    'vote_count': voteCount,
+  };
 }
 
 class PollPost {
-  final int id;
+  final String pollId;
   final String title;
   final List<PollOption> options;
   bool hasVoted;
-  int? selectedOptionId;
+  String? selectedOptionId;
+  final String? username;
+  final String? profileImage;
+  final String? constituency;
 
   PollPost({
-    required this.id,
+    required this.pollId,
     required this.title,
     required this.options,
     this.hasVoted = false,
     this.selectedOptionId,
+    this.username,
+    this.profileImage,
+    this.constituency,
   });
 
   factory PollPost.fromJson(Map<String, dynamic> json) {
     var optionsList = json['options'] as List? ?? [];
+
     return PollPost(
-      id: json['id'],
-      title: json['title'],
+      pollId: json['poll_id']?.toString() ?? json['post_id']?.toString() ?? '',
+      title: json['question'] ?? json['title'] ?? '',
       options: optionsList.map((i) => PollOption.fromJson(i)).toList(),
+      username: json['username']?.toString(),
+      profileImage: json['profile_image']?.toString(),
+      constituency: json['constituency']?.toString(),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'poll_id': pollId,
+    'question': title,
+    'options': options.map((o) => o.toJson()).toList(),
+  };
 
   int get totalVotes => options.fold(0, (sum, item) => sum + item.voteCount);
 }
@@ -54,7 +77,7 @@ class PollFeedPage extends StatefulWidget {
 
 class _PollFeedPageState extends State<PollFeedPage> {
   final String baseUrl =
-      "http://localhost:5000/api/posts"; // Update with your IP for physical device
+      "https://bigiluu.com/api/poll"; // Update with your IP for physical device
   List<PollPost> _posts = [];
   bool _isLoading = true;
 
@@ -88,25 +111,33 @@ class _PollFeedPageState extends State<PollFeedPage> {
     setState(() {
       _posts = [
         PollPost(
-          id: 1,
+          pollId: "POLL001",
           title: "Which UI framework provides the best performance?",
           options: [
-            PollOption(id: 1, text: "Flutter (Skia/Impeller)", voteCount: 450),
             PollOption(
-              id: 2,
+              id: "PO001",
+              text: "Flutter (Skia/Impeller)",
+              voteCount: 450,
+            ),
+            PollOption(
+              id: "PO002",
               text: "React Native (Bridge/Fabric)",
               voteCount: 210,
             ),
-            PollOption(id: 3, text: "Native (Swift/Kotlin)", voteCount: 380),
+            PollOption(
+              id: "PO003",
+              text: "Native (Swift/Kotlin)",
+              voteCount: 380,
+            ),
           ],
         ),
         PollPost(
-          id: 2,
+          pollId: "POLL002",
           title: "Next project backend technology?",
           options: [
-            PollOption(id: 4, text: "Node.js (Express)", voteCount: 180),
-            PollOption(id: 5, text: "Go (Fiber)", voteCount: 120),
-            PollOption(id: 6, text: "Python (FastAPI)", voteCount: 150),
+            PollOption(id: "PO004", text: "Node.js (Express)", voteCount: 180),
+            PollOption(id: "PO005", text: "Go (Fiber)", voteCount: 120),
+            PollOption(id: "PO006", text: "Python (FastAPI)", voteCount: 150),
           ],
         ),
       ];
@@ -125,10 +156,18 @@ class _PollFeedPageState extends State<PollFeedPage> {
     });
 
     try {
+      final prefs = await SharedPreferences.getInstance();
+
+      String userId = prefs.getString("user_id") ?? "";
+
       await http.post(
         Uri.parse('$baseUrl/vote'),
         headers: {"Content-Type": "application/json"},
-        body: json.encode({"option_id": option.id}),
+        body: json.encode({
+          "poll_id": post.pollId,
+          "option_id": option.id,
+          "user_id": userId,
+        }),
       );
     } catch (e) {
       print("Vote error: $e");
@@ -223,10 +262,7 @@ class _PollFeedPageState extends State<PollFeedPage> {
                       ),
                     ),
                     const Spacer(),
-                    const Icon(
-                      Icons.more_horiz,
-                      color: Colors.black26,
-                    ),
+                    const Icon(Icons.more_horiz, color: Colors.black26),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -396,20 +432,43 @@ class _CreatePollPageState extends State<CreatePollPage> {
   }
 
   void _submitPoll() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    String userId = prefs.getString("user_id") ?? "";
+
     final question = _questionController.text.trim();
-    final options = _optionControllers.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
 
-    if (question.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please enter a question")));
-      return;
-    }
-    if (options.length < 2) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please provide at least 2 options")));
-      return;
-    }
+    final options = _optionControllers
+        .map((c) => c.text.trim())
+        .where((t) => t.isNotEmpty)
+        .toList();
 
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Poll Created Successfully!")));
-    Navigator.pop(context);
+    final response = await http.post(
+      Uri.parse("https://bigiluu.com/api/poll/create"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "user_id": userId,
+        "question": question,
+        "options": options,
+      }),
+    );
+
+    print(response.statusCode);
+    print(response.body);
+
+    final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+
+    if (response.statusCode == 200) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(data["message"])));
+
+      Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(data["error"])));
+    }
   }
 
   @override
@@ -419,7 +478,10 @@ class _CreatePollPageState extends State<CreatePollPage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text("Create Poll", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+        title: const Text(
+          "Create Poll",
+          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black87),
           onPressed: () => Navigator.pop(context),
@@ -430,7 +492,14 @@ class _CreatePollPageState extends State<CreatePollPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Question", style: TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.w600)),
+            const Text(
+              "Question",
+              style: TextStyle(
+                color: Colors.black87,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: _questionController,
@@ -440,14 +509,30 @@ class _CreatePollPageState extends State<CreatePollPage> {
                 hintStyle: TextStyle(color: Colors.black.withOpacity(0.4)),
                 filled: true,
                 fillColor: Colors.white,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.black.withOpacity(0.08))),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.black.withOpacity(0.08))),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFB11226))),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.black.withOpacity(0.08)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.black.withOpacity(0.08)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: Color(0xFFB11226)),
+                ),
               ),
               maxLines: 3,
             ),
             const SizedBox(height: 32),
-            const Text("Options", style: TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.w600)),
+            const Text(
+              "Options",
+              style: TextStyle(
+                color: Colors.black87,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(height: 12),
             ...List.generate(_optionControllers.length, (index) {
               return Padding(
@@ -460,18 +545,38 @@ class _CreatePollPageState extends State<CreatePollPage> {
                         style: const TextStyle(color: Colors.black87),
                         decoration: InputDecoration(
                           hintText: "Option ${index + 1}",
-                          hintStyle: TextStyle(color: Colors.black.withOpacity(0.4)),
+                          hintStyle: TextStyle(
+                            color: Colors.black.withOpacity(0.4),
+                          ),
                           filled: true,
                           fillColor: Colors.white,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.black.withOpacity(0.08))),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.black.withOpacity(0.08))),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFB11226))),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: Colors.black.withOpacity(0.08),
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: Colors.black.withOpacity(0.08),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFB11226),
+                            ),
+                          ),
                         ),
                       ),
                     ),
                     if (_optionControllers.length > 2)
                       IconButton(
-                        icon: const Icon(Icons.remove_circle_outline, color: Color(0xFFB11226)),
+                        icon: const Icon(
+                          Icons.remove_circle_outline,
+                          color: Color(0xFFB11226),
+                        ),
                         onPressed: () => _removeOption(index),
                       ),
                   ],
@@ -482,7 +587,13 @@ class _CreatePollPageState extends State<CreatePollPage> {
               TextButton.icon(
                 onPressed: _addOption,
                 icon: const Icon(Icons.add, color: Color(0xFFB11226)),
-                label: const Text("Add Option", style: TextStyle(color: Color(0xFFB11226), fontWeight: FontWeight.bold)),
+                label: const Text(
+                  "Add Option",
+                  style: TextStyle(
+                    color: Color(0xFFB11226),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             const SizedBox(height: 48),
             Container(
@@ -508,10 +619,7 @@ class _CreatePollPageState extends State<CreatePollPage> {
                       gradient: const LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFFB11226),
-                          Color(0xFF8A0C20),
-                        ],
+                        colors: [Color(0xFFB11226), Color(0xFF8A0C20)],
                       ),
                     ),
                     child: const Center(

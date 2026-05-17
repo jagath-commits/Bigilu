@@ -3,6 +3,10 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'dart:io' show Platform;
+import 'package:flutter/cupertino.dart';
+import 'package:bigilu/home.dart';
+
 class PollOption {
   final String id;
   final String text;
@@ -77,7 +81,7 @@ class PollFeedPage extends StatefulWidget {
 
 class _PollFeedPageState extends State<PollFeedPage> {
   final String baseUrl =
-      "https://bigiluu.com/api/poll"; // Update with your IP for physical device
+      "https://bigiluu.com/api/polls"; // Update with your IP for physical device
   List<PollPost> _posts = [];
   bool _isLoading = true;
 
@@ -444,7 +448,7 @@ class _CreatePollPageState extends State<CreatePollPage> {
         .toList();
 
     final response = await http.post(
-      Uri.parse("https://bigiluu.com/api/poll/create"),
+      Uri.parse("https://bigiluu.com/api/polls/create"),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
         "user_id": userId,
@@ -456,14 +460,28 @@ class _CreatePollPageState extends State<CreatePollPage> {
     print(response.statusCode);
     print(response.body);
 
-    final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+    Map<String, dynamic> data = {};
+    try {
+      if (response.body.isNotEmpty) {
+        data = jsonDecode(response.body);
+      }
+    } catch (e) {
+      data = {"error": "Server error: ${response.statusCode}"};
+    }
 
     if (response.statusCode == 200) {
+      // Clear cache so feed will fetch new poll
+      await prefs.remove('cache_polls');
+      await prefs.remove('cache_polls_ts');
+
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(data["message"])));
+      ).showSnackBar(SnackBar(content: Text(data["message"] ?? "Poll created")));
 
-      Navigator.pop(context);
+      final route = Platform.isIOS
+          ? CupertinoPageRoute(builder: (_) => const MainShell())
+          : MaterialPageRoute(builder: (_) => const MainShell());
+      Navigator.pushAndRemoveUntil(context, route, (route) => false);
     } else {
       ScaffoldMessenger.of(
         context,

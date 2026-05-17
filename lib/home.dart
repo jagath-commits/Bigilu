@@ -519,7 +519,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         final idB = int.tryParse(b['post_id']?.toString() ?? '0') ?? 0;
         return idB.compareTo(idA); // descending
       });
-      return [...uniquePosts, ...pollPosts];
+      return [...pollPosts, ...uniquePosts];
     }
 
     if (_selectedCategory == "Poll") {
@@ -1118,8 +1118,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     try {
       final response = await http
-          .get(Uri.parse("https://bigiluu.com/api/poll/feed"))
-          .timeout(const Duration(seconds: 15));
+          .get(Uri.parse("https://bigiluu.com/api/polls/feed"))
+          .timeout(const Duration(seconds: 3));
 
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
@@ -1192,7 +1192,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     try {
       await http.post(
-        Uri.parse("https://bigiluu.com/api/poll/vote"),
+        Uri.parse("https://bigiluu.com/api/polls/vote"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "poll_id": post.pollId,

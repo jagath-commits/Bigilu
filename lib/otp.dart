@@ -99,6 +99,7 @@ class _OtpPageState extends State<OtpPage> with CodeAutoFill {
         body: jsonEncode({
           "phone": widget.phone,
           "otp": otp,
+          "username": "New User", // Passed to avoid backend NULL error for new registrations
         }),
       );
 

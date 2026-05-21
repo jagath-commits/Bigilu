@@ -310,6 +310,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   List manuPosts = [];
   List sinthanaigalPosts = [];
   List budgetPosts = [];
+  List noolagamPosts = [];
+  List nigalvugalPosts = [];
   List<PollPost> pollPosts = [];
   List<dynamic> mainFeed = [];
   bool isLoading = true;
@@ -397,6 +399,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               Uri.parse("https://bigiluu.com/api/posts/getPostsByCategory/3"),
             )
             .timeout(const Duration(seconds: 15)),
+        http
+            .get(
+              Uri.parse("https://bigiluu.com/api/posts/getPostsByCategory/4"),
+            )
+            .timeout(const Duration(seconds: 15)),
+        http
+            .get(
+              Uri.parse("https://bigiluu.com/api/posts/getPostsByCategory/5"),
+            )
+            .timeout(const Duration(seconds: 15)),
       ]);
 
       final List newManu = results[0].statusCode == 200
@@ -426,12 +438,32 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               return e;
             }).toList()
           : budgetPosts;
+      final List newNoolagam = results[3].statusCode == 200
+          ? (jsonDecode(results[3].body)['data'] ?? []).map((e) {
+              if (e is Map) {
+                e['category_id'] = '4';
+                e['category'] = 'Noolagam';
+              }
+              return e;
+            }).toList()
+          : noolagamPosts;
+      final List newNigalvugal = results[4].statusCode == 200
+          ? (jsonDecode(results[4].body)['data'] ?? []).map((e) {
+              if (e is Map) {
+                e['category_id'] = '5';
+                e['category'] = 'Nigalvugal';
+              }
+              return e;
+            }).toList()
+          : nigalvugalPosts;
 
       if (!mounted) return;
       setState(() {
         manuPosts = newManu;
         sinthanaigalPosts = newSinthanaigal;
         budgetPosts = newBudget;
+        noolagamPosts = newNoolagam;
+        nigalvugalPosts = newNigalvugal;
         _categoryFetchedAt = DateTime.now();
       });
 
@@ -453,6 +485,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final m = prefs.getString('cache_cat_manu');
       final s = prefs.getString('cache_cat_sinthanaigal');
       final b = prefs.getString('cache_cat_budget');
+      final n = prefs.getString('cache_cat_noolagam');
+      final ni = prefs.getString('cache_cat_nigalvugal');
       final ts = prefs.getInt('cache_cat_ts');
 
       if (m != null && s != null && b != null) {
@@ -463,12 +497,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         final List dm = jsonDecode(m);
         final List ds = jsonDecode(s);
         final List db = jsonDecode(b);
+        final List dn = n != null ? jsonDecode(n) : [];
+        final List dni = ni != null ? jsonDecode(ni) : [];
 
         if (!mounted) return;
         setState(() {
           manuPosts = dm;
           sinthanaigalPosts = ds;
           budgetPosts = db;
+          noolagamPosts = dn;
+          nigalvugalPosts = dni;
           // Mark as fresh only if under TTL
           if (age < _kCategoryTtl)
             _categoryFetchedAt = DateTime.now().subtract(age);
@@ -490,6 +528,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           jsonEncode(sinthanaigalPosts),
         ),
         prefs.setString('cache_cat_budget', jsonEncode(budgetPosts)),
+        prefs.setString('cache_cat_noolagam', jsonEncode(noolagamPosts)),
+        prefs.setString('cache_cat_nigalvugal', jsonEncode(nigalvugalPosts)),
         prefs.setInt('cache_cat_ts', DateTime.now().millisecondsSinceEpoch),
       ]);
     } catch (e) {
@@ -500,6 +540,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   List get _filteredPosts {
     if (_selectedCategory == "All") {
       final allList = [
+        ...noolagamPosts,
+        ...nigalvugalPosts,
         ...budgetPosts,
         ...sinthanaigalPosts,
         ...manuPosts,
@@ -536,6 +578,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     if (_selectedCategory == "Budget") {
       return budgetPosts;
+    }
+
+    if (_selectedCategory == "Noolagam") {
+      return noolagamPosts;
+    }
+
+    if (_selectedCategory == "Nigalvugal") {
+      return nigalvugalPosts;
     }
 
     return [];
@@ -1493,6 +1543,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           _buildModernTab("Manu", "மனு"),
                           _buildModernTab("Sinthanaigal", "சிந்தனைகள்"),
                           _buildModernTab("Budget", "பட்ஜெட்"),
+                          _buildModernTab("Noolagam", "நூலகம்"),
+                          _buildModernTab("Nigalvugal", "நிகழ்வுகள்"),
                           _buildModernTab("Poll", "வாக்கெடுப்பு"),
                         ],
                       ),

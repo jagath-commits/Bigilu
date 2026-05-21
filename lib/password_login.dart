@@ -377,17 +377,33 @@ class _PasswordEnterPageState extends State<PasswordEnterPage> {
       return;
     }
 
+    if (!widget.isExisting) {
+      // NEW USER: Go straight to EditProfilePage. Registration happens there.
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => EditProfilePage(
+            userId: "", // Empty for new users
+            phone: widget.phone,
+            password: passwordController.text.trim(),
+            isNewUser: true,
+          ),
+        ),
+      );
+      return;
+    }
+
+    // EXISTING USER: Authenticate and go to MainShell
     setState(() => isLoading = true);
 
     try {
-      // NOTE: Update this URL to point to your backend API that handles login/register
       var res = await http.post(
         Uri.parse("https://bigiluu.com/api/auth-password"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "phone": widget.phone,
           "password": passwordController.text.trim(),
-          "is_register": !widget.isExisting,
+          "is_register": false,
         }),
       );
 
@@ -398,11 +414,7 @@ class _PasswordEnterPageState extends State<PasswordEnterPage> {
       if (res.statusCode == 200 && data["success"] == true) {
         final prefs = await SharedPreferences.getInstance();
 
-        if (widget.isExisting) {
-          await prefs.setString("token", data["token"] ?? "");
-        } else {
-          await prefs.setString("temp_token", data["token"] ?? "");
-        }
+        await prefs.setString("token", data["token"] ?? "");
         await prefs.setString("user_id", data["user_id"] ?? "");
         await prefs.setString("user_mobile", widget.phone);
 
@@ -424,12 +436,10 @@ class _PasswordEnterPageState extends State<PasswordEnterPage> {
           );
         }
 
-        // Always go to Edit Profile Page as requested
+        // For existing users, login successfully goes directly to Home!
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(
-            builder: (_) => EditProfilePage(userId: data["user_id"]),
-          ),
+          MaterialPageRoute(builder: (_) => const MainShell()),
           (route) => false,
         );
       } else {

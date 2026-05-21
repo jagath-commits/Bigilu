@@ -13,10 +13,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:mime/mime.dart';
 import 'package:http_parser/http_parser.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 class EditProfilePage extends StatefulWidget {
   final String userId;
-  const EditProfilePage({super.key, required this.userId});
+  final String? phone;
+  final String? password;
+  final bool isNewUser;
+
+  const EditProfilePage({
+    super.key,
+    required this.userId,
+    this.phone,
+    this.password,
+    this.isNewUser = false,
+  });
 
   @override
   State<EditProfilePage> createState() => _EditProfilePageState();
@@ -314,7 +325,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _constituencies.sort(); // 🔥 Ensure alphabetical order
     print("🔍 DEBUG: EditProfilePage init with userId: ${widget.userId}");
     _loadLocalProfile(); // 🔥 Load local data first for speed
-    _refreshProfile();
+
+    if (widget.isNewUser) {
+      print("NEW USER PHONE: ${widget.phone}");
+
+      if (widget.phone != null && widget.phone!.isNotEmpty) {
+        _mobileController.text = widget.phone!.replaceAll("+91", "").trim();
+
+        print("MOBILE CONTROLLER VALUE: ${_mobileController.text}");
+      }
+    } else {
+      _refreshProfile();
+    }
   }
 
   Future<void> _loadLocalProfile() async {
@@ -410,19 +432,85 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
 
     setState(() => _isLoading = true);
+    String activeUserId = widget.userId;
 
     try {
+      // 1. If it's a NEW USER, register them first!
+      if (widget.isNewUser && widget.phone != null && widget.password != null) {
+        var authRes = await http.post(
+          Uri.parse("https://bigiluu.com/api/auth-password"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({
+            "phone": widget.phone,
+            "password": widget.password,
+            "is_register": true,
+            "username": _nameController.text
+                .trim(), // Sent real username during registration
+          }),
+        );
+
+        var authData = jsonDecode(authRes.body);
+
+        if (authRes.statusCode == 200 && authData["success"] == true) {
+          activeUserId = authData["user_id"];
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString("token", authData["token"] ?? "");
+          await prefs.setString("user_id", activeUserId);
+          await prefs.setString("user_mobile", widget.phone!);
+
+          String? fcmToken;
+          try {
+            fcmToken = await FirebaseMessaging.instance.getToken();
+          } catch (e) {
+            print("FCM Token Error: $e");
+          }
+
+          if (fcmToken != null) {
+            await http.post(
+              Uri.parse("https://bigiluu.com/api/posts/save-token"),
+              headers: {"Content-Type": "application/json"},
+              body: jsonEncode({
+                "user_id": activeUserId,
+                "fcm_token": fcmToken,
+              }),
+            );
+          }
+        } else {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(authData["message"] ?? "Registration Failed"),
+            ),
+          );
+          return; // Stop if registration failed
+        }
+      }
+
+      // 2. Now proceed to upload the rest of the profile
       var request = http.MultipartRequest(
         "PUT",
         Uri.parse("$baseUrl/profile/saveProfile"),
       );
 
-      request.fields["user_id"] = widget.userId;
-      request.fields["phoneno"] = _mobileController.text;
+      request.fields["user_id"] = activeUserId; // Use active user ID
+      String cleanPhone = _mobileController.text
+          .replaceAll("+91", "")
+          .replaceAll(" ", "")
+          .trim();
+
+      print("SENDING PHONE: $cleanPhone");
+
+      request.fields["phoneno"] = cleanPhone;
       request.fields["username"] = _nameController.text;
       request.fields["mail_id"] = _emailController.text;
-      // Send to both keys to ensure backend receives it correctly
       request.fields["Constituency"] = _selectedConstituency ?? "";
+
+      if (cleanPhone.isEmpty || cleanPhone.length < 10) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Invalid mobile number")));
+        return;
+      }
 
       if (_image != null) {
         final mimeType = lookupMimeType(_image!.path);
@@ -435,34 +523,26 @@ class _EditProfilePageState extends State<EditProfilePage> {
               contentType: MediaType(mimeSplit[0], mimeSplit[1]),
             ),
           );
-
-          print("✅ DEBUG: Image file added to request");
         }
       }
 
       var response = await request.send();
       var responseData = await response.stream.bytesToString();
 
-      print("🔍 DEBUG: Save response status: ${response.statusCode}");
-      print("🔍 DEBUG: Save response body: $responseData");
-
       setState(() => _isLoading = false);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(responseData);
 
-        // ✅ Use fullUrl() to normalize image paths
         String? imageUrl;
         if (data['profile_image'] != null) {
           imageUrl = fullUrl(data['profile_image']);
-          print("✅ DEBUG: Updated profile image URL: $imageUrl");
         }
 
         final updatedName = data['username'] ?? _nameController.text;
-
         await _saveLocally(updatedName, _image, imageUrl);
 
-        // ✅ If user just registered, promote temp_token to token to log them in
+        // Remove temp token if it exists (for backward compatibility)
         final prefs = await SharedPreferences.getInstance();
         String? tempToken = prefs.getString("temp_token");
         if (tempToken != null) {
@@ -470,7 +550,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
           await prefs.remove("temp_token");
         }
 
-        // 🔥 RETURN TO PREVIOUS PAGE OR GO TO HOME
         if (mounted) {
           Navigator.pushAndRemoveUntil(
             context,
@@ -479,13 +558,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
           );
         }
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Error: $responseData")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error saving profile: $responseData")),
+        );
       }
     } catch (e) {
       setState(() => _isLoading = false);
       print("❌ SAVE ERROR: $e");
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Server error: $e")));
     }
   }
 
@@ -565,6 +647,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () async {
+            if (widget.isNewUser) {
+              // If it's a new user, they haven't registered yet. Just go back to login.
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const PasswordLoginPage()),
+                (route) => false,
+              );
+              return;
+            }
+
             final prefs = await SharedPreferences.getInstance();
             if (prefs.getString("temp_token") != null) {
               await prefs.remove("temp_token");
@@ -1032,15 +1124,26 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     : MaterialPageRoute(builder: (_) => const MainShell());
                 Navigator.pushAndRemoveUntil(context, route, (route) => false);
               }),
-              _buildPremiumNavItem(context, Icons.edit_rounded, 'Write', () async {
-                final category = await showCategorySelectionBottomSheet(context);
-                if (category != null) {
-                  final route = Platform.isIOS
-                      ? CupertinoPageRoute(builder: (_) => WritePage(category: category))
-                      : MaterialPageRoute(builder: (_) => WritePage(category: category));
-                  Navigator.push(context, route);
-                }
-              }),
+              _buildPremiumNavItem(
+                context,
+                Icons.edit_rounded,
+                'Write',
+                () async {
+                  final category = await showCategorySelectionBottomSheet(
+                    context,
+                  );
+                  if (category != null) {
+                    final route = Platform.isIOS
+                        ? CupertinoPageRoute(
+                            builder: (_) => WritePage(category: category),
+                          )
+                        : MaterialPageRoute(
+                            builder: (_) => WritePage(category: category),
+                          );
+                    Navigator.push(context, route);
+                  }
+                },
+              ),
             ],
           ),
         ),

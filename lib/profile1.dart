@@ -416,6 +416,49 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> toggleSave(String postId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('user_id');
+      if (userId == null) return;
+
+      final bool isAlreadySaved = savedPosts.any(
+        (p) => p['post_id']?.toString() == postId,
+      );
+
+      if (isAlreadySaved) {
+        final response = await http
+            .delete(
+              Uri.parse(
+                "https://bigiluu.com/api/posts/removeSavedPost/$userId/$postId",
+              ),
+            )
+            .timeout(const Duration(seconds: 8));
+
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          setState(() {
+            savedPosts.removeWhere((p) => p['post_id']?.toString() == postId);
+          });
+        }
+      } else {
+        final response = await http
+            .post(
+              Uri.parse("https://bigiluu.com/api/posts/savePost"),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'user_id': userId, 'post_id': postId}),
+            )
+            .timeout(const Duration(seconds: 8));
+
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          // Refresh saved posts to reflect the new save
+          await _loadSavedPosts();
+        }
+      }
+    } catch (e) {
+      print('Error toggling save in ProfilePage: $e');
+    }
+  }
+
   Future<void> _loadProfileFromBackend() async {
     try {
       final response = await http
@@ -670,7 +713,11 @@ class _ProfilePageState extends State<ProfilePage> {
                               color: Colors.red.shade50,
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 18),
+                            child: const Icon(
+                              Icons.delete_outline_rounded,
+                              color: Colors.red,
+                              size: 18,
+                            ),
                           ),
                         ),
                     ],
@@ -718,7 +765,7 @@ class _ProfilePageState extends State<ProfilePage> {
               isLiked: false,
               isSaved: selectedTab == 2,
               onLike: () {},
-              onSave: () {},
+              onSave: () => toggleSave(postId),
               onDelete: (!widget.isPublicView && selectedTab == 0)
                   ? () => _deletePostFromProfile(postId)
                   : null,
@@ -762,7 +809,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       children: [
                         Icon(Icons.poll, color: Colors.blue),
                         SizedBox(width: 6),
-                        Text("Poll", style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text(
+                          "Poll",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ],
                     ),
                     if (!widget.isPublicView && selectedTab == 0)
@@ -774,7 +824,11 @@ class _ProfilePageState extends State<ProfilePage> {
                             color: Colors.red.shade50,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 18),
+                          child: const Icon(
+                            Icons.delete_outline_rounded,
+                            color: Colors.red,
+                            size: 18,
+                          ),
                         ),
                       ),
                   ],
@@ -2244,10 +2298,26 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
             )
             .timeout(const Duration(seconds: 8));
 
-        if (response.statusCode == 200) {
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          bool shouldPop = false;
           setState(() {
             savedPosts.remove(postId);
+            if (widget.title == "Saved") {
+              posts.removeWhere(
+                (post) => post['post_id']?.toString() == postId,
+              );
+              if (posts.isEmpty) {
+                shouldPop = true;
+              } else if (currentPage >= posts.length) {
+                currentPage = posts.length - 1;
+              }
+            }
           });
+          if (shouldPop && mounted) {
+            Navigator.pop(context);
+          } else if (widget.title == "Saved" && currentPage < posts.length) {
+            controller.jumpToPage(currentPage);
+          }
           _saveInteractionsLocal();
         }
       } else {
@@ -2259,7 +2329,7 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
             )
             .timeout(const Duration(seconds: 8));
 
-        if (response.statusCode == 200) {
+        if (response.statusCode >= 200 && response.statusCode < 300) {
           setState(() {
             savedPosts.add(postId);
           });
@@ -2404,9 +2474,10 @@ class _ProfileFeedViewerState extends State<ProfileFeedViewer> {
                 final String img = post['cover_img'] ?? '';
                 final String caption = (post['caption'] ?? '').toString();
                 final String hashtag = (post['hastag'] ?? '').toString();
-                final String username =
-                    (post['username'] ?? 'Bigiluu Member').toString();
-                final String constituency = (post['constituency'] ?? '').toString();
+                final String username = (post['username'] ?? 'Bigiluu Member')
+                    .toString();
+                final String constituency = (post['constituency'] ?? '')
+                    .toString();
                 final String profileImg = (post['profile_image'] ?? '')
                     .toString();
                 final int readersCount = post['readers_count'] ?? 0;

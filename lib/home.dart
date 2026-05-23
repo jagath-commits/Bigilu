@@ -1112,7 +1112,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             .delete(url)
             .timeout(const Duration(seconds: 20));
 
-        if (response.statusCode == 200) {
+        if (response.statusCode == 200 ||
+            response.statusCode == 201 ||
+            response.statusCode == 204) {
           setState(() {
             savedPosts.remove(postId);
 
@@ -1137,7 +1139,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             )
             .timeout(const Duration(seconds: 20));
 
-        if (response.statusCode == 200) {
+        if (response.statusCode == 200 ||
+            response.statusCode == 201 ||
+            response.statusCode == 204) {
           setState(() {
             savedPosts.add(postId);
 
@@ -1793,7 +1797,12 @@ class _PostContainerState extends State<PostContainer> {
     final String postIdStr = widget.post['post_id']?.toString() ?? "";
     final String title =
         widget.post['title']?.toString() ?? "Check out this story!";
-    final String coverUrlStr = fullUrl(widget.post['cover_img']);
+    final String coverPath =
+        (widget.post['cover_img']?.toString().isNotEmpty == true
+            ? widget.post['cover_img']?.toString()
+            : widget.post['coverUrl']?.toString()) ??
+        "";
+    final String coverUrlStr = fullUrl(coverPath);
     final String shareLink = "https://bigiluu.com/post/$postIdStr";
 
     try {
@@ -1865,6 +1874,67 @@ class _PostContainerState extends State<PostContainer> {
 
     // ✅ Return complete HTTPS URL
     return "https://bigiluu.com/$path";
+  }
+
+  String _extractContentCoverPath(dynamic content) {
+    if (content == null) return "";
+
+    dynamic decoded = content;
+    if (content is String) {
+      final trimmed = content.trim();
+      if (trimmed.isEmpty) return "";
+      if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        try {
+          decoded = jsonDecode(trimmed);
+        } catch (_) {
+          return "";
+        }
+      }
+    }
+
+    if (decoded is Map) {
+      if (decoded['coverImage'] is String &&
+          decoded['coverImage'].toString().isNotEmpty) {
+        return decoded['coverImage'].toString();
+      }
+      if (decoded['pages'] is List && decoded['pages'].isNotEmpty) {
+        final firstPage = decoded['pages'][0];
+        if (firstPage is Map) {
+          if (firstPage['coverImage'] is String &&
+              firstPage['coverImage'].toString().isNotEmpty) {
+            return firstPage['coverImage'].toString();
+          }
+          if (firstPage['blocks'] is List) {
+            for (final block in firstPage['blocks']) {
+              if (block is Map && block['type'] == 'image') {
+                final img = block['image'] ?? block['imageUrl'];
+                if (img is String && img.isNotEmpty) return img;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (decoded is List && decoded.isNotEmpty) {
+      final firstPage = decoded[0];
+      if (firstPage is Map) {
+        if (firstPage['coverImage'] is String &&
+            firstPage['coverImage'].toString().isNotEmpty) {
+          return firstPage['coverImage'].toString();
+        }
+        if (firstPage['blocks'] is List) {
+          for (final block in firstPage['blocks']) {
+            if (block is Map && block['type'] == 'image') {
+              final img = block['image'] ?? block['imageUrl'];
+              if (img is String && img.isNotEmpty) return img;
+            }
+          }
+        }
+      }
+    }
+
+    return "";
   }
 
   List<dynamic> list_pages() {
@@ -1947,7 +2017,14 @@ class _PostContainerState extends State<PostContainer> {
 
     final imageUrl = fullUrl(widget.post['profile_image']);
 
-    final coverUrl = fullUrl(widget.post['cover_img']);
+    final String coverPath =
+        (widget.post['cover_img']?.toString().isNotEmpty == true
+            ? widget.post['cover_img']?.toString()
+            : (widget.post['coverUrl']?.toString().isNotEmpty == true
+                  ? widget.post['coverUrl']?.toString()
+                  : _extractContentCoverPath(widget.post['content']))) ??
+        "";
+    final coverUrl = fullUrl(coverPath);
 
     // 🏆 Badge Variants Logic
     String ack = (widget.post['acknowledgment'] ?? "").toString().toUpperCase();
@@ -2011,10 +2088,15 @@ class _PostContainerState extends State<PostContainer> {
         categoryName = "Sinthanaigal";
       else if (c == "3" || c == "budget")
         categoryName = "Budget";
+      else if (c == "4" || c == "noolagam")
+        categoryName = "Noolagam";
+      else if (c == "5" || c == "nigalvugal")
+        categoryName = "Nigalvugal";
       else
         categoryName = cat.toString();
     }
-    bool isBudget = categoryName == "Budget";
+    final bool isBudget = categoryName == "Budget";
+    final bool isNoolagam = categoryName == "Noolagam";
 
     Widget mainCard = Container(
       margin: const EdgeInsets.symmetric(vertical: 12),
@@ -2091,8 +2173,11 @@ class _PostContainerState extends State<PostContainer> {
                           ),
                         ),
                         Text(
-                          widget.post['constituency']?.toString() != null && widget.post['constituency'].toString().isNotEmpty 
-                              ? widget.post['constituency'].toString() 
+                          widget.post['constituency']?.toString() != null &&
+                                  widget.post['constituency']
+                                      .toString()
+                                      .isNotEmpty
+                              ? widget.post['constituency'].toString()
                               : "",
                           style: TextStyle(
                             fontSize: 11,
@@ -2219,16 +2304,35 @@ class _PostContainerState extends State<PostContainer> {
                           categoryName = "Sinthanaigal";
                         else if (c == "3" || c == "budget")
                           categoryName = "Budget";
+                        else if (c == "4" || c == "noolagam")
+                          categoryName = "Noolagam";
+                        else if (c == "5" || c == "nigalvugal")
+                          categoryName = "Nigalvugal";
                         else
                           categoryName = cat.toString();
                       }
 
+                      final String categoryLabel = categoryName == "Manu"
+                          ? "மனு"
+                          : categoryName == "Sinthanaigal"
+                          ? "சிந்தனைகள்"
+                          : categoryName == "Budget"
+                          ? "பட்ஜெட்"
+                          : categoryName == "Nigalvugal"
+                          ? "நிகழ்வுகள்"
+                          : categoryName;
+
+                      final bool hasPostTitle = (widget.post['title'] ?? '')
+                          .toString()
+                          .trim()
+                          .isNotEmpty;
+                      final bool showBottomPadding =
+                          categoryName != "Noolagam" ||
+                          hasPostTitle ||
+                          categoryName == "Budget";
+
                       Widget cardContent = Container(
                         width: double.infinity,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: categoryName == "Budget" ? 24 : 32,
-                        ),
                         decoration: categoryName == "Budget"
                             ? BoxDecoration(
                                 gradient: const LinearGradient(
@@ -2276,113 +2380,165 @@ class _PostContainerState extends State<PostContainer> {
                           crossAxisAlignment:
                               CrossAxisAlignment.start, // LEFT ALIGN by default
                           children: [
-                            // CATEGORY BADGE
-                            if (categoryName.isNotEmpty)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 6,
-                                ),
-                                margin: const EdgeInsets.only(bottom: 24),
-                                decoration: BoxDecoration(
-                                  color: categoryName == "Budget"
-                                      ? const Color(
-                                          0xFF4CAF50,
-                                        ).withOpacity(0.15)
-                                      : const Color(
-                                          0xFFB11226,
-                                        ).withOpacity(0.08),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  categoryName.toUpperCase(),
-                                  style: TextStyle(
-                                    color: categoryName == "Budget"
-                                        ? const Color(0xFF2E7D32)
-                                        : const Color(0xFFB11226),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 1.2,
-                                  ),
-                                ),
-                              ),
-
-                            // TITLE
-                            if ((widget.post['title'] ?? '')
-                                .toString()
-                                .trim()
-                                .isNotEmpty)
-                              SizedBox(
-                                width: double.infinity,
-                                child: Text(
-                                  widget.post['title'],
-                                  maxLines: categoryName == "Budget" ? 5 : 3,
-                                  textAlign: categoryName == "Budget"
-                                      ? TextAlign.left
-                                      : TextAlign.center,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: categoryName == "Budget"
-                                        ? 22
-                                        : 26,
-                                    fontWeight: FontWeight.w900,
-                                    height: 1.35,
-                                    color: categoryName == "Budget"
-                                        ? const Color(0xFF1B5E20)
-                                        : const Color(0xFF1A1A1A),
-                                    letterSpacing: -0.3,
-                                  ),
-                                ),
-                              ),
-
-                            if ((widget.post['title'] ?? '')
-                                .toString()
-                                .trim()
-                                .isNotEmpty)
-                              const SizedBox(height: 20),
-
-                            // PREVIEW TEXT WITH READ MORE (LEFT ALIGNED) - HIDE FOR BUDGET
-                            if (categoryName != "Budget") ...[
-                              if ((widget.post['preview_text'] ?? '')
-                                  .toString()
-                                  .trim()
-                                  .isNotEmpty)
-                                RichText(
-                                  textAlign: TextAlign.left, // Left aligned
-                                  maxLines: 5,
-                                  overflow: TextOverflow.ellipsis,
-                                  text: TextSpan(
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      height: 1.6,
-                                      color: Colors.grey.shade600,
-                                      fontFamily: 'Roboto',
-                                    ),
-                                    children: [
-                                      TextSpan(
-                                        text: widget.post['preview_text'] + " ",
+                            if (isNoolagam && coverUrl.isNotEmpty)
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(24),
+                                child: Image.network(
+                                  coverUrl,
+                                  width: double.infinity,
+                                  fit: BoxFit.fitWidth,
+                                  alignment: Alignment.topCenter,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Container(
+                                        color: Colors.grey.shade200,
+                                        child: const Center(
+                                          child: Icon(
+                                            Icons.image_not_supported_rounded,
+                                            color: Colors.grey,
+                                            size: 36,
+                                          ),
+                                        ),
                                       ),
-                                      const TextSpan(
-                                        text: "Read more",
+                                  loadingBuilder:
+                                      (context, child, loadingProgress) {
+                                        if (loadingProgress == null)
+                                          return child;
+                                        return Container(
+                                          color: Colors.grey.shade200,
+                                          child: const Center(
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.5,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                ),
+                              ),
+
+                            Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: showBottomPadding ? 24 : 0,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // CATEGORY BADGE (hidden for Noolagam so cover shows fully)
+                                  if (categoryName.isNotEmpty &&
+                                      categoryName != "Noolagam")
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 6,
+                                      ),
+                                      margin: const EdgeInsets.only(bottom: 24),
+                                      decoration: BoxDecoration(
+                                        color: categoryName == "Budget"
+                                            ? const Color(
+                                                0xFF4CAF50,
+                                              ).withOpacity(0.15)
+                                            : const Color(
+                                                0xFFB11226,
+                                              ).withOpacity(0.08),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        categoryLabel,
+                                        style: TextStyle(
+                                          color: categoryName == "Budget"
+                                              ? const Color(0xFF2E7D32)
+                                              : const Color(0xFFB11226),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 1.2,
+                                        ),
+                                      ),
+                                    ),
+
+                                  // TITLE
+                                  if ((widget.post['title'] ?? '')
+                                      .toString()
+                                      .trim()
+                                      .isNotEmpty)
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: Text(
+                                        widget.post['title'],
+                                        maxLines: categoryName == "Budget"
+                                            ? 5
+                                            : 3,
+                                        textAlign: categoryName == "Budget"
+                                            ? TextAlign.left
+                                            : TextAlign.center,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: categoryName == "Budget"
+                                              ? 22
+                                              : 26,
+                                          fontWeight: FontWeight.w900,
+                                          height: 1.35,
+                                          color: categoryName == "Budget"
+                                              ? const Color(0xFF1B5E20)
+                                              : const Color(0xFF1A1A1A),
+                                          letterSpacing: -0.3,
+                                        ),
+                                      ),
+                                    ),
+
+                                  if ((widget.post['title'] ?? '')
+                                      .toString()
+                                      .trim()
+                                      .isNotEmpty)
+                                    const SizedBox(height: 20),
+
+                                  // PREVIEW TEXT WITH READ MORE (LEFT ALIGNED) - HIDE FOR BUDGET & NOOLAGAM
+                                  if (categoryName != "Budget" &&
+                                      categoryName != "Noolagam") ...[
+                                    if ((widget.post['preview_text'] ?? '')
+                                        .toString()
+                                        .trim()
+                                        .isNotEmpty)
+                                      RichText(
+                                        textAlign: TextAlign.left,
+                                        maxLines: 5,
+                                        overflow: TextOverflow.ellipsis,
+                                        text: TextSpan(
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            height: 1.6,
+                                            color: Colors.grey.shade600,
+                                            fontFamily: 'Roboto',
+                                          ),
+                                          children: [
+                                            TextSpan(
+                                              text:
+                                                  widget.post['preview_text'] +
+                                                  " ",
+                                            ),
+                                            const TextSpan(
+                                              text: "Read more",
+                                              style: TextStyle(
+                                                color: Color(0xFFB11226),
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    else
+                                      const Text(
+                                        "Read more",
+                                        textAlign: TextAlign.left,
                                         style: TextStyle(
                                           color: Color(0xFFB11226),
                                           fontWeight: FontWeight.w700,
+                                          fontSize: 15,
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                )
-                              else
-                                const Text(
-                                  "Read more",
-                                  textAlign: TextAlign.left, // Left aligned
-                                  style: TextStyle(
-                                    color: Color(0xFFB11226),
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 15,
-                                  ),
-                                ),
-                            ],
+                                  ],
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       );

@@ -339,6 +339,7 @@ class _WritePageState extends State<WritePage> {
       final filePath = result.files.single.path;
       final fileName = result.files.single.name;
       final fileBytes = result.files.single.bytes;
+      final mime = lookupMimeType(fileName) ?? 'application/pdf';
       File? file;
 
       if (filePath != null && await File(filePath).exists()) {
@@ -362,7 +363,7 @@ class _WritePageState extends State<WritePage> {
             "document",
             fileBytes,
             filename: fileName,
-            contentType: MediaType('application', 'octet-stream'),
+            contentType: MediaType.parse(mime),
           ),
         );
       } else {
@@ -372,41 +373,114 @@ class _WritePageState extends State<WritePage> {
       final response = await request.send();
       final responseData = await http.Response.fromStream(response);
 
-      if (response.statusCode != 200) {
+      print("STATUS CODE: ${response.statusCode}");
+      print("BODY: ${responseData.body}");
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
         print(
           "PDF IMPORT FAILED: status=${response.statusCode} body=${responseData.body}",
         );
-        throw Exception("Extraction failed");
+        print(responseData.body);
+        throw Exception(responseData.body);
       }
 
+      print("RAW RESPONSE:");
+      print(responseData.body);
+
       final data = jsonDecode(responseData.body);
-      final extractedText = data["content"] ?? "";
+
+      final extractedText = data["content"]?.toString() ?? "";
 
       if (extractedText.trim().isEmpty) {
         throw Exception("No text extracted");
       }
 
-      // 🔥 SPLIT INTO PARAGRAPHS
+      // 🔥 SAFE SPLIT & FILTER
       final paragraphs = extractedText
           .split(RegExp(r'\n\s*\n'))
-          .where((e) => e.trim().isNotEmpty)
+          .map((e) => e.toString().trim())
+          .where((e) => e.isNotEmpty)
+          // Filter out page numbers, metadata, and garbage
+          .where((e) {
+            // Skip if only numbers (page numbers)
+            if (RegExp(r'^\d+$').hasMatch(e)) return false;
+            // Skip if too short (likely garbage)
+            if (e.length < 3) return false;
+            // Skip common headers/footers (repeated characters)
+            if (RegExp(r'^[=\-*_]{5,}$').hasMatch(e)) return false;
+            // Skip if looks like metadata (e.g., "Page 5", "Date:", etc.)
+            if (RegExp(
+              r'^(Page|page|Date|date|Time|time|Author|author|Subject|subject)\s*:?',
+              multiLine: false,
+            ).hasMatch(e))
+              return false;
+            return true;
+          })
           .toList();
 
       setState(() {
-        _pages = [
-          PageData(fontSize: 22, fontFamily: "Roboto", fontColor: 0xFF000000),
-        ];
+        _pages = [];
+        _currentPage = 0; // 🔥 RESET TO FIRST PAGE
+        _controllers.clear(); // 🔥 CLEAR OLD CONTROLLERS
+        _focusNodes.clear(); // 🔥 CLEAR OLD FOCUS NODES
+        _focusedBlockIndex = null;
 
-        _pages[0].blocks.clear();
+        PageData currentPage = PageData(
+          fontSize: 22,
+          fontFamily: "Roboto",
+          fontColor: 0xFF000000,
+        );
+
+        // Initialize empty blocks for first page
+        currentPage.blocks = [];
+
+        double maxWidth =
+            MediaQuery.of(context).size.width - (currentPage.pageMargin * 2);
+
+        String accumulatedText = "";
 
         for (final para in paragraphs) {
-          _pages[0].blocks.add(PageBlock.text(para.trim(), fontSize: 20));
+          final testText = accumulatedText + "\n\n" + para.trim();
+
+          final overflow = _doesTextOverflow(testText, currentPage, maxWidth);
+
+          // 🔥 CREATE NEW PAGE IF OVERFLOW
+          if (overflow && accumulatedText.isNotEmpty) {
+            _pages.add(currentPage);
+
+            currentPage = PageData(
+              fontSize: 22,
+              fontFamily: "Roboto",
+              fontColor: 0xFF000000,
+            );
+
+            currentPage.blocks = [];
+
+            accumulatedText = "";
+          }
+
+          currentPage.blocks.add(PageBlock.text(para.trim(), fontSize: 20));
+
+          accumulatedText += "\n\n${para.trim()}";
+        }
+
+        // 🔥 ADD LAST PAGE (ALWAYS ADD FIRST PAGE WITH CONTENT)
+        if (currentPage.blocks.isNotEmpty) {
+          _pages.add(currentPage);
+        }
+
+        // fallback - only if somehow pages are still empty
+        if (_pages.isEmpty) {
+          _pages.add(
+            PageData(fontSize: 22, fontFamily: "Roboto", fontColor: 0xFF000000),
+          );
         }
       });
 
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _rebalancePagesFromIndex(0);
-      });
+      // 🔥 RESET PAGE CONTROLLER TO FIRST PAGE
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(0);
+      }
 
       await saveDraft();
 

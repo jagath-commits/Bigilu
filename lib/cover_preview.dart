@@ -223,11 +223,11 @@ class _CoverPreviewWidgetState extends State<CoverPreviewWidget> {
             ),
             const SizedBox(width: 6),
             Text(
-              "MANU",
+              "மனு",
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
-                letterSpacing: 2.0,
+                letterSpacing: 1.2,
                 color: Colors.black.withOpacity(0.4),
               ),
             ),

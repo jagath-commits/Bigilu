@@ -228,8 +228,9 @@ class _HashtagPageState extends State<HashtagPage> {
 
 class HashtagPostsPage extends StatefulWidget {
   final String tag;
+  final String? category;
 
-  const HashtagPostsPage({super.key, required this.tag});
+  const HashtagPostsPage({super.key, required this.tag, this.category});
 
   @override
   State<HashtagPostsPage> createState() => _HashtagPostsPageState();
@@ -330,8 +331,37 @@ class _HashtagPostsPageState extends State<HashtagPostsPage> {
 
         if (!mounted) return;
 
+        List fetched = data is List ? data : data['data'] ?? [];
+
+        // If a category filter was provided, apply client-side filtering
+        if (widget.category != null && widget.category!.isNotEmpty && widget.category! != 'All') {
+          fetched = fetched.where((p) {
+            try {
+              if (p is Map && p['category'] != null && p['category'].toString().isNotEmpty) {
+                return p['category'].toString() == widget.category;
+              }
+              if (p is Map && p['category_id'] != null) {
+                final id = p['category_id'].toString();
+                switch (id) {
+                  case '1':
+                    return widget.category == 'Manu';
+                  case '2':
+                    return widget.category == 'Sinthanaigal';
+                  case '3':
+                    return widget.category == 'Budget';
+                  case '4':
+                    return widget.category == 'Noolagam';
+                  case '5':
+                    return widget.category == 'Nigalvugal';
+                }
+              }
+            } catch (_) {}
+            return false;
+          }).toList();
+        }
+
         setState(() {
-          posts = data is List ? data : data['data'] ?? [];
+          posts = fetched;
           isLoading = false;
         });
       } else {
@@ -501,6 +531,7 @@ class _HashtagPostsPageState extends State<HashtagPostsPage> {
                   onLike: () => toggleLike(postId),
                   isSaved: savedPosts.contains(postId),
                   onSave: () => toggleSave(postId),
+                  currentCategory: widget.category ?? 'All',
                 );
               },
             ),

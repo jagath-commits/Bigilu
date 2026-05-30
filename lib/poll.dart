@@ -38,6 +38,7 @@ class PollPost {
   final String? username;
   final String? profileImage;
   final String? constituency;
+  final String? createdAt;
 
   PollPost({
     required this.pollId,
@@ -48,6 +49,7 @@ class PollPost {
     this.username,
     this.profileImage,
     this.constituency,
+    this.createdAt,
   });
 
   factory PollPost.fromJson(Map<String, dynamic> json) {
@@ -60,6 +62,9 @@ class PollPost {
       username: json['username']?.toString(),
       profileImage: json['profile_image']?.toString(),
       constituency: json['constituency']?.toString(),
+      createdAt: json['created_at']?.toString(),
+      hasVoted: json['has_voted'] ?? false,
+      selectedOptionId: json['selected_option_id']?.toString(),
     );
   }
 
@@ -67,6 +72,12 @@ class PollPost {
     'poll_id': pollId,
     'question': title,
     'options': options.map((o) => o.toJson()).toList(),
+    'username': username,
+    'profile_image': profileImage,
+    'constituency': constituency,
+    'created_at': createdAt,
+    'has_voted': hasVoted,
+    'selected_option_id': selectedOptionId,
   };
 
   int get totalVotes => options.fold(0, (sum, item) => sum + item.voteCount);
@@ -474,9 +485,9 @@ class _CreatePollPageState extends State<CreatePollPage> {
       await prefs.remove('cache_polls');
       await prefs.remove('cache_polls_ts');
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(data["message"] ?? "Poll created")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(data["message"] ?? "Poll created")),
+      );
 
       final route = Platform.isIOS
           ? CupertinoPageRoute(builder: (_) => const MainShell())

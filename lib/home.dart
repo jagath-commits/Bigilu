@@ -36,11 +36,13 @@ class _MainShellState extends State<MainShell> {
 
   late final List<Widget> _pages;
 
+  final GlobalKey<_HomePageState> _homeKey = GlobalKey<_HomePageState>();
+
   @override
   void initState() {
     super.initState();
     _pages = [
-      HomePage(deepLinkPostId: widget.deepLinkPostId),
+      HomePage(key: _homeKey, deepLinkPostId: widget.deepLinkPostId),
       const HashtagPage(),
       _ProfileShell(),
     ];
@@ -61,13 +63,32 @@ class _MainShellState extends State<MainShell> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
+        // If not in Home tab → go Home + scroll top
         if (_currentIndex != 0) {
           setState(() => _currentIndex = 0);
+
+          Future.delayed(const Duration(milliseconds: 100), () {
+            _homeKey.currentState?.scrollToTop();
+          });
+
           return false;
         }
+
+        // If Home page not at top → scroll to top
+        final controller = _homeKey.currentState?._scrollController;
+
+        if (controller != null &&
+            controller.hasClients &&
+            controller.offset > 0) {
+          _homeKey.currentState?.scrollToTop();
+          return false;
+        }
+
+        // Already at top → exit app
         if (Platform.isAndroid) {
           SystemNavigator.pop();
         }
+
         return false;
       },
       child: Scaffold(
@@ -129,7 +150,21 @@ class _MainShellState extends State<MainShell> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => setState(() => _currentIndex = index),
+        onTap: () {
+          // Already in Home → scroll to top
+          if (index == 0 && _currentIndex == 0) {
+            _homeKey.currentState?.scrollToTop();
+          } else {
+            setState(() => _currentIndex = index);
+
+            // Navigate to Home → scroll top
+            if (index == 0) {
+              Future.delayed(const Duration(milliseconds: 100), () {
+                _homeKey.currentState?.scrollToTop();
+              });
+            }
+          }
+        },
         borderRadius: BorderRadius.circular(16),
         splashColor: activeColor.withOpacity(0.15),
         highlightColor: activeColor.withOpacity(0.08),
@@ -367,6 +402,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return "All";
   }
 
+  void scrollToTop() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
   /// Fetches all 3 category feeds in parallel.
   /// Skips the network call entirely if data is still fresh (TTL not expired).
   Future<void> fetchCategoryPosts({bool forceRefresh = false}) async {
@@ -547,21 +592,66 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ...manuPosts,
         ...posts,
       ];
+
       final seen = <String>{};
       final uniquePosts = [];
+
       for (var p in allList) {
         final pid = p['post_id']?.toString() ?? "";
+
         if (pid.isNotEmpty && !seen.contains(pid)) {
           seen.add(pid);
+
+          // 🔥 MARK NORMAL POST TYPE
+          p['feed_type'] = 'post';
+
           uniquePosts.add(p);
         }
       }
-      uniquePosts.sort((a, b) {
-        final idA = int.tryParse(a['post_id']?.toString() ?? '0') ?? 0;
-        final idB = int.tryParse(b['post_id']?.toString() ?? '0') ?? 0;
-        return idB.compareTo(idA); // descending
+
+      // 🔥 CONVERT POLLS TO MAP FORMAT
+      final pollFeed = pollPosts.map((poll) {
+        return {
+          'feed_type': 'poll',
+          'created_at': poll.createdAt,
+          'poll_data': poll,
+        };
+      }).toList();
+
+      // 🔥 MERGE POSTS + POLLS
+      final combinedFeed = [...uniquePosts, ...pollFeed];
+
+      // 🔥 SORT BY CREATED TIME
+      combinedFeed.sort((a, b) {
+        DateTime dateA;
+        DateTime dateB;
+
+        if (a['feed_type'] == 'poll') {
+          final createdAtStr = a['created_at']?.toString() ?? '';
+          dateA = DateTime.tryParse(createdAtStr) ?? DateTime(2000);
+        } else {
+          dateA =
+              DateTime.tryParse(
+                a['created_at']?.toString() ?? a['DATE']?.toString() ?? '',
+              ) ??
+              DateTime(2000);
+        }
+
+        if (b['feed_type'] == 'poll') {
+          final createdAtStr = b['created_at']?.toString() ?? '';
+          dateB = DateTime.tryParse(createdAtStr) ?? DateTime(2000);
+        } else {
+          dateB =
+              DateTime.tryParse(
+                b['created_at']?.toString() ?? b['DATE']?.toString() ?? '',
+              ) ??
+              DateTime(2000);
+        }
+
+        return dateB.compareTo(dateA);
       });
-      return [...pollPosts, ...uniquePosts];
+
+      return combinedFeed;
     }
 
     if (_selectedCategory == "Poll") {
@@ -990,15 +1080,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           } else {
             // ✅ KEEP OLD POSTS IF API EMPTY
             if (fetchedPosts.isNotEmpty) {
-              final existingIds = posts
-                  .map((e) => e['post_id'].toString())
-                  .toSet();
-
-              final uniquePosts = fetchedPosts.where((p) {
-                return !existingIds.contains(p['post_id'].toString());
-              }).toList();
-
-              posts = uniquePosts;
+              // ✅ Fresh first-page data replace old cache fully
+              posts = fetchedPosts;
             }
           }
 
@@ -1496,7 +1579,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               child: CircularProgressIndicator(color: Color(0xFFB11226)),
             )
           : RefreshIndicator(
-              onRefresh: fetchPosts,
+              onRefresh: () async {
+                await Future.wait([
+                  fetchPosts(),
+                  fetchCategoryPosts(forceRefresh: true),
+                  fetchPolls(forceRefresh: true),
+                  fetchUserInteractions(forceRefresh: true),
+                ]);
+              },
               child: ListView.builder(
                 controller: _scrollController,
                 padding: const EdgeInsets.symmetric(
@@ -1506,33 +1596,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 itemCount: _filteredPosts.length + 1 + (isLoadingMore ? 1 : 0),
                 itemBuilder: (context, index) {
                   // Show refresh indicator at top if refreshing
-                  if (isLoading && posts.isNotEmpty && index == 0) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Color(0xFFB11226),
-                            ),
+                  /*if (isLoading && _filteredPosts.isNotEmpty && index == 0) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFFB11226),
                           ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            "🔄 Refreshing...",
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                        ],
+                        ),
                       ),
                     );
-                  }
+                  }*/
 
-                  final adjustedIndex = (isLoading && posts.isNotEmpty)
-                      ? index - 1
-                      : index;
+                  final adjustedIndex = index;
 
                   if (adjustedIndex == 0) {
                     return Container(
@@ -1576,6 +1656,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
                   final item = currentFeed[listIndex];
 
+                  // 🔥 POLL CARD
+                  // 🔥 DIRECT POLL OBJECT
                   if (item is PollPost) {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 24),
@@ -1583,6 +1665,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     );
                   }
 
+                  // 🔥 POLL MAP WRAPPER
+                  if (item is Map && item['feed_type'] == 'poll') {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 24),
+                      child: _buildPollCard(item['poll_data']),
+                    );
+                  }
+
+                  // 🔥 NORMAL POST
                   final post = item;
                   final String postId = post['post_id']?.toString() ?? "";
 
@@ -1594,6 +1685,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       onLike: () => toggleLike(postId),
                       isSaved: savedPosts.contains(postId),
                       onSave: () => toggleSave(postId),
+                      currentCategory: _selectedCategory,
                     ),
                   );
                 },
@@ -1774,6 +1866,7 @@ class PostContainer extends StatefulWidget {
   final VoidCallback onSave;
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
+  final String currentCategory;
 
   const PostContainer({
     super.key,
@@ -1782,6 +1875,7 @@ class PostContainer extends StatefulWidget {
     required this.isSaved,
     required this.onLike,
     required this.onSave,
+    required this.currentCategory,
     this.onTap,
     this.onDelete,
   });
@@ -2579,13 +2673,27 @@ class _PostContainerState extends State<PostContainer> {
                 if (hashtag.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 10),
-                    child: Text(
-                      hashtag.startsWith("#") ? hashtag : "#$hashtag",
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: brandColor,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.2,
+                    child: GestureDetector(
+                      onTap: () {
+                        final rawTag = hashtag.startsWith('#')
+                            ? hashtag.substring(1)
+                            : hashtag;
+                        final route = MaterialPageRoute(
+                          builder: (_) => HashtagPostsPage(
+                            tag: rawTag,
+                            category: widget.currentCategory,
+                          ),
+                        );
+                        Navigator.push(context, route);
+                      },
+                      child: Text(
+                        hashtag.startsWith("#") ? hashtag : "#$hashtag",
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: brandColor,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                        ),
                       ),
                     ),
                   ),

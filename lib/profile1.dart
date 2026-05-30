@@ -769,6 +769,7 @@ class _ProfilePageState extends State<ProfilePage> {
               onDelete: (!widget.isPublicView && selectedTab == 0)
                   ? () => _deletePostFromProfile(postId)
                   : null,
+              currentCategory: 'All',
             ),
           );
         },

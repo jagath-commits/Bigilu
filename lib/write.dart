@@ -3,11 +3,13 @@ import 'dart:io' show Platform, File;
 import 'package:bigilu/home.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'dart:math' show min;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mime/mime.dart';
 import 'package:http_parser/http_parser.dart';
@@ -116,6 +118,29 @@ class PageData {
   }) : blocks = [PageBlock.text("")];
 }
 
+List<String> parseParagraphs(String text) {
+  return text
+      .split(RegExp(r'\n\s*\n'))
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .where((e) {
+        if (RegExp(r'^\d+$').hasMatch(e)) {
+          return false;
+        }
+
+        if (e.length < 3) {
+          return false;
+        }
+
+        if (RegExp(r'^[=\-*_]{5,}$').hasMatch(e)) {
+          return false;
+        }
+
+        return true;
+      })
+      .toList();
+}
+
 class WritePage extends StatefulWidget {
   final String? draftId; // optional
   final String? draftContent; // optional
@@ -163,6 +188,13 @@ class _WritePageState extends State<WritePage> {
   int _activeColor = 0xFF000000;
   bool _activeHeadline = false;
   File? _pdfFile;
+  http.Client? _pdfExtractionClient;
+  bool _isExtractingPdf = false;
+  bool _pdfExtractionCancelled = false;
+  bool _isPdfExtractionDialogVisible = false;
+  String _pdfExtractionStatus = "";
+  final ValueNotifier<String> _pdfExtractionStatusNotifier = ValueNotifier("");
+  static const int _kMaxPdfUploadBytes = 100 * 1024 * 1024;
 
   final List<String> _fontFamilies = [
     "Roboto",
@@ -245,6 +277,7 @@ class _WritePageState extends State<WritePage> {
   void dispose() {
     _pageController.dispose();
     _debounceTimer?.cancel();
+    _pdfExtractionStatusNotifier.dispose();
     for (var ctrl in _controllers.values) {
       ctrl.dispose();
     }
@@ -327,6 +360,53 @@ class _WritePageState extends State<WritePage> {
     }
   }
 
+  Future<void> _showPdfExtractionProgressDialog() async {
+    if (_isPdfExtractionDialogVisible) return;
+    _isPdfExtractionDialogVisible = true;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return WillPopScope(
+          onWillPop: () async => false,
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Text("Processing document"),
+            content: ValueListenableBuilder<String>(
+              valueListenable: _pdfExtractionStatusNotifier,
+              builder: (context, status, child) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 4),
+                    const LinearProgressIndicator(),
+                    const SizedBox(height: 18),
+                    Text(
+                      status.isEmpty ? "Starting..." : status,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ],
+                );
+              },
+            ),
+            actions: [
+              TextButton(
+                onPressed: _cancelPdfExtraction,
+                child: const Text("Cancel"),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    _isPdfExtractionDialogVisible = false;
+  }
+
   Future<void> _pickPDF() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -342,12 +422,31 @@ class _WritePageState extends State<WritePage> {
       final mime = lookupMimeType(fileName) ?? 'application/pdf';
       File? file;
 
+      final fileSize = result.files.single.size;
+
+      if (fileSize > _kMaxPdfUploadBytes) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Maximum file size is 100MB")),
+        );
+
+        return;
+      }
+
       if (filePath != null && await File(filePath).exists()) {
         file = File(filePath);
       }
 
+      setState(() {
+        _isExtractingPdf = true;
+        _pdfExtractionCancelled = false;
+        _pdfExtractionStatus = "Uploading document...";
+      });
+      _pdfExtractionStatusNotifier.value = "Uploading document...";
+      _showPdfExtractionProgressDialog();
+
       final uri = Uri.parse("https://bigiluu.com/api/posts/extractDocument");
       var request = http.MultipartRequest("POST", uri);
+      _pdfExtractionClient = http.Client();
 
       if (file != null) {
         setState(() {
@@ -370,15 +469,18 @@ class _WritePageState extends State<WritePage> {
         throw Exception("Selected document cannot be read");
       }
 
-      final response = await request.send();
-      final responseData = await http.Response.fromStream(response);
+      final streamedResponse = await _pdfExtractionClient!
+          .send(request)
+          .timeout(const Duration(minutes: 30));
+      final responseData = await http.Response.fromStream(streamedResponse);
 
-      print("STATUS CODE: ${response.statusCode}");
+      print("STATUS CODE: ${streamedResponse.statusCode}");
       print("BODY: ${responseData.body}");
 
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (streamedResponse.statusCode < 200 ||
+          streamedResponse.statusCode >= 300) {
         print(
-          "PDF IMPORT FAILED: status=${response.statusCode} body=${responseData.body}",
+          "PDF IMPORT FAILED: status=${streamedResponse.statusCode} body=${responseData.body}",
         );
         print(responseData.body);
         throw Exception(responseData.body);
@@ -387,95 +489,151 @@ class _WritePageState extends State<WritePage> {
       print("RAW RESPONSE:");
       print(responseData.body);
 
-      final data = jsonDecode(responseData.body);
+      dynamic data;
 
-      final extractedText = data["content"]?.toString() ?? "";
+      try {
+        data = jsonDecode(responseData.body);
+      } catch (e) {
+        print("INVALID JSON RESPONSE");
+        print(responseData.body);
 
-      if (extractedText.trim().isEmpty) {
-        throw Exception("No text extracted");
+        throw Exception("Server returned invalid response");
+      }
+
+      print("FULL RESPONSE:");
+      print(data);
+
+      if (data == null || data is! Map) {
+        throw Exception("Invalid server response");
+      }
+
+      if (data["success"] == false) {
+        throw Exception(data["message"] ?? "Extraction failed");
+      }
+
+      if (!data.containsKey("extractionId")) {
+        throw Exception("Missing extractionId");
+      }
+
+      if (!data.containsKey("totalChunks")) {
+        throw Exception("Missing totalChunks");
+      }
+
+      final extractionId = data["extractionId"]?.toString();
+
+      final totalChunks = data["totalChunks"] ?? 0;
+
+      if (extractionId == null || extractionId.isEmpty) {
+        throw Exception("Invalid extractionId");
+      }
+
+      if (totalChunks <= 0) {
+        throw Exception("No content extracted");
+      }
+
+      final StringBuffer extractedText = StringBuffer();
+
+      for (int i = 0; i < totalChunks; i++) {
+        if (_pdfExtractionCancelled) {
+          throw Exception("PDF extraction canceled");
+        }
+
+        final chunkResponse = await _pdfExtractionClient!
+            .get(
+              Uri.parse(
+                "https://bigiluu.com/api/posts/documentChunk/$extractionId/$i",
+              ),
+            )
+            .timeout(const Duration(minutes: 1));
+
+        if (chunkResponse.statusCode != 200) {
+          print("CHUNK FAILED:");
+          print(chunkResponse.body);
+
+          throw Exception("Chunk download failed: ${chunkResponse.statusCode}");
+        }
+
+        if ((i + 1) % 2 == 0 || i == totalChunks - 1) {
+          if (mounted) {
+            setState(() {
+              _pdfExtractionStatus =
+                  "Extracting document... (${i + 1}/$totalChunks)";
+            });
+            _pdfExtractionStatusNotifier.value =
+                "Extracting document... (${i + 1}/$totalChunks)";
+          }
+        }
+
+        dynamic chunkData;
+
+        try {
+          chunkData = jsonDecode(chunkResponse.body);
+        } catch (e) {
+          print("INVALID CHUNK JSON");
+          print(chunkResponse.body);
+
+          throw Exception("Invalid chunk response");
+        }
+
+        extractedText.write(chunkData["chunk"] ?? "");
+
+        if (i % 5 == 0 && mounted) {
+          setState(() {});
+        }
+      }
+
+      final finalText = extractedText.toString();
+
+      if (finalText.length > 3000000) {
+        throw Exception("Document too large after extraction");
       }
 
       // 🔥 SAFE SPLIT & FILTER
-      final paragraphs = extractedText
-          .split(RegExp(r'\n\s*\n'))
-          .map((e) => e.toString().trim())
-          .where((e) => e.isNotEmpty)
-          // Filter out page numbers, metadata, and garbage
-          .where((e) {
-            // Skip if only numbers (page numbers)
-            if (RegExp(r'^\d+$').hasMatch(e)) return false;
-            // Skip if too short (likely garbage)
-            if (e.length < 3) return false;
-            // Skip common headers/footers (repeated characters)
-            if (RegExp(r'^[=\-*_]{5,}$').hasMatch(e)) return false;
-            // Skip if looks like metadata (e.g., "Page 5", "Date:", etc.)
-            if (RegExp(
-              r'^(Page|page|Date|date|Time|time|Author|author|Subject|subject)\s*:?',
-              multiLine: false,
-            ).hasMatch(e))
-              return false;
-            return true;
-          })
-          .toList();
+      final paragraphs = await compute(parseParagraphs, finalText);
+      // CLEAR OLD DATA
+      _pages = [];
+      _currentPage = 0;
 
-      setState(() {
-        _pages = [];
-        _currentPage = 0; // 🔥 RESET TO FIRST PAGE
-        _controllers.clear(); // 🔥 CLEAR OLD CONTROLLERS
-        _focusNodes.clear(); // 🔥 CLEAR OLD FOCUS NODES
-        _focusedBlockIndex = null;
+      _controllers.clear();
+      _focusNodes.clear();
 
-        PageData currentPage = PageData(
-          fontSize: 22,
-          fontFamily: "Roboto",
-          fontColor: 0xFF000000,
-        );
+      _focusedBlockIndex = null;
 
-        // Initialize empty blocks for first page
-        currentPage.blocks = [];
-
-        double maxWidth =
-            MediaQuery.of(context).size.width - (currentPage.pageMargin * 2);
-
-        String accumulatedText = "";
-
-        for (final para in paragraphs) {
-          final testText = accumulatedText + "\n\n" + para.trim();
-
-          final overflow = _doesTextOverflow(testText, currentPage, maxWidth);
-
-          // 🔥 CREATE NEW PAGE IF OVERFLOW
-          if (overflow && accumulatedText.isNotEmpty) {
-            _pages.add(currentPage);
-
-            currentPage = PageData(
-              fontSize: 22,
-              fontFamily: "Roboto",
-              fontColor: 0xFF000000,
-            );
-
-            currentPage.blocks = [];
-
-            accumulatedText = "";
-          }
-
-          currentPage.blocks.add(PageBlock.text(para.trim(), fontSize: 20));
-
-          accumulatedText += "\n\n${para.trim()}";
-        }
-
-        // 🔥 ADD LAST PAGE (ALWAYS ADD FIRST PAGE WITH CONTENT)
-        if (currentPage.blocks.isNotEmpty) {
-          _pages.add(currentPage);
-        }
-
-        // fallback - only if somehow pages are still empty
-        if (_pages.isEmpty) {
-          _pages.add(
-            PageData(fontSize: 22, fontFamily: "Roboto", fontColor: 0xFF000000),
+      // Large document warning
+      if (extractedText.length > 1500000) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                "Large document detected. Processing may take time.",
+              ),
+            ),
           );
         }
-      });
+      }
+
+      // Build page blocks from extracted paragraphs, then rebalance pages.
+      final PageData initialPage =
+          PageData(fontSize: 22, fontFamily: "Roboto", fontColor: 0xFF000000)
+            ..blocks = paragraphs
+                .map((paragraph) => PageBlock.text(paragraph, fontSize: 20))
+                .toList();
+
+      // Ensure we always have at least one page to balance from.
+      _pages.add(initialPage);
+      _rebalancePagesFromIndex(0);
+
+      // FALLBACK
+      if (_pages.isEmpty) {
+        _pages.add(
+          PageData(fontSize: 22, fontFamily: "Roboto", fontColor: 0xFF000000),
+        );
+      }
+
+      // FINAL UI UPDATE
+      if (mounted) {
+        setState(() {});
+      }
 
       // 🔥 RESET PAGE CONTROLLER TO FIRST PAGE
       if (_pageController.hasClients) {
@@ -487,13 +645,49 @@ class _WritePageState extends State<WritePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Document imported successfully")),
       );
-    } catch (e) {
-      print("PDF IMPORT ERROR: $e");
+    } catch (e, stack) {
+      print("========== PDF IMPORT ERROR ==========");
+      print(e);
+      print(stack);
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Failed to import document")));
+      if (_pdfExtractionCancelled && mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("PDF import canceled")));
+      }
+
+      if (mounted && !_pdfExtractionCancelled) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString()), duration: Duration(seconds: 5)),
+        );
+      }
+    } finally {
+      _pdfExtractionClient?.close();
+      _pdfExtractionClient = null;
+      if (mounted) {
+        if (_isPdfExtractionDialogVisible) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+        setState(() {
+          _isExtractingPdf = false;
+          if (!_pdfExtractionCancelled) {
+            _pdfExtractionStatus = "";
+          }
+        });
+      }
+      _pdfExtractionStatusNotifier.value = "";
     }
+  }
+
+  void _cancelPdfExtraction() {
+    if (!_isExtractingPdf || _pdfExtractionCancelled) return;
+    setState(() {
+      _pdfExtractionCancelled = true;
+      _pdfExtractionStatus = "Canceling...";
+      _pdfExtractionStatusNotifier.value = "Canceling...";
+    });
+    _pdfExtractionClient?.close();
+    _pdfExtractionClient = null;
   }
 
   void _applyStateSafety() {
@@ -682,9 +876,9 @@ class _WritePageState extends State<WritePage> {
 
         // Check if page naturally fits and we have no overflow to push into it
         if (!carryOver && blocksOnThisPage.isNotEmpty) {
-          String combinedText = blocksOnThisPage
+            String combinedText = blocksOnThisPage
               .map((e) => e.text ?? "")
-              .join("\n");
+              .join("\n\n");
           if (!_doesTextOverflow(combinedText, _pages[p], maxWidth)) {
             // Stability reached! Subsequent pages won't be affected.
             break;
@@ -803,10 +997,11 @@ class _WritePageState extends State<WritePage> {
         // If we are appending a different block that happened to share styles,
         // add a newline if the existing block isn't empty, to respect their original separation
         String candidate;
+        const String _paragraphSep = "\n\n";
         if (existing.isNotEmpty &&
             !remaining.startsWith("\n") &&
             !existing.endsWith("\n")) {
-          candidate = existing + "\n" + remaining;
+          candidate = existing + _paragraphSep + remaining;
         } else {
           candidate = existing + remaining;
         }
@@ -835,7 +1030,7 @@ class _WritePageState extends State<WritePage> {
             if (existing.isNotEmpty &&
                 !remaining.startsWith("\n") &&
                 !existing.endsWith("\n")) {
-              tempCandidate = existing + "\n" + remaining.substring(0, mid);
+              tempCandidate = existing + _paragraphSep + remaining.substring(0, mid);
             } else {
               tempCandidate = existing + remaining.substring(0, mid);
             }
@@ -857,8 +1052,20 @@ class _WritePageState extends State<WritePage> {
             }
           }
           if (low == 0) {
-            // Senior PE: Force computation progress to avoid infinite iteration
-            low = 1;
+            // Avoid single-letter splits: choose a small but reasonable minimum
+            // fallback of 3 characters (or the remaining length if shorter).
+            low = min(remaining.length, 3);
+            // Prefer to cut at last whitespace if available within the fallback
+            if (low < remaining.length) {
+              int lastSpace = remaining.substring(0, low).lastIndexOf(' ');
+              if (lastSpace > 0) {
+                low = lastSpace;
+              }
+            }
+            if (low == 0) {
+              // give up gracefully to avoid infinite loop
+              low = 1;
+            }
             if (remaining.isEmpty) break;
           }
 
@@ -878,12 +1085,14 @@ class _WritePageState extends State<WritePage> {
           if (existing.isNotEmpty &&
               !remaining.startsWith("\n") &&
               !existing.endsWith("\n")) {
-            lastBlock.text = existing + "\n" + fitPart;
+            lastBlock.text = existing + _paragraphSep + fitPart;
           } else {
             lastBlock.text = existing + fitPart;
           }
 
-          remaining = remaining.substring(low).trimLeft();
+          // Preserve leading whitespace/newlines of the remainder to keep
+          // paragraph boundaries intact. Do NOT aggressively trim here.
+          remaining = remaining.substring(low);
           pageIdx++;
         }
       }
@@ -893,6 +1102,17 @@ class _WritePageState extends State<WritePage> {
 
   void _handleTextChange(String value, int pageIndex, int blockIndex) {
     if (_isUpdatingState) return;
+
+    // Safety guards: pageIndex or blockIndex may be stale after rebalancing.
+    if (pageIndex < 0 || pageIndex >= _pages.length) {
+      // Rebalance conservatively and exit to avoid RangeError
+      _rebalancePagesFromIndex(0);
+      return;
+    }
+    if (blockIndex < 0 || blockIndex >= _pages[pageIndex].blocks.length) {
+      _rebalancePagesFromIndex(pageIndex);
+      return;
+    }
 
     setState(() {
       // Update text without truncating lines
@@ -1132,6 +1352,8 @@ class _WritePageState extends State<WritePage> {
       final uri = Uri.parse("https://bigiluu.com/api/draft/saveDraft");
 
       var request = http.MultipartRequest("POST", uri);
+
+      request.headers['Connection'] = 'keep-alive';
 
       request.fields["user_id"] = userId ?? "";
 
@@ -2261,42 +2483,112 @@ class _WritePageState extends State<WritePage> {
                   ),
                 ],
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildToolbarButton(context, Icons.undo_rounded, "Undo", () {
-                    HapticFeedback.lightImpact();
-                    _globalUndo();
-                  }, disabled: _historyIndex <= 0),
-                  _buildToolbarButton(
-                    context,
-                    Icons.text_format_rounded,
-                    "Text Styles",
-                    () {
-                      HapticFeedback.lightImpact();
-                      _showStylePicker();
-                    },
-                  ),
-                  _buildToolbarButton(
-                    context,
-                    Icons.redo_rounded,
-                    "Redo",
-                    () {
-                      HapticFeedback.lightImpact();
-                      _globalRedo();
-                    },
-                    disabled: _historyIndex >= _historyStack.length - 1,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildToolbarButton(
+                        context,
+                        Icons.undo_rounded,
+                        "Undo",
+                        () {
+                          HapticFeedback.lightImpact();
+                          _globalUndo();
+                        },
+                        disabled: _historyIndex <= 0,
+                      ),
+                      _buildToolbarButton(
+                        context,
+                        Icons.text_format_rounded,
+                        "Text Styles",
+                        () {
+                          HapticFeedback.lightImpact();
+                          _showStylePicker();
+                        },
+                      ),
+                      _buildToolbarButton(
+                        context,
+                        Icons.redo_rounded,
+                        "Redo",
+                        () {
+                          HapticFeedback.lightImpact();
+                          _globalRedo();
+                        },
+                        disabled: _historyIndex >= _historyStack.length - 1,
+                      ),
+                      if (selectedCategoryId == 4)
+                        _buildToolbarButton(
+                          context,
+                          Icons.upload_file_rounded,
+                          _isExtractingPdf ? "Uploading..." : "Upload PDF",
+                          _isExtractingPdf
+                              ? () {}
+                              : () {
+                                  HapticFeedback.lightImpact();
+                                  _pickPDF();
+                                },
+                          isActive: _pdfFile != null,
+                          disabled: _isExtractingPdf,
+                        ),
+                    ],
                   ),
                   if (selectedCategoryId == 4)
-                    _buildToolbarButton(
-                      context,
-                      Icons.upload_file_rounded,
-                      "Upload PDF",
-                      () {
-                        HapticFeedback.lightImpact();
-                        _pickPDF();
-                      },
-                      isActive: _pdfFile != null,
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_isExtractingPdf)
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: const Color(0xFFB11226),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    _pdfExtractionStatus,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                TextButton(
+                                  onPressed: _cancelPdfExtraction,
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    minimumSize: Size.zero,
+                                  ),
+                                  child: const Text(
+                                    "Cancel",
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          if (!_isExtractingPdf)
+                            Text(
+                              "PDF upload limit: 100MB",
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                 ],
               ),

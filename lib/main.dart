@@ -15,7 +15,8 @@ import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
-
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -24,26 +25,34 @@ Future<void> main() async {
 
   await Firebase.initializeApp();
 
-    // 👇 ADD THIS
+  await FirebaseMessaging.instance.requestPermission(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+
+  // 👇 ADD THIS
   const AndroidInitializationSettings initializationSettingsAndroid =
       AndroidInitializationSettings('@mipmap/ic_launcher');
 
-  const InitializationSettings initializationSettings =
-      InitializationSettings(android: initializationSettingsAndroid);
+  const InitializationSettings initializationSettings = InitializationSettings(
+    android: initializationSettingsAndroid,
+  );
 
-  await flutterLocalNotificationsPlugin.initialize(initializationSettings); 
+  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
   await flutterLocalNotificationsPlugin
-    .resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>()
-    ?.createNotificationChannel(
-  const AndroidNotificationChannel(
-    'channel_id',
-    'channel_name',
-    description: 'This is important channel',
-    importance: Importance.max,
-  ),
-);
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >()
+      ?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'channel_id',
+          'channel_name',
+          description: 'This is important channel',
+          importance: Importance.max,
+        ),
+      );
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -61,32 +70,23 @@ Future<void> main() async {
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-
-
-  Future<void> sendTokenToServer(String token) async {
+Future<void> sendTokenToServer(String token) async {
   final prefs = await SharedPreferences.getInstance();
   String? userId = prefs.getString("user_id");
 
-if (userId == null) {
-  print("⚠️ Sending token without user_id");
+  if (userId == null) {
+    print("⚠️ Sending token without user_id");
+  }
+
+  var response = await http.post(
+    Uri.parse("https://bigiluu.com/api/posts/save-token"),
+    headers: {"Content-Type": "application/json"},
+    body: jsonEncode({"user_id": userId, "fcm_token": token}),
+  );
+
+  print("API STATUS: ${response.statusCode}");
+  print("API RESPONSE: ${response.body}");
 }
-
-var response = await http.post(
-  Uri.parse("https://bigiluu.com/save-token"),
-  headers: {
-    "Content-Type": "application/json",
-  },
-  body: jsonEncode({
-    "user_id": userId,
-    "fcm_token": token,
-  }),
-);
-
-print("API STATUS: ${response.statusCode}");
-print("API RESPONSE: ${response.body}");
-}
-
-
 
 class MyApp extends StatefulWidget {
   final String? token;
@@ -101,121 +101,156 @@ class _MyAppState extends State<MyApp> {
   late final AppLinks _appLinks;
   StreamSubscription<Uri>? _sub;
 
-// ONLY CHANGED PARTS ARE MARKED ✅
+  // ONLY CHANGED PARTS ARE MARKED ✅
 
-@override
-void initState() {
-  super.initState();
+  @override
+  void initState() {
+    super.initState();
 
-  _initDeepLinks();
+    _initDeepLinks();
 
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-  _initFirebase();
-}); // ✅ only this
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initFirebase();
 
-}
-
-
-
-Future<void> _initFirebase() async {
-  NotificationSettings settings =
-      await FirebaseMessaging.instance.requestPermission(
-    alert: true,
-    badge: true,
-    sound: true,
-  );
-
-  await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-  alert: true,
-  badge: true,
-  sound: true,
-);
-
-  print("Permission: ${settings.authorizationStatus}");
-
-FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-  print("🔥 FULL MESSAGE: ${message.data}");
-
-String title = message.data['title'] ?? "New Notification";
-String body = message.data['body'] ?? "You have a new update";
-
-  flutterLocalNotificationsPlugin.show(
-    DateTime.now().millisecondsSinceEpoch ~/ 1000,
-    title,
-    body,
-    const NotificationDetails(
-      android: AndroidNotificationDetails(
-        'channel_id',
-        'channel_name',
-        importance: Importance.max,
-        priority: Priority.high,
-        playSound: true,
-        enableVibration: true,
-      ),
-    ),
-  );
-});
-
-  // 🔔 Click (background)
-FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-  print("🔥 BACKGROUND CLICK");
-
-  String? postId = message.data['post_id']?.toString();
-  String? userId = message.data['user_id']?.toString();
-
-  if (postId != null && userId != null) {
-    navigatorKey.currentState?.push(
-      MaterialPageRoute(
-        builder: (_) => ProfilePage(
-          userId: userId, // ✅ FIXED
-          isPublicView: true,
-          initialPostId: postId,
-        ),
-      ),
-    );
+      checkForceUpdate();
+    });
   }
-});
 
-FirebaseMessaging.instance.getInitialMessage().then((message) {
-  if (message != null) {
-    print("🔥 APP OPENED FROM TERMINATED");
+  Future<void> checkForceUpdate() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
 
-    String? postId = message.data['post_id']?.toString();
-    String? userId = message.data['user_id']?.toString();
+      final currentVersion = packageInfo.version;
 
-    if (postId != null && userId != null) {
-      navigatorKey.currentState?.push(
-        MaterialPageRoute(
-          builder: (_) => ProfilePage(
-            userId: userId, // ✅ USE FROM NOTIFICATION
-            isPublicView: true,
-            initialPostId: postId,
+      final response = await http.get(
+        Uri.parse("https://bigiluu.com/api/app-version"),
+      );
+
+      final data = jsonDecode(response.body);
+
+      final latestVersion = data["latest_version"];
+
+      final forceUpdate = data["force_update"];
+
+      if (currentVersion != latestVersion && forceUpdate == true) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) {
+            return AlertDialog(
+              title: const Text("Update Required"),
+              content: const Text("Please update Bigilu to continue."),
+              actions: [
+                ElevatedButton(
+                  onPressed: () async {
+                    await launchUrl(
+                      Uri.parse(data["playstore_url"]),
+                      mode: LaunchMode.externalApplication,
+                    );
+                  },
+                  child: const Text("Update Now"),
+                ),
+              ],
+            );
+          },
+        );
+      }
+    } catch (e) {
+      print("VERSION ERROR: $e");
+    }
+  }
+
+  Future<void> _initFirebase() async {
+    NotificationSettings settings = await FirebaseMessaging.instance
+        .requestPermission(alert: true, badge: true, sound: true);
+
+    await FirebaseMessaging.instance
+        .setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+
+    print("Permission: ${settings.authorizationStatus}");
+
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print("🔥 FULL MESSAGE: ${message.data}");
+
+      String title = message.data['title'] ?? "New Notification";
+      String body = message.data['body'] ?? "You have a new update";
+
+      flutterLocalNotificationsPlugin.show(
+        DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        title,
+        body,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'channel_id',
+            'channel_name',
+            importance: Importance.max,
+            priority: Priority.high,
+            playSound: true,
+            enableVibration: true,
           ),
         ),
       );
+    });
+
+    // 🔔 Click (background)
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      print("🔥 BACKGROUND CLICK");
+
+      String? postId = message.data['post_id']?.toString();
+      String? userId = message.data['user_id']?.toString();
+
+      if (postId != null && userId != null) {
+        navigatorKey.currentState?.push(
+          MaterialPageRoute(
+            builder: (_) => ProfilePage(
+              userId: userId, // ✅ FIXED
+              isPublicView: true,
+              initialPostId: postId,
+            ),
+          ),
+        );
+      }
+    });
+
+    FirebaseMessaging.instance.getInitialMessage().then((message) {
+      if (message != null) {
+        print("🔥 APP OPENED FROM TERMINATED");
+
+        String? postId = message.data['post_id']?.toString();
+        String? userId = message.data['user_id']?.toString();
+
+        if (postId != null && userId != null) {
+          navigatorKey.currentState?.push(
+            MaterialPageRoute(
+              builder: (_) => ProfilePage(
+                userId: userId, // ✅ USE FROM NOTIFICATION
+                isPublicView: true,
+                initialPostId: postId,
+              ),
+            ),
+          );
+        }
+      }
+    });
+
+    // 🔄 Token refresh
+    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+      print("NEW FCM TOKEN: $newToken");
+      await sendTokenToServer(newToken);
+    });
+
+    String? token;
+    try {
+      token = await FirebaseMessaging.instance.getToken();
+    } catch (e) {
+      print("🔥 FCM Token Error: $e");
     }
+    print("🔥 FINAL TOKEN: $token");
   }
-});
-
-
-  // 🔄 Token refresh
-  FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
-    print("NEW FCM TOKEN: $newToken");
-    await sendTokenToServer(newToken);
-  });
-
-  String? token;
-  try {
-    token = await FirebaseMessaging.instance.getToken();
-  } catch (e) {
-    print("🔥 FCM Token Error: $e");
-  }
-print("🔥 FINAL TOKEN: $token");
-
-if (token != null) {
-  await sendTokenToServer(token);
-}
-}
 
   void _initDeepLinks() async {
     _appLinks = AppLinks();
@@ -225,20 +260,20 @@ if (token != null) {
 
     if (initialUri != null && initialUri.pathSegments.contains('post')) {
       final postId = initialUri.pathSegments.last;
-final prefs = await SharedPreferences.getInstance();
-String? userId = prefs.getString("user_id");
+      final prefs = await SharedPreferences.getInstance();
+      String? userId = prefs.getString("user_id");
 
-if (userId == null) return;
+      if (userId == null) return;
 
-navigatorKey.currentState?.push(
-  MaterialPageRoute(
-    builder: (_) => ProfilePage(
-      userId: userId,
-      isPublicView: true,
-      initialPostId: postId,
-    ),
-  ),
-);
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => ProfilePage(
+            userId: userId,
+            isPublicView: true,
+            initialPostId: postId,
+          ),
+        ),
+      );
     }
 
     // App already running
@@ -246,25 +281,23 @@ navigatorKey.currentState?.push(
       if (uri.pathSegments.contains('post')) {
         final postId = uri.pathSegments.last;
 
-final prefs = await SharedPreferences.getInstance();
-String? userId = prefs.getString("user_id");
+        final prefs = await SharedPreferences.getInstance();
+        String? userId = prefs.getString("user_id");
 
-if (userId == null) return;
+        if (userId == null) return;
 
-navigatorKey.currentState?.push(
-  MaterialPageRoute(
-    builder: (_) => ProfilePage(
-      userId: userId,
-      isPublicView: true,
-      initialPostId: postId,
-    ),
-  ),
-);
+        navigatorKey.currentState?.push(
+          MaterialPageRoute(
+            builder: (_) => ProfilePage(
+              userId: userId,
+              isPublicView: true,
+              initialPostId: postId,
+            ),
+          ),
+        );
       }
     });
   }
-
-
 
   @override
   void dispose() {
@@ -278,7 +311,9 @@ navigatorKey.currentState?.push(
       return CupertinoApp(
         navigatorKey: navigatorKey,
         debugShowCheckedModeBanner: false,
-        home: widget.token != null ? const MainShell() : const PasswordLoginPage(),
+        home: widget.token != null
+            ? const MainShell()
+            : const PasswordLoginPage(),
       );
     }
 
@@ -293,7 +328,9 @@ navigatorKey.currentState?.push(
       },
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
-      home: widget.token != null ? const MainShell() : const PasswordLoginPage(),
+      home: widget.token != null
+          ? const MainShell()
+          : const PasswordLoginPage(),
     );
   }
 }
@@ -311,7 +348,7 @@ class _LoginPageState extends State<LoginPage> {
 
   bool isLoading = false;
 
- /* Future<void> sendOtpFirebase() async {
+  /* Future<void> sendOtpFirebase() async {
     if (!validateInput()) return;
 
     setState(() => isLoading = true);
@@ -388,43 +425,37 @@ class _LoginPageState extends State<LoginPage> {
     );
   }*/
 
-Future<void> sendOtp() async {
-  if (!validateInput()) return;
+  Future<void> sendOtp() async {
+    if (!validateInput()) return;
 
-  setState(() => isLoading = true);
+    setState(() => isLoading = true);
 
-  try {
-    var res = await http.post(
-      Uri.parse("https://bigiluu.com/api/send-otp"),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "phone": phoneController.text.trim()
-      }),
-    );
-
-    var data = jsonDecode(res.body);
-
-    setState(() => isLoading = false);
-
-    if (res.statusCode == 200 && data["success"] == true) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => OtpPage(
-            phone: "+91${phoneController.text.trim()}",
-          ),
-        ),
+    try {
+      var res = await http.post(
+        Uri.parse("https://bigiluu.com/api/send-otp"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"phone": phoneController.text.trim()}),
       );
-    } else {
-      showError(data["message"] ?? "OTP Failed");
+
+      var data = jsonDecode(res.body);
+
+      setState(() => isLoading = false);
+
+      if (res.statusCode == 200 && data["success"] == true) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => OtpPage(phone: "+91${phoneController.text.trim()}"),
+          ),
+        );
+      } else {
+        showError(data["message"] ?? "OTP Failed");
+      }
+    } catch (e) {
+      setState(() => isLoading = false);
+      showError("Server error / No response");
     }
-  } catch (e) {
-    setState(() => isLoading = false);
-    showError("Server error / No response");
   }
-}
-
-
 
   void showError(String message) {
     ScaffoldMessenger.of(
@@ -452,7 +483,7 @@ Future<void> sendOtp() async {
         children: [
           // Light theme background
           Container(color: const Color(0xFFF8F9FA)),
-        // Top Center Logo - Bigger and Lower
+          // Top Center Logo - Bigger and Lower
           Positioned(
             top: MediaQuery.of(context).padding.top + 30, // Moved lower
             left: 0,

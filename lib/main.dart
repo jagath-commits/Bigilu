@@ -20,20 +20,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp();
-
-  await FirebaseMessaging.instance.requestPermission(
-    alert: true,
-    badge: true,
-    sound: true,
-  );
-
-  // 👇 ADD THIS
+Future<void> _initializeNotifications() async {
   const AndroidInitializationSettings initializationSettingsAndroid =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
+      AndroidInitializationSettings('@drawable/ic_notification');
 
   const InitializationSettings initializationSettings = InitializationSettings(
     android: initializationSettingsAndroid,
@@ -53,6 +43,51 @@ Future<void> main() async {
           importance: Importance.max,
         ),
       );
+}
+
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  await _initializeNotifications();
+
+  final title =
+      message.notification?.title ??
+      message.data['title'] ??
+      'New Notification';
+  final body =
+      message.notification?.body ??
+      message.data['body'] ??
+      'You have a new update';
+
+  await flutterLocalNotificationsPlugin.show(
+    DateTime.now().millisecondsSinceEpoch ~/ 1000,
+    title,
+    body,
+    const NotificationDetails(
+      android: AndroidNotificationDetails(
+        'channel_id',
+        'channel_name',
+        importance: Importance.max,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+      ),
+    ),
+  );
+}
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp();
+
+  await FirebaseMessaging.instance.requestPermission(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+
+  await _initializeNotifications();
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -173,71 +208,29 @@ class _MyAppState extends State<MyApp> {
 
     print("Permission: ${settings.authorizationStatus}");
 
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       print("🔥 FULL MESSAGE: ${message.data}");
-
-      String title = message.data['title'] ?? "New Notification";
-      String body = message.data['body'] ?? "You have a new update";
-
-      flutterLocalNotificationsPlugin.show(
-        DateTime.now().millisecondsSinceEpoch ~/ 1000,
-        title,
-        body,
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'channel_id',
-            'channel_name',
-            importance: Importance.max,
-            priority: Priority.high,
-            playSound: true,
-            enableVibration: true,
-          ),
-        ),
-      );
+      await _showNotification(message);
     });
 
-    // 🔔 Click (background)
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       print("🔥 BACKGROUND CLICK");
-
-      String? postId = message.data['post_id']?.toString();
-      String? userId = message.data['user_id']?.toString();
-
-      if (postId != null && userId != null) {
-        navigatorKey.currentState?.push(
-          MaterialPageRoute(
-            builder: (_) => ProfilePage(
-              userId: userId, // ✅ FIXED
-              isPublicView: true,
-              initialPostId: postId,
-            ),
-          ),
-        );
-      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _handleNotificationTap(message);
+      });
     });
 
     FirebaseMessaging.instance.getInitialMessage().then((message) {
       if (message != null) {
         print("🔥 APP OPENED FROM TERMINATED");
-
-        String? postId = message.data['post_id']?.toString();
-        String? userId = message.data['user_id']?.toString();
-
-        if (postId != null && userId != null) {
-          navigatorKey.currentState?.push(
-            MaterialPageRoute(
-              builder: (_) => ProfilePage(
-                userId: userId, // ✅ USE FROM NOTIFICATION
-                isPublicView: true,
-                initialPostId: postId,
-              ),
-            ),
-          );
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _handleNotificationTap(message);
+        });
       }
     });
 
-    // 🔄 Token refresh
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
       print("NEW FCM TOKEN: $newToken");
       await sendTokenToServer(newToken);
@@ -246,10 +239,57 @@ class _MyAppState extends State<MyApp> {
     String? token;
     try {
       token = await FirebaseMessaging.instance.getToken();
+      if (token != null) {
+        await sendTokenToServer(token);
+      }
     } catch (e) {
       print("🔥 FCM Token Error: $e");
     }
     print("🔥 FINAL TOKEN: $token");
+  }
+
+  Future<void> _showNotification(RemoteMessage message) async {
+    final title =
+        message.notification?.title ??
+        message.data['title'] ??
+        'New Notification';
+    final body =
+        message.notification?.body ??
+        message.data['body'] ??
+        'You have a new update';
+
+    await flutterLocalNotificationsPlugin.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title,
+      body,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'channel_id',
+          'channel_name',
+          importance: Importance.max,
+          priority: Priority.high,
+          playSound: true,
+          enableVibration: true,
+        ),
+      ),
+    );
+  }
+
+  void _handleNotificationTap(RemoteMessage message) {
+    final postId = message.data['post_id']?.toString();
+    final userId = message.data['user_id']?.toString();
+
+    if (postId != null && userId != null) {
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => ProfilePage(
+            userId: userId,
+            isPublicView: true,
+            initialPostId: postId,
+          ),
+        ),
+      );
+    }
   }
 
   void _initDeepLinks() async {
